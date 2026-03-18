@@ -13,7 +13,12 @@ The repository regression surface is:
 
 ## Current Verified Results
 
-The figures below reflect the verified workspace state as of March 19, 2026. The unrestricted live-start and browser smoke evidence still comes from the March 18, 2026 verification pass.
+The notes below combine two evidence sets:
+
+- March 19, 2026 automated-test and code-level evidence from this round
+- March 18, 2026 unrestricted live-start and browser/API smoke evidence
+
+This round did not rerun the unrestricted March 18 smoke pass.
 
 ### Build
 
@@ -35,7 +40,7 @@ The figures below reflect the verified workspace state as of March 19, 2026. The
 ### Automated Tests
 
 - `npm test` passed with `25` tests.
-- Current automated coverage includes:
+- March 19 automated-test and code-level evidence from this round includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
   - external runtime/source verification
@@ -47,6 +52,7 @@ The figures below reflect the verified workspace state as of March 19, 2026. The
   - readable journal and exchange destination and user labels with safe fallback when lookups are missing
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
+- March 19 code inspection also showed that the current `public/app.js` selector wiring reads the journal and exchange destination options from `bootstrap.destinations`; that implementation detail was not rerun in the older live browser smoke.
 
 ### Benchmarks
 
@@ -102,8 +108,8 @@ Representative deterministic outputs:
 
 ## Startup Behavior
 
-- `node dist/src/server/index.js` successfully listened on `http://127.0.0.1:3000` in an unrestricted environment after the build step completed.
-- Live browser/API smoke verification against that server succeeded for:
+- On March 18, 2026, `node dist/src/server/index.js` successfully listened on `http://127.0.0.1:3000` in an unrestricted environment after the build step completed.
+- The March 18 unrestricted live browser/API smoke verification against that server succeeded for:
   - `/`
   - `/api/health`
   - `/api/bootstrap`
@@ -121,14 +127,13 @@ Representative deterministic outputs:
   - `/api/journal-exchange/storyboard`
   - `/api/foods/recommendations`
   - `/api/foods/search`
-- Verified smoke highlights from that live run:
+- Verified smoke highlights from the March 18 live run:
   - `/api/health` returned `ok: true` with external data, algorithms, and validation sources
-  - `/api/bootstrap` returned `12` users, `12` featured destinations, `20` categories, and `8` cuisines; the current contract also returns `destinations` with the full destination catalog used by the journal and exchange destination controls
+  - `/api/bootstrap` returned `12` users, `12` featured destinations, `20` categories, and `8` cuisines
   - destination search returned `dest-002`, `dest-022`, `dest-042` as the top ids for `river polytechnic`
   - route planning succeeded for `distance`, `time`, and `mixed`
   - facility lookup returned `dest-002-facility-4` at distance `480`
   - journal create/get/list/view/rate/recommendation succeeded on the live server
   - journal exchange exact-title lookup, full-text search, compression/decompression, and storyboard generation succeeded on the live server
   - food recommendation and cuisine-filtered search both returned `dest-002-food-3` with cuisine `noodle lab`
-- Current browser behavior uses the full bootstrap destination catalog for the journal and exchange destination selectors, disambiguates duplicate destination names in those controls, and renders readable destination or user names on journal and exchange cards when lookup data exists.
 - Earlier `EPERM` bind failures were specific to restricted-environment rounds and do not reflect the unrestricted March 18 verification state.
