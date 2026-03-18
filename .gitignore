@@ -4,3 +4,5 @@ node_modules/
 .DS_Store
 npm-debug.log*
 .humanize/
+draft.md
+plan.md
