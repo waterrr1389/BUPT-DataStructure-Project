@@ -33,7 +33,18 @@ if (!journalPresentation) {
   throw new Error("Journal presentation helpers failed to load.");
 }
 
+const journalConsumers = globalThis.JournalConsumers;
+
+if (!journalConsumers) {
+  throw new Error("Journal consumer helpers failed to load.");
+}
+
 const { createDestinationSelectOptions, formatJournalMetadata } = journalPresentation;
+const {
+  journalCard: renderJournalCardMarkup,
+  prepareJournalExchangeDestinationBindings,
+  resolveJournalActionRequest,
+} = journalConsumers;
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -599,24 +610,7 @@ function journalCard(item) {
     userById: state.userById,
   });
 
-  return `
-    <article class="result-card" data-journal-id="${item.id}">
-      <p class="muted">${metadata.attribution}</p>
-      <h3>${item.title}</h3>
-      <div class="result-meta">
-        <span>views ${item.views}</span>
-        <span>rating ${item.averageRating || 0}</span>
-        <span>${item.ratings.length} scores</span>
-      </div>
-      <p>${item.body.slice(0, 180)}</p>
-      ${tagsMarkup(item.tags)}
-      <div class="actions">
-        <button type="button" data-action="view">Add view</button>
-        <button type="button" data-action="rate">Rate 5</button>
-        <button type="button" data-action="delete" class="ghost">Delete</button>
-      </div>
-    </article>
-  `;
+  return renderJournalCardMarkup(item, metadata, tagsMarkup);
 }
 
 function renderJournals(items) {
@@ -656,19 +650,16 @@ async function loadBootstrap() {
   const bootstrap = await api("/api/bootstrap");
   state.bootstrap = bootstrap;
   const users = bootstrap.users;
-  const featuredDestinations = Array.isArray(bootstrap.featured) ? bootstrap.featured : [];
-  const journalDestinations =
-    Array.isArray(bootstrap.destinations) && bootstrap.destinations.length
-      ? bootstrap.destinations
-      : featuredDestinations;
-  const journalDestinationOptions = createDestinationSelectOptions(journalDestinations);
+  const {
+    destinationById,
+    featuredDestinations,
+    selectorBindings,
+  } = prepareJournalExchangeDestinationBindings(bootstrap, createDestinationSelectOptions);
   const categories = bootstrap.categories.map((category) => ({ id: category, name: category }));
   const cuisines = bootstrap.cuisines.map((cuisine) => ({ id: cuisine, name: cuisine }));
 
   state.userById = new Map(users.map((user) => [user.id, user]));
-  state.destinationById = new Map(
-    [...featuredDestinations, ...journalDestinations].map((destination) => [destination.id, destination]),
-  );
+  state.destinationById = destinationById;
 
   fillSelect("#destination-user", users, { includeAny: true });
   fillSelect("#journal-user", users);
@@ -679,9 +670,7 @@ async function loadBootstrap() {
   ["#route-destination", "#facility-destination", "#food-destination"].forEach((selector) =>
     fillSelect(selector, featuredDestinations),
   );
-  ["#journal-destination", "#exchange-destination"].forEach((selector) =>
-    fillSelect(selector, journalDestinationOptions, { label: "label" }),
-  );
+  selectorBindings.forEach(({ selector, items, config }) => fillSelect(selector, items, config));
 
   renderDestinations(featuredDestinations);
   setStatus(`Runtime data: ${bootstrap.source.data}. Algorithms: ${bootstrap.source.algorithms}.`);
@@ -803,22 +792,15 @@ async function handleJournalActions(event) {
   }
   const card = button.closest("[data-journal-id]");
   const journalId = card?.dataset.journalId;
-  if (!journalId) {
+  const request = resolveJournalActionRequest(
+    button.dataset.action,
+    journalId,
+    document.querySelector("#journal-user").value,
+  );
+  if (!request) {
     return;
   }
-  if (button.dataset.action === "view") {
-    await api(`/api/journals/${journalId}/view`, { method: "POST", body: "{}" });
-  }
-  if (button.dataset.action === "rate") {
-    const userId = document.querySelector("#journal-user").value;
-    await api(`/api/journals/${journalId}/rate`, {
-      method: "POST",
-      body: JSON.stringify({ userId, score: 5 }),
-    });
-  }
-  if (button.dataset.action === "delete") {
-    await api(`/api/journals/${journalId}`, { method: "DELETE" });
-  }
+  await api(request.path, request.options);
   await refreshJournals();
 }
 
