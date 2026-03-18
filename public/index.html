@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trail Atlas</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Offline Tourism Intelligence</p>
+          <h1>Trail Atlas</h1>
+          <p class="lede">
+            A single-page travel lab for destinations, route planning, facilities, journals, exchange, and food.
+          </p>
+          <div class="hero-meta" id="source-badge">Loading runtime...</div>
+        </div>
+        <div class="hero-panel">
+          <p class="panel-kicker">Six linked surfaces</p>
+          <ul>
+            <li>Destination recommendation and query</li>
+            <li>Route planning and indoor hop preview</li>
+            <li>Nearby facilities by network distance</li>
+            <li>Journal CRUD, view, rate, recommend</li>
+            <li>Exchange search, compression, AIGC storyboard</li>
+            <li>Food recommendation and fuzzy query</li>
+          </ul>
+        </div>
+      </header>
+
+      <nav class="quick-nav">
+        <a href="#destinations">Destinations</a>
+        <a href="#routes">Routes</a>
+        <a href="#facilities">Facilities</a>
+        <a href="#journals">Journals</a>
+        <a href="#exchange">Exchange</a>
+        <a href="#food">Food</a>
+      </nav>
+
+      <main class="grid">
+        <section class="card span-2" id="destinations">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">01</p>
+              <h2>Destination deck</h2>
+            </div>
+            <button id="refresh-destinations" class="ghost">Refresh featured</button>
+          </div>
+          <form class="control-grid" id="destination-form">
+            <label>
+              User
+              <select id="destination-user"></select>
+            </label>
+            <label>
+              Query
+              <input id="destination-query" type="text" placeholder="harbor, museum, campus" />
+            </label>
+            <label>
+              Category
+              <select id="destination-category"></select>
+            </label>
+            <label>
+              Limit
+              <input id="destination-limit" type="number" min="1" max="20" value="8" />
+            </label>
+            <div class="button-row">
+              <button type="submit">Search</button>
+              <button type="button" id="destination-recommend">Recommend</button>
+            </div>
+          </form>
+          <div id="destination-results" class="result-grid"></div>
+        </section>
+
+        <section class="card" id="routes">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">02</p>
+              <h2>Route planner</h2>
+            </div>
+          </div>
+          <form class="control-grid" id="route-form">
+            <label>
+              Destination
+              <select id="route-destination"></select>
+            </label>
+            <label>
+              Start node
+              <select id="route-start"></select>
+            </label>
+            <label>
+              End node
+              <select id="route-end"></select>
+            </label>
+            <label>
+              Waypoints
+              <input id="route-waypoints" type="text" placeholder="node ids, comma separated" />
+            </label>
+            <label>
+              Strategy
+              <select id="route-strategy">
+                <option value="distance">distance</option>
+                <option value="time">time</option>
+                <option value="mixed">mixed</option>
+              </select>
+            </label>
+            <label>
+              Mode
+              <select id="route-mode">
+                <option value="walk">walk</option>
+                <option value="bike">bike</option>
+                <option value="shuttle">shuttle</option>
+                <option value="mixed">mixed</option>
+              </select>
+            </label>
+            <button type="submit">Plan route</button>
+          </form>
+          <div id="route-result" class="result-stack"></div>
+        </section>
+
+        <section class="card" id="facilities">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">03</p>
+              <h2>Nearby facilities</h2>
+            </div>
+          </div>
+          <form class="control-grid" id="facility-form">
+            <label>
+              Destination
+              <select id="facility-destination"></select>
+            </label>
+            <label>
+              From node
+              <select id="facility-node"></select>
+            </label>
+            <label>
+              Category
+              <select id="facility-category">
+                <option value="all">all</option>
+                <option value="restroom">restroom</option>
+                <option value="clinic">clinic</option>
+                <option value="store">store</option>
+                <option value="charging">charging</option>
+                <option value="info">info</option>
+                <option value="parking">parking</option>
+                <option value="water">water</option>
+                <option value="atm">atm</option>
+                <option value="security">security</option>
+                <option value="lounge">lounge</option>
+              </select>
+            </label>
+            <label>
+              Radius
+              <input id="facility-radius" type="number" min="100" step="50" value="900" />
+            </label>
+            <button type="submit">Find facilities</button>
+          </form>
+          <div id="facility-results" class="result-stack"></div>
+        </section>
+
+        <section class="card span-2" id="journals">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">04</p>
+              <h2>Journal studio</h2>
+            </div>
+            <button id="journal-refresh" class="ghost">Reload journals</button>
+          </div>
+          <form class="control-grid" id="journal-create-form">
+            <label>
+              Author
+              <select id="journal-user"></select>
+            </label>
+            <label>
+              Destination
+              <select id="journal-destination"></select>
+            </label>
+            <label class="span-all">
+              Title
+              <input id="journal-title" type="text" placeholder="Golden hour loop through the harbor" />
+            </label>
+            <label class="span-all">
+              Body
+              <textarea id="journal-body" rows="5" placeholder="Write an offline-ready travel note."></textarea>
+            </label>
+            <label class="span-all">
+              Tags
+              <input id="journal-tags" type="text" placeholder="history, lake, quick bite" />
+            </label>
+            <button type="submit">Create journal</button>
+          </form>
+          <div id="journal-results" class="result-grid"></div>
+        </section>
+
+        <section class="card" id="exchange">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">05</p>
+              <h2>Exchange lab</h2>
+            </div>
+          </div>
+          <form class="control-grid" id="exchange-search-form">
+            <label>
+              Exact title
+              <input id="exchange-title" type="text" placeholder="Amber Bay field note 1" />
+            </label>
+            <label>
+              Text query
+              <input id="exchange-query" type="text" placeholder="indoor hall, food counter" />
+            </label>
+            <label>
+              Destination
+              <select id="exchange-destination"></select>
+            </label>
+            <div class="button-row">
+              <button type="submit">Search exchange</button>
+              <button type="button" id="exchange-by-destination">Load destination feed</button>
+            </div>
+          </form>
+          <form class="control-grid" id="compression-form">
+            <label class="span-all">
+              Compression text
+              <textarea id="compression-body" rows="4" placeholder="Paste a journal paragraph to compress."></textarea>
+            </label>
+            <div class="button-row">
+              <button type="submit">Compress</button>
+              <button type="button" id="decompress-button">Decompress</button>
+            </div>
+          </form>
+          <form class="control-grid" id="storyboard-form">
+            <label>
+              Story title
+              <input id="storyboard-title" type="text" placeholder="Harbor dusk tour" />
+            </label>
+            <label class="span-all">
+              Prompt
+              <textarea id="storyboard-prompt" rows="3" placeholder="Describe the mood, route, and moments to animate."></textarea>
+            </label>
+            <button type="submit">Generate storyboard</button>
+          </form>
+          <div id="exchange-results" class="result-stack"></div>
+        </section>
+
+        <section class="card" id="food">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">06</p>
+              <h2>Food compass</h2>
+            </div>
+          </div>
+          <form class="control-grid" id="food-form">
+            <label>
+              Destination
+              <select id="food-destination"></select>
+            </label>
+            <label>
+              User
+              <select id="food-user"></select>
+            </label>
+            <label>
+              Cuisine
+              <select id="food-cuisine"></select>
+            </label>
+            <label>
+              Query
+              <input id="food-query" type="text" placeholder="tea, grill, noodle" />
+            </label>
+            <div class="button-row">
+              <button type="submit">Search food</button>
+              <button type="button" id="food-recommend">Recommend</button>
+            </div>
+          </form>
+          <div id="food-results" class="result-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="empty-state">
+      <div class="empty-state">
+        <p>No results yet.</p>
+      </div>
+    </template>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
