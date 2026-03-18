@@ -50,7 +50,7 @@ Source plan: plan.md
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 4 (Updated: Round 1 bookkeeping alignment and follow-up)
+### Plan Version: 5 (Updated: Round 2 chronology bookkeeping closure)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -60,12 +60,11 @@ Source plan: plan.md
 | 0 | Recorded the integrated Round 0 implementation result after the service, presentation, and initial docs commits landed and `npm test` passed with 25 tests | Capture the first integrated post-implementation state before follow-up review feedback arrived | AC-1, AC-2, AC-3, AC-4, AC-5 |
 | 0 | Applied the review-driven remediation after `round-0-review-result.md` identified missing consumer-path coverage and overstated March 19 docs evidence wording | Restore the live journal/exchange consumer path and narrow the docs/evidence mismatch, while leaving the final 27-test wording cleanup for later bookkeeping | AC-1, AC-3, AC-4, AC-5 |
 | 1 | Updated the tracker after Round 1 corrected `docs/example-results-and-tests.md` to the verified 27-test state and cited automated consumer-path coverage from `tests/journal-consumers.test.ts` | Keep the mutable tracker aligned with the current branch evidence and record the remaining `round-0-summary.md` follow-up discovered in this review | AC-5 |
+| 2 | Closed the remaining bookkeeping follow-up after `round-0-summary.md` was corrected to reflect the actual Round 0 and Round 1 chronology | Remove the last tracker mismatch now that the Round 0 summary no longer overclaims the final docs/evidence closure | AC-5 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
-| Task | Target AC | Status | Notes |
-|------|-----------|--------|-------|
-| Update `round-0-summary.md` so its closure language matches the final Round 1 docs/evidence chronology | AC-5 | pending | `round-0-summary.md` still says Round 0 already included the final docs/evidence correction and that no items remained, but the 27-test / automated consumer-path wording alignment landed in Round 1 |
+No active tasks remain.
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -77,6 +76,7 @@ Source plan: plan.md
 | AC-3 | Route journal/exchange rendering through destination and user lookups that prefer readable names | 0 | 0 | Commit `c4daa81` wired `public/app.js` through `public/journal-presentation.js` so journal and exchange cards render readable destination and user names instead of raw `dest-xxx / user-yy` IDs, while keeping fallback behavior test-covered. Remediation commit `5d64dab` added consumer-path regression coverage to ensure the live bindings continue to feed that readable presentation path correctly |
 | AC-4 | Add safe fallback handling for missing lookup entries and preserve journal-card interactions that depend on journal IDs | 0 | 0 | Commit `c4daa81` added safe lookup fallback coverage in `tests/journal-presentation.test.ts`. Review remediation in commit `5d64dab` extracted the journal action request path into the testable helper module `public/journal-consumers.js` and added `tests/journal-consumers.test.ts` coverage proving `data-journal-id` plus `view`, `rate`, and `delete` actions remain anchored to the journal ID rather than any destination or user lookup field |
 | AC-5 | Run the full test suite and update docs only for the exposed bootstrap/data-flow change | 1 | 1 | The branch passed `npm test` with 27 passing tests. Documentation stayed scoped to the exposed behavior changes: earlier Round 0 docs alignment updated `docs/overall-design.md`, and Round 1 commit `9e99236` corrected `docs/example-results-and-tests.md` so March 19 automated evidence now records 27 tests, cites automated journal/exchange consumer-path coverage from `tests/journal-consumers.test.ts`, and keeps the March 18 smoke run separate as historical live verification |
+| AC-5 | Update `round-0-summary.md` so its closure language matches the final Round 1 docs/evidence chronology | 2 | 2 | Commit `543cbf0` corrected the Round 0 summary so it now records that Round 0 ended with the feature work plus consumer-path remediation complete, while the final `docs/example-results-and-tests.md` wording alignment landed in Round 1 (`9e99236`). This review reran `npm test`, which still passed with 27 tests, confirming the tracker, summaries, and docs now describe the same verified state |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
