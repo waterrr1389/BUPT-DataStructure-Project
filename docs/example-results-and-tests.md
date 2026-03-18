@@ -2,7 +2,7 @@
 
 ## Command Matrix
 
-The repository exposes these regression commands:
+The repository regression surface is:
 
 - `npm run build`
 - `npm run validate:data`
@@ -13,14 +13,16 @@ The repository exposes these regression commands:
 
 ## Current Verified Results
 
+The figures below reflect the verified post-fix workspace state for March 18, 2026.
+
 ### Build
 
-- `npm run build` passes.
+- `npm run build` passed.
 
 ### Data Validation
 
-- `npm run validate:data` passes against `src/data/seed.ts`.
-- Current reported counts:
+- `npm run validate:data` passed against `src/data/seed.ts`.
+- Reported counts:
   - destinations: `220`
   - buildings: `660`
   - facilityCategories: `10`
@@ -32,12 +34,12 @@ The repository exposes these regression commands:
 
 ### Automated Tests
 
-- `npm test` passes with `17` tests.
-- The package-level test surface currently covers:
+- `npm test` passed with `17` tests.
+- Current automated coverage includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
-  - real runtime/source verification
-  - invalid `sortBy` rejection
+  - external runtime/source verification
+  - invalid destination `sortBy` rejection
   - typo-tolerant food search
   - journal exact-title and full-text search behavior
   - indoor route planning and nearby facility lookup
@@ -45,39 +47,59 @@ The repository exposes these regression commands:
 
 ### Benchmarks
 
-- `npm run benchmark` passes with deterministic output:
-  - `top-k: 5.801 ms over 25 iteration(s) with sample size 1000`
-  - `search: 26.677 ms over 25 iteration(s) with sample size 1000`
-  - `graph: 3.456 ms over 25 iteration(s) with sample size 64`
-  - `compression: 11.865 ms over 25 iteration(s) with sample size 2640`
+- `npm run benchmark` passed.
+- Representative output from one verified run:
+  - `top-k: 6.250 ms over 25 iteration(s) with sample size 1000`
+  - `search: 27.531 ms over 25 iteration(s) with sample size 1000`
+  - `graph: 3.149 ms over 25 iteration(s) with sample size 64`
+  - `compression: 11.428 ms over 25 iteration(s) with sample size 2640`
+
+The benchmark harness uses fixed workloads, but the wall-clock timings vary by rerun and machine. Treat the numbers as representative evidence, not immutable constants.
 
 ## Example Demo Results
 
 `npm run demo` currently produces a deterministic report built from `createAppServices()` and the real seed/runtime data.
 
-Representative outputs:
+Representative deterministic outputs:
 
-- Destination search:
+- Runtime:
+  - dataSource: `external`
+  - destinationCount: `220`
+  - userCount: `12`
+  - seedJournalCount: `12`
+  - focus destination: `dest-002` / `River Polytechnic`
+- Destination flow:
   - query: `river polytechnic`
   - top ids: `dest-002`, `dest-022`, `dest-042`
-- Indoor route:
+- Route flow:
   - start: `dest-002-gate`
   - end: `dest-002-archive`
   - reachable: `true`
   - indoor step count: `4`
-- Nearby facility:
+  - used modes: `walk`, `bike`
+- Facility flow:
   - category: `info`
   - nearest id: `dest-002-facility-4`
   - nearest distance: `480`
 - Journal flow:
   - created id: `journal-13`
-  - exact-title exchange hit: `journal-13`
-  - full-text exchange hit: `journal-13`
+  - exact-title hit: `journal-13`
+  - full-text top hit: `journal-13`
+- Exchange metrics:
+  - inputLength: `179`
+  - compressedLength: `162`
+  - compressionRatio: `0.9050279329608939`
+  - algorithmCompressionRatio: `0.7430167597765364`
+  - spaceSavings: `0.0949720670391061`
+  - decompressedMatches: `true`
 - Food flow:
   - query: `noodle lab`
   - top food id: `dest-002-food-3`
+  - top food cuisine: `noodle lab`
 
-## Environment Limitation
+## Startup Behavior
 
-- Live server bind/start verification is still blocked in this sandbox because listening on `127.0.0.1:3000` raises `EPERM`.
-- This is an environment verification gap only; the compiled server and package command surface otherwise pass local verification.
+- `timeout 15s npm run start` now fails in a controlled way with:
+  - `Server failed to start: listen EPERM: operation not permitted 127.0.0.1:3000`
+- That output confirms the bind error is handled and surfaced cleanly.
+- The remaining gap is external live-bind verification in an environment that permits sockets.

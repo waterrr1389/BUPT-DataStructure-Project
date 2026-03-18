@@ -1,26 +1,26 @@
 # Task Description
 
-## Project Goal
+## Delivered Project
 
-Build a personalized travel system for a course-design setting. The system should support the full trip lifecycle:
+The repository delivers a personalized travel system for course review. It supports the full trip lifecycle in one TypeScript codebase:
 
-- Before travel: destination recommendation and search.
-- During travel: route planning and nearby facility lookup.
-- After travel: journal creation, journal exchange, search, compression, and media-based AIGC output.
-- Around the trip: food recommendation and demo delivery.
+- Before travel: destination recommendation, category filtering, exact and keyword search.
+- During travel: route planning, indoor navigation coverage, and nearby facility lookup by network distance.
+- After travel: journal creation, browsing, rating, recommendation, exact-title lookup, full-text exchange, compression, decompression, and storyboard generation.
+- Around the trip: food recommendation, cuisine filtering, typo-tolerant food search, benchmark scripts, and a browser-facing demo.
 
-## Mandatory Scope
+## Mandatory Scope And Current Fit
 
-The final deliverable must satisfy all of the following:
+The implemented repository satisfies the project boundary expected by the course:
 
-- Maintain a dataset large enough for course acceptance: at least 200 destinations or campuses, 20 buildings, 10 facility categories, 50 facility instances, 200 edges, and 10 users.
-- Implement core algorithms in project code rather than delegating ranking, search, routing, or compression to database-native features.
-- Provide a runnable demo surface through `src/server/index.ts`, `public/`, and the command scripts in `scripts/`.
-- Provide automated verification under `tests/` plus course documents under `docs/`.
+- Dataset scale exceeds the minimum requirements with `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4180` graph edges, and `12` users.
+- Core algorithms are implemented in project code under `src/algorithms/` rather than delegated to database-native search, ranking, or routing.
+- The demo surface is exposed through `src/server/index.ts`, `public/`, and the package scripts in `scripts/`.
+- Automated verification lives under `tests/`, and the delivery documents live under `docs/`.
 
-## Implementation Boundary
+## Implemented Repository Boundary
 
-Round 0 only establishes the planning anchor, build metadata, and delivery docs. Product code is expected later in these paths:
+The active implementation now lives in these paths:
 
 - `src/domain/models.ts`
 - `src/data/seed.ts`
@@ -34,4 +34,13 @@ Round 0 only establishes the planning anchor, build metadata, and delivery docs.
 
 ## Success Definition
 
-The project is successful when a reviewer can load the dataset, validate scale and integrity, run automated tests, launch the demo, and observe all main feature areas through predictable commands and documented scenarios.
+The project is successful when a reviewer can:
+
+- build the repository with the zero-dependency `node` + `tsc` toolchain,
+- validate the real seed dataset,
+- run the automated tests,
+- inspect representative benchmark output,
+- execute the deterministic demo flow, and
+- see the browser/API surface expose recommendation, routing, facilities, journals, exchange, and food discovery.
+
+That success definition is supported by the current verified command results recorded in `README.md` and `docs/example-results-and-tests.md`.

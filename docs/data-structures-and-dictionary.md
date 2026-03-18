@@ -1,58 +1,64 @@
 # Data Structures and Dictionary
 
-## Core Domain Entities
+## Core Domain Records
 
-`src/domain/models.ts` is expected to define these records or equivalent interfaces:
+`src/domain/models.ts` defines the data contracts used across the runtime:
 
-- `Destination`: id, name, kind, tags, popularity, rating, geo anchor.
-- `CampusOrScenicArea`: id, label, scene type, buildings, facilities, road graph.
-- `Building`: id, area id, name, category, coordinates, floor metadata.
-- `Facility`: id, area id, category, label, node id, operating metadata.
-- `RoadNode`: id, area id, coordinates, scene label.
-- `RoadEdge`: id, from node, to node, distance, crowd factor, allowed transport.
-- `UserProfile`: id, display name, interests, preferences, history.
-- `Journal`: id, author id, destination id, title, body, media list, score state, views.
-- `FoodItem`: id, area id, vendor, cuisine, popularity, rating, distance anchor.
-- `MediaAsset`: id, type, uri or local key, caption, source journal or destination.
+- `Destination`: top-level scenic or campus destination with graph, buildings, facilities, and food venues.
+- `DestinationNode`: graph node with coordinates, floor, kind, optional building binding, and keywords.
+- `DestinationEdge`: graph edge with distance, congestion, road type, and allowed travel modes.
+- `Building`: building metadata including entrance node, floor count, and tags.
+- `FacilityCategoryDefinition`: facility taxonomy entry with label, summary, and keywords.
+- `Facility`: nearby-service record with category, node binding, and opening hours.
+- `FoodVenue`: food record with venue name, cuisine, rating, heat, price, node binding, and keywords.
+- `UserProfile`: recommendation profile with interests, dietary preferences, and home destination.
+- `JournalEntry`: travel journal record with title, body, tags, media metadata, views, ratings, and recommendation targets.
+- `JournalMedia` and `JournalRating`: supporting value objects for journal content and scoring.
 
-## Required Validation Rules
+## Validation Rules In Use
 
-`src/data/validation.ts` should check at least:
+`src/data/validation.ts` currently checks:
 
-- Hard minimum counts for destinations, buildings, facility categories, facility instances, edges, and users.
-- Referential integrity between nodes, edges, facilities, journals, and users.
-- Required fields such as coordinates, categories, and transport rules.
-- Numeric ranges such as rating bounds and crowd factor bounds.
+- minimum counts for destinations, buildings, facility categories, facilities, edges, and users;
+- unique identifiers across destinations, buildings, facilities, foods, journals, and users;
+- referential integrity for nodes, edges, entrances, facilities, foods, journals, and ratings;
+- required coordinates, names, categories, keywords, and timestamps;
+- positive distances and valid congestion bounds;
+- road-type to travel-mode compatibility;
+- indoor edges staying within a single building when both endpoints are building-bound.
 
-## Planned Data Structures
+## Implemented Algorithm Data Structures
 
 ### Ranking
 
-- Min-heap or quickselect-based top-k structure in `src/algorithms/top-k.ts`.
+- `src/algorithms/top-k.ts` implements bounded top-k selection so recommendation flows do not need a full sort for short result lists.
 
-### Prefix and Exact Lookup
+### Prefix And Exact Lookup
 
-- Trie in `src/algorithms/trie.ts` for prefix search on destination names, titles, or categories.
+- `src/algorithms/trie.ts` supports prefix matching on names and labels.
 
 ### Keyword Retrieval
 
-- Inverted index in `src/algorithms/inverted-index.ts` for destination keywords and journal full-text search.
+- `src/algorithms/inverted-index.ts` supports token indexing and ranked keyword retrieval for destination and journal search surfaces.
 
 ### Fuzzy Matching
 
-- Edit-distance or token-similarity helper in `src/algorithms/fuzzy.ts` for food and tolerant content queries.
+- `src/algorithms/fuzzy.ts` supports tolerant food lookup so typo queries such as `nodle` still recover real results on the dataset.
 
 ### Routing
 
-- Adjacency-list graph in `src/algorithms/graph.ts`.
-- State-aware multi-stop planner in `src/algorithms/multi-route.ts`.
+- `src/algorithms/graph.ts` uses an adjacency-list style weighted graph for shortest-path work.
+- `src/algorithms/multi-route.ts` extends the routing layer for multi-stop closed walks.
+- Route requests use the shared `RouteStrategy` union: `distance`, `time`, or `mixed`.
+- Travel-mode constraints use the shared `TravelMode` union: `walk`, `bike`, `shuttle`, or `mixed`.
 
 ### Compression
 
-- Lossless dictionary or Huffman-style representation in `src/algorithms/compression.ts`.
+- `src/algorithms/compression.ts` performs reversible LZW-style text compression.
+- `src/services/exchange-service.ts` serializes the compressed payload into a compact reversible transport string for the exchange API and demo.
 
-## Data Dictionary Notes
+## Storage Notes
 
-- Use stable string identifiers across all entities so fixtures, tests, and demo scripts can refer to the same records.
-- Keep transport permissions on edges explicit so route validation can reject illegal vehicle choices.
-- Keep journal media metadata separate from binary payloads so compression and AIGC steps remain mockable.
+- Seed data is loaded from `src/data/seed.ts`.
+- Runtime journal mutations are persisted by `src/services/journal-store.ts` inside the chosen runtime directory.
+- Stable string identifiers are used throughout the dataset so the API, tests, and deterministic demo can refer to the same records.

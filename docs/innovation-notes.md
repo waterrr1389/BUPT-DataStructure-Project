@@ -1,26 +1,62 @@
 # Innovation Notes
 
-## Candidate Innovation Points
+## Implemented Innovation Points
 
-### Unified Campus and Scenic Routing Model
+### 1. One Graph Model Covers Scenic, Campus, And Indoor Routing
 
-Use one shared graph representation for campus and scenic-area navigation while preserving scene labels and transport constraints. This keeps the algorithm layer reusable and makes comparison demos easier.
+The repository uses a single destination graph model for scenic areas, campuses, and building interiors. That model supports:
 
-### Journal Exchange with Compression and AIGC Output
+- outdoor and indoor nodes in the same destination record,
+- `distance`, `time`, and `mixed` route strategies,
+- `walk`, `bike`, `shuttle`, and `mixed` travel modes, and
+- nearby-facility ranking by network distance instead of Euclidean distance.
 
-Treat journals as both searchable records and media-generation inputs. Combining exact lookup, full-text search, lossless compression, and a mockable AIGC pipeline creates a stronger post-trip workflow than a basic diary feature.
+Evidence:
 
-### Zero-Dependency Teaching Build
+- `tests/runtime-services.test.ts` verifies indoor routing and nearby facility lookup on the real dataset.
+- `tests/integration-smoke.test.ts` asserts the deterministic `River Polytechnic` indoor path.
+- `public/index.html` exposes route-strategy and route-mode controls in the browser demo.
 
-A zero-dependency TypeScript implementation makes the project easier to inspect in a course review because all core logic, scripts, and data structures remain in-repo rather than hidden behind libraries.
+### 2. Journal Exchange Goes Beyond Basic Diary CRUD
 
-## Evidence to Collect Later
+The post-trip workflow is broader than simple journal storage. The exchange surface combines:
 
-- Benchmark results that show custom top-k, indexing, routing, and compression behavior.
-- Demo recordings or screenshots that show the end-to-end flow.
-- Test outputs proving journal search, compression round trips, and route constraints.
+- exact-title lookup,
+- full-text search with match excerpts,
+- reversible compression and decompression, and
+- storyboard generation from journal text.
+
+Evidence:
+
+- `tests/integration-smoke.test.ts` asserts exchange search hits, compression round-trip behavior, and storyboard frame generation.
+- The verified demo report for `dest-002` records `inputLength 179`, `compressedLength 162`, `compressionRatio 0.9050279329608939`, `algorithmCompressionRatio 0.7430167597765364`, and `spaceSavings 0.0949720670391061`.
+
+### 3. Food Discovery Uses Both Recommendation And Typo-Tolerant Search
+
+Food coverage is treated as a first-class discovery surface rather than a small add-on list. The runtime supports:
+
+- ranking by heat, rating, dietary preference bonus, and graph distance,
+- cuisine filtering, and
+- typo-tolerant search across food name, venue, cuisine, and keywords.
+
+Evidence:
+
+- `tests/runtime-services.test.ts` checks that a typo query such as `nodle` still returns `noodle lab kitchen 4`.
+- `tests/integration-smoke.test.ts` covers deterministic food search and recommendation results for `dest-002`.
+- `public/index.html` and `public/app.js` expose both food search and recommendation actions.
+
+### 4. Zero-Dependency Delivery Keeps The System Inspectable
+
+The project uses no external npm dependencies. That keeps the ranking, search, routing, compression, demo, and server logic directly inspectable for course review.
+
+Evidence:
+
+- `package.json` has no dependency sections.
+- The verified command surface uses only `node`, `tsc`, and in-repo source files.
+- `npm run benchmark` reports representative timings for the custom top-k, search, graph, and compression modules.
 
 ## Boundaries
 
-- Innovation claims should stay tied to implemented behavior, not to aspirational UI polish.
-- If AIGC output is mocked for the course demo, the documentation should state that clearly.
+- Innovation claims are tied to implemented behavior and current verification evidence.
+- Benchmark timings are representative measurements, not fixed promises.
+- Storyboard output is demonstrable and mockable; it is not documented as a production media-generation system.

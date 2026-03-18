@@ -1,8 +1,6 @@
 # Module Design
 
-## Expected File Contract
-
-The worker team should preserve this module layout:
+## Actual Module Layout
 
 - `src/domain/models.ts`
 - `src/data/seed.ts`
@@ -14,59 +12,71 @@ The worker team should preserve this module layout:
 - `src/algorithms/graph.ts`
 - `src/algorithms/multi-route.ts`
 - `src/algorithms/compression.ts`
-- `src/services/**`
+- `src/services/contracts.ts`
+- `src/services/runtime.ts`
+- `src/services/destination-service.ts`
+- `src/services/route-service.ts`
+- `src/services/facility-service.ts`
+- `src/services/journal-service.ts`
+- `src/services/journal-store.ts`
+- `src/services/exchange-service.ts`
+- `src/services/food-service.ts`
 - `src/server/index.ts`
-- `public/**`
+- `public/index.html`
+- `public/app.js`
+- `public/styles.css`
 - `scripts/validate-data.ts`
 - `scripts/run-benchmarks.ts`
 - `scripts/demo.ts`
+- `scripts/demo-support.ts`
 - `tests/**`
 
-## Module Responsibilities
+## Responsibilities
 
-### Domain and Data
+### Domain And Data
 
-- `src/domain/models.ts` centralizes shared types and invariants.
-- `src/data/seed.ts` exposes deterministic seed fixtures or loaders.
-- `src/data/validation.ts` exports reusable validators and a command-friendly validation entry.
+- `src/domain/models.ts` defines the shared travel entities, route strategies, travel modes, facilities, foods, users, and journals.
+- `src/data/seed.ts` provides the real seed dataset used by runtime, demo, validation, and tests.
+- `src/data/validation.ts` enforces scale, referential integrity, coordinate, road-mode, and metadata constraints.
 
-### Algorithms
+### Algorithm Layer
 
-- `top-k.ts`: bounded ranking and top-k extraction.
-- `trie.ts`: prefix-oriented lookup and exact title support where useful.
-- `inverted-index.ts`: token indexing, lookup, update, and delete support.
-- `fuzzy.ts`: tolerant search helpers for food and content.
-- `graph.ts`: shortest-path primitives and network-distance helpers.
-- `multi-route.ts`: multi-destination route planning.
-- `compression.ts`: compress and restore journal payloads.
+- `top-k.ts` provides bounded ranking for destination, food, and journal recommendation flows.
+- `trie.ts` supports prefix-oriented lookup.
+- `inverted-index.ts` supports keyword search and exact-title/full-text indexing workflows.
+- `fuzzy.ts` provides tolerant text matching used by food discovery.
+- `graph.ts` provides shortest-path and graph traversal primitives.
+- `multi-route.ts` handles multi-stop closed-walk planning.
+- `compression.ts` performs reversible journal text compression.
 
-### Services
+### Service Layer
 
-`src/services/**` should wrap algorithm modules with domain-aware use cases. Suggested service groups:
+- `destination-service.ts` handles destination catalog, search, recommendation, and category listing.
+- `route-service.ts` plans single-target and multi-stop routes and exposes `distance`, `time`, and `mixed` strategies.
+- `facility-service.ts` returns nearby facilities ranked by network distance.
+- `journal-service.ts` covers create, update, delete, browse, view, rate, and recommend flows.
+- `journal-store.ts` persists journals in the runtime directory so the demo and tests can mutate state safely.
+- `exchange-service.ts` handles exact-title lookup, full-text journal search, compression, decompression, storyboard generation, and destination-scoped exchange feeds.
+- `food-service.ts` handles cuisine-filtered recommendation and typo-tolerant search.
+- `runtime.ts` loads the external seed, validation, and algorithm bundles with fallback behavior when needed.
 
-- `recommendation-service`
-- `search-service`
-- `routing-service`
-- `facility-service`
-- `journal-service`
-- `food-service`
-- `aigc-service`
+### Server And Browser Surface
 
-### Server and Public Assets
+- `src/server/index.ts` exposes a lightweight HTTP server, static asset serving, and JSON API routes for every feature area.
+- `public/` provides the single-page demo UI for destinations, routes, facilities, journals, exchange, and food.
 
-- `src/server/index.ts` should expose a lightweight HTTP surface without external frameworks.
-- `public/**` should contain the demo HTML, CSS, client-side JavaScript, static media, and scenario fixtures.
+### Scripts And Tests
 
-### Scripts and Tests
-
-- `scripts/validate-data.ts` should fail fast on broken counts or invalid records.
-- `scripts/run-benchmarks.ts` should compare algorithm behavior on repeatable fixtures.
-- `scripts/demo.ts` should drive a scripted end-to-end showcase.
-- `tests/**` should include unit tests for algorithms plus higher-level scenario tests.
+- `scripts/validate-data.ts` validates the real seed dataset and prints the current counts.
+- `scripts/run-benchmarks.ts` reports representative benchmark timings for ranking, search, graph, and compression work.
+- `scripts/demo.ts` and `scripts/demo-support.ts` produce the deterministic end-to-end report centered on `dest-002`.
+- `tests/` covers algorithm modules, runtime wiring, validation, and deterministic app/demo smoke behavior.
 
 ## Dependency Rules
 
-- Services may depend on domain and algorithms.
-- Server and scripts may depend on services.
-- Algorithms should not depend on services or server code.
-- Tests may depend on any public module contract.
+- `src/algorithms/` depends only on shared data contracts and local helpers.
+- `src/services/` depends on `src/domain/`, `src/data/`, and `src/algorithms/`.
+- `src/server/` and `scripts/` depend on the service layer.
+- `tests/` may depend on any public project module.
+
+This split keeps the custom algorithms independently testable while still exposing them through a single demo runtime.
