@@ -50,7 +50,13 @@
 - [round-7-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-7-review-result.md)
 - [round-7-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-7-summary.md)
 - [round-8-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-prompt.md)
+- [round-8-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-review-prompt.md)
+- [round-8-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-review-result.md)
 - [round-8-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-summary.md)
+- [round-9-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-prompt.md)
+- [round-9-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-review-prompt.md)
+- [round-9-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md)
+- [round-9-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md)
 
 ## Round History
 
@@ -128,10 +134,22 @@
 
 ### Round 8
 
-- Round 8 is the in-progress agent-usage catch-up pass that extends this record through the current RLCR workspace and targets the last remaining AC-6 docs-alignment gap.
-- Artifact record for this round is being created in the RLCR workspace:
+- Round 8 completed the current-round agent-usage catch-up for the prompt/summary path, then the Round 8 review narrowed the remaining AC-6 gap to the still-missing Round 8 review artifacts.
+- Artifact record for this round now exists in the RLCR workspace:
   - `round-8-prompt.md`
+  - `round-8-review-prompt.md`
+  - `round-8-review-result.md`
   - `round-8-summary.md`
+- The Round 8 summary records the final AC-6 closure request from that pass, while the Round 8 review kept the docs gap open only because this file still omitted the current-round review artifacts.
+
+### Round 9
+
+- Round 9 is the in-progress final agent-usage alignment pass that extends this record through the active prompt, review, and summary cycle so the RLCR artifact history stops lagging the live workspace.
+- Artifact record for this round is being assembled in the RLCR workspace:
+  - `round-9-prompt.md`
+  - `round-9-review-prompt.md`
+  - `round-9-review-result.md`
+  - `round-9-summary.md`
 
 ## AI Assistance Record
 
