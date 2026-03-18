@@ -16,18 +16,19 @@
     const optionFactory =
       typeof createDestinationSelectOptions === "function" ? createDestinationSelectOptions : (items) => items
     const journalDestinationOptions = optionFactory(journalDestinations)
+    const allKnownDestinations = [...featuredDestinations, ...journalDestinations]
     const selectorConfig = { label: "label" }
+    const selectors = ["#journal-destination", "#exchange-destination"]
 
     return {
-      destinationById: new Map(
-        [...featuredDestinations, ...journalDestinations].map((destination) => [destination.id, destination]),
-      ),
+      destinationById: new Map(allKnownDestinations.map((destination) => [destination.id, destination])),
       featuredDestinations,
       journalDestinationOptions,
-      selectorBindings: [
-        { selector: "#journal-destination", items: journalDestinationOptions, config: selectorConfig },
-        { selector: "#exchange-destination", items: journalDestinationOptions, config: selectorConfig },
-      ],
+      selectorBindings: selectors.map((selector) => ({
+        selector,
+        items: journalDestinationOptions,
+        config: selectorConfig,
+      })),
     }
   }
 
