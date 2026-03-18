@@ -50,29 +50,30 @@ Source plan: plan.md
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0 initialization)
+### Plan Version: 2 (Updated: Round 0 completion bookkeeping)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initialized the tracker from `plan.md` with a focused journal/exchange goal, five acceptance criteria, and a TDD-first task breakdown | Prevent goal drift before implementation starts and keep the round aligned with the plan's minimal-scope fix | AC-1, AC-2, AC-3, AC-4, AC-5 |
+| 0 | Recorded the integrated Round 0 implementation result after the service, presentation, and docs commits landed and `npm test` passed with 25 tests | Close the round with evidence-backed task completion and keep the tracker aligned with the verified branch state | AC-1, AC-2, AC-3, AC-4, AC-5 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Add failing regression tests for destination-option coverage, duplicate labels, and raw-ID journal rendering | AC-1, AC-2, AC-3, AC-5 | in_progress | TDD first step to lock the current failures before implementation |
-| Replace the featured-only destination source for journal/exchange controls with a source that covers all seeded journal destinations while keeping option values as destination IDs | AC-1 | pending | Fix the underlying data-coverage gap without changing selection semantics |
-| Introduce a shared destination-label disambiguation rule for affected dropdowns | AC-2 | pending | Visible labels must stay distinct and stable when names collide |
-| Route journal/exchange rendering through destination and user lookups that prefer readable names | AC-3 | pending | Apply the readable-name mapping consistently across affected UI surfaces |
-| Add safe fallback handling for missing lookup entries and confirm journal-card interactions still key off journal IDs | AC-4 | pending | Prevent render crashes and protect existing card behavior |
-| Run `npm test` and update `docs/` only if the final implementation changes exposed behavior or operator guidance | AC-5 | pending | Final verification and documentation decision gate |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
+| AC-1, AC-5 | Add failing regression tests for destination-option coverage and land the service-side catalog support for journal/exchange consumers | 0 | 0 | Commit `20b4005` updated `src/services/destination-service.ts` and `src/services/index.ts` so `bootstrap.destinations` exposes the full catalog while `bootstrap.featured` stays the 12-item featured deck, and expanded `tests/runtime-services.test.ts` to cover the new bootstrap contract; the integrated branch later passed `npm test` with 25 total passing tests |
+| AC-1 | Replace the featured-only destination source for journal/exchange controls with a source that covers the seeded journal destinations while keeping option values as destination IDs | 0 | 0 | Commit `20b4005` exposed the full destination catalog from bootstrap, and commit `c4daa81` updated `public/app.js` plus `public/index.html` so the journal and exchange destination controls consume the full catalog instead of the featured subset |
+| AC-2 | Introduce a shared duplicate-safe destination-label rule for affected dropdowns | 0 | 0 | Commit `c4daa81` added `public/journal-presentation.js` and `tests/journal-presentation.test.ts`, implementing and covering stable duplicate-name label disambiguation for destination options instead of allowing identical visible labels such as repeated `Amber Bay` |
+| AC-3 | Route journal/exchange rendering through destination and user lookups that prefer readable names | 0 | 0 | Commit `c4daa81` moved journal/exchange presentation logic into `public/journal-presentation.js` and wired `public/app.js` to render readable destination and user names rather than raw `dest-xxx / user-yy` IDs, with regression coverage in `tests/journal-presentation.test.ts` |
+| AC-4 | Add safe fallback handling for missing lookup entries and preserve journal-card interactions that depend on journal IDs | 0 | 0 | Commit `c4daa81` kept the journal card wiring in `public/app.js` intact, added lookup-based rendering with safe fallback behavior in `public/journal-presentation.js`, and covered the fallback path in `tests/journal-presentation.test.ts` |
+| AC-5 | Run the full test suite and update docs only for the exposed bootstrap/data-flow change | 0 | 0 | The integrated branch passed `npm test` with 25 passing tests, and commit `4d4720b` updated `docs/overall-design.md` and `docs/example-results-and-tests.md` to reflect the new `bootstrap.destinations` catalog and the journal/exchange presentation fix |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
