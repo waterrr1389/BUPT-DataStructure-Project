@@ -18,6 +18,14 @@ const ROAD_TYPE_META = {
   indoor: { label: "Indoor corridor", className: "is-indoor" },
 };
 
+const routeVisualizationMarkers = globalThis.RouteVisualizationMarkers;
+
+if (!routeVisualizationMarkers) {
+  throw new Error("Route visualization helpers failed to load.");
+}
+
+const { createRouteMarkerLayout } = routeVisualizationMarkers;
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: {
@@ -282,6 +290,33 @@ function pillLabelMarkup(point, label, variantClass) {
   `;
 }
 
+function routeMarkerShapeMarkup(marker) {
+  if (marker.kind === "start") {
+    return `<circle class="route-marker route-marker-start" cx="${marker.point.x}" cy="${marker.point.y}" r="11"></circle>`;
+  }
+  if (marker.kind === "end") {
+    return `<rect class="route-marker route-marker-end" x="${marker.point.x - 10}" y="${marker.point.y - 10}" width="20" height="20" rx="6"></rect>`;
+  }
+  if (marker.kind === "transition") {
+    return `<path class="route-marker route-marker-transition" d="M ${marker.point.x} ${marker.point.y - 12} L ${marker.point.x + 11} ${marker.point.y + 8} L ${marker.point.x - 11} ${marker.point.y + 8} Z"></path>`;
+  }
+  return `<rect class="route-marker route-marker-turn" x="${marker.point.x - 7}" y="${marker.point.y - 7}" width="14" height="14" rx="4" transform="rotate(45 ${marker.point.x} ${marker.point.y})"></rect>`;
+}
+
+function routeMarkerMarkup(marker) {
+  return `
+    ${routeMarkerShapeMarkup(marker)}
+    ${pillLabelMarkup(marker.point, marker.label, marker.variantClass)}
+  `;
+}
+
+function activeRouteMarkerMarkup(routeAnalysis, projection) {
+  const markerLayout = createRouteMarkerLayout(routeAnalysis, projection);
+  return [...markerLayout.endpointMarkers, ...markerLayout.transitionMarkers, ...markerLayout.turnMarkers]
+    .map((marker) => routeMarkerMarkup(marker))
+    .join("");
+}
+
 function renderRouteVisualization(details, route) {
   const target = document.querySelector("#route-visualization");
   if (!details) {
@@ -412,36 +447,7 @@ function renderRouteVisualization(details, route) {
           <g class="map-marker-layer">
             ${
               routeAnalysis
-                ? `${(() => {
-                    const startNode = routeAnalysis.routeNodes[0];
-                    const endNode = routeAnalysis.routeNodes[routeAnalysis.routeNodes.length - 1];
-                    const startPoint = projection.point(startNode);
-                    const endPoint = projection.point(endNode);
-                    return `
-                      <circle class="route-marker route-marker-start" cx="${startPoint.x}" cy="${startPoint.y}" r="11"></circle>
-                      ${pillLabelMarkup(startPoint, "Start", "is-start")}
-                      <rect class="route-marker route-marker-end" x="${endPoint.x - 10}" y="${endPoint.y - 10}" width="20" height="20" rx="6"></rect>
-                      ${pillLabelMarkup(endPoint, "End", "is-end")}
-                    `;
-                  })()}
-                  ${routeAnalysis.transitionMarkers
-                    .map((marker) => {
-                      const point = projection.point(marker.node);
-                      return `
-                        <path class="route-marker route-marker-transition" d="M ${point.x} ${point.y - 12} L ${point.x + 11} ${point.y + 8} L ${point.x - 11} ${point.y + 8} Z"></path>
-                        ${pillLabelMarkup(point, marker.shortLabel, "is-transition")}
-                      `;
-                    })
-                    .join("")}
-                  ${routeAnalysis.turnMarkers
-                    .map((marker) => {
-                      const point = projection.point(marker.node);
-                      return `
-                        <rect class="route-marker route-marker-turn" x="${point.x - 7}" y="${point.y - 7}" width="14" height="14" rx="4" transform="rotate(45 ${point.x} ${point.y})"></rect>
-                        ${pillLabelMarkup(point, marker.shortLabel, "is-turn")}
-                      `;
-                    })
-                    .join("")}`
+                ? activeRouteMarkerMarkup(routeAnalysis, projection)
                 : `${previewStart ? `<circle class="route-marker route-marker-preview-start" cx="${projection.point(previewStart).x}" cy="${projection.point(previewStart).y}" r="10"></circle>${pillLabelMarkup(projection.point(previewStart), "Start", "is-preview")}` : ""}
                    ${previewEnd ? `<circle class="route-marker route-marker-preview-end" cx="${projection.point(previewEnd).x}" cy="${projection.point(previewEnd).y}" r="10"></circle>${pillLabelMarkup(projection.point(previewEnd), "End", "is-preview")}` : ""}`
             }
