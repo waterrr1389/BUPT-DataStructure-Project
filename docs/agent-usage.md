@@ -1,32 +1,42 @@
 # Agent Usage
 
-## Development Mode
+## Workflow
 
-The repository is being developed under an RLCR workflow with multiple workers owning separate file ranges. Round 0 requires the goal tracker to be initialized before implementation starts.
+The repository was developed under the `humanize-rlcr` skill in RLCR agent-teams mode.
 
-## This Round
+- Round 0: initialize the RLCR loop, bootstrap the repository structure, implement the first pass of source files, and establish the tracked goal/acceptance baseline.
+- Round 1: respond to Codex review findings, rewire the runtime to the external custom algorithms, expand verification coverage, rebuild the deterministic demo around the real app runtime, and realign the delivery docs.
 
-Worker 1 owns:
+## Round 1 Agent Allocation
 
-- `README.md`
-- `docs/**`
-- `package.json`
-- `tsconfig.json`
-- `.gitignore`
-- `.humanize/rlcr/2026-03-18_14-02-34/goal-tracker.md`
+- Runtime/service worker:
+  - exported the nested runtime algorithm bundle from `src/algorithms/`
+  - made `getRuntime().source.algorithms` resolve to `external`
+  - rejected invalid destination `sortBy`
+  - enabled typo-tolerant food search through the custom fuzzy/index-backed path
+- Verification worker:
+  - switched `scripts/validate-data.ts` to the real runtime seed
+  - added package-level runtime/service coverage in `tests/runtime-services.test.ts`
+  - wired `tests/data-seed.test.ts` into the package test entrypoint
+- Exchange/compression worker:
+  - replaced fallback journal compression with `src/algorithms/compression.ts` while preserving the service contract
+- Demo worker:
+  - rebuilt `scripts/demo-support.ts` and `tests/integration-smoke.test.ts` around `createAppServices()` and the real seed/runtime data
 
-This round intentionally avoids product-code implementation and focuses on shared planning, command contracts, and delivery documentation.
+## Coordination Notes
 
-## Expected Coordination Rules
-
-- Do not modify files outside the assigned ownership ranges.
-- Keep the module contract documented in `docs/module-design.md`.
-- Preserve the package script names and their intended entrypoints unless the worker team agrees on an update and the docs are revised in the same round.
-- Keep the zero-dependency rule in place.
+- Workers were assigned strict file ownership to avoid silent overwrites.
+- Multiple retry attempts were needed because some subagent runs failed with infrastructure stream disconnects rather than repository-level blockers.
+- The final repository state was verified from the shared workspace after integrating the successful worker outputs.
 
 ## AI Assistance Record
 
-- Workflow: RLCR round-0 setup with worker partitioning.
-- Skill used: `humanize-rlcr` for loop requirements and tracker initialization.
-- Agent contribution in this round: extracted acceptance criteria from `plan.md`, created project metadata, and authored course-delivery documents.
-- External services: none required for this round.
+- Skill used: `humanize-rlcr`
+- Model/workflow: Codex + RLCR review loop with fresh worker teams in Round 1
+- External services: none
+- Network usage: none
+- Primary AI-assisted areas:
+  - runtime algorithm integration
+  - verification/test expansion
+  - deterministic demo scripting
+  - delivery-document alignment

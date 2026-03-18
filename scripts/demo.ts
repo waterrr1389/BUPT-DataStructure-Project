@@ -1,4 +1,12 @@
 import { createDemoReport } from "./demo-support";
 
-console.log("Deterministic demo report:");
-console.log(JSON.stringify(createDemoReport(), null, 2));
+async function main() {
+  const report = await createDemoReport();
+  console.log("Deterministic demo report:");
+  console.log(JSON.stringify(report, null, 2));
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

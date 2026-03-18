@@ -2,44 +2,58 @@
 
 ## Prerequisites
 
-- Node.js 20 or newer available globally.
-- TypeScript compiler `tsc` available globally.
-- No external package installation is required.
+- Node.js 20 or newer available globally
+- TypeScript compiler `tsc` available globally
+- No package installation step is required
 
-## Build and Run
+## Core Commands
 
-After the worker team implements the planned source files, use:
+Run the full local verification flow with:
 
 ```bash
 npm run build
 npm run validate:data
-npm run test
-npm run start
-```
-
-Optional commands:
-
-```bash
+npm test
 npm run benchmark
 npm run demo
 ```
 
-## Intended User Flow
+Start the browser-facing app with:
 
-1. Validate the seed dataset.
-2. Start the server and open the browser demo served from `src/server/index.ts` and `public/`.
-3. Explore destination recommendation and destination search.
-4. Request a route and nearby facilities for a selected area.
-5. Browse journals, search journal content, and inspect compression or AIGC demo outputs.
-6. Review food recommendations tied to the active destination or campus.
+```bash
+npm run start
+```
+
+## What The System Exposes
+
+- Destination recommendation and search
+- Single-target and indoor route planning
+- Nearby facility lookup by category and network distance
+- Journal create, browse, view, rate, and recommend flows
+- Journal exchange: exact-title lookup, full-text search, compression/decompression, and storyboard generation
+- Food recommendation and typo-tolerant search
+
+## Deterministic Demo
+
+Use `npm run demo` for the reproducible walkthrough. The current scripted report uses the real app runtime and the real seed dataset, centered on `dest-002` (`River Polytechnic`).
+
+The demo covers:
+
+1. Destination search and recommendation
+2. Indoor route planning from `dest-002-gate` to `dest-002-archive`
+3. Nearby `info` facility lookup
+4. Journal create, get, record-view, rate, and recommend
+5. Journal exchange exact-title search, full-text search, compression/decompression, and storyboard
+6. Food search and recommendation
+
+## Browser/API Notes
+
+- `GET /api/health` reports the runtime source bundle, including whether data/algorithms/validation are external or fallback.
+- The server serves `public/` plus JSON API endpoints from `src/server/index.ts`.
+- Invalid destination `sortBy` inputs are rejected instead of being silently treated as `rating`.
 
 ## Troubleshooting
 
-- If `npm run build` fails because an entry file is missing, confirm that the planned `src/`, `scripts/`, and `tests/` files have been implemented.
-- If validation fails, inspect the seed dataset counts and referential integrity rules.
-- If the server starts but a demo feature is empty, confirm that the corresponding service and public assets were built against the same seed data.
-
-## Demo Operator Notes
-
-- Keep at least one deterministic demo scenario for each feature area.
-- Prefer fixed IDs and fixed user profiles in demo scripts so reviewers can reproduce results exactly.
+- If `npm run start` fails with `EPERM` on `127.0.0.1:3000`, that is a sandbox limitation in this environment, not a known compile/runtime issue in the repo.
+- If demo output changes, rerun `npm test` because `tests/integration-smoke.test.ts` asserts the deterministic demo report structure.
+- If validation fails, inspect `src/data/seed.ts` and `src/data/validation.ts`; `scripts/validate-data.ts` now checks the real runtime dataset, not a toy sample.

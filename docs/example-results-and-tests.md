@@ -2,57 +2,82 @@
 
 ## Command Matrix
 
-The repository command surface is fixed as:
+The repository exposes these regression commands:
 
 - `npm run build`
-- `npm run test`
 - `npm run validate:data`
+- `npm test`
 - `npm run benchmark`
-- `npm run start`
 - `npm run demo`
+- `npm run start`
 
-## Expected Test Coverage
+## Current Verified Results
 
-### Unit Tests
+### Build
 
-- `tests/algorithms/**` should verify top-k ranking, trie lookup, inverted-index retrieval, fuzzy matching, shortest path, multi-route behavior, and compression round trips.
-
-### Service Tests
-
-- `tests/services/**` should verify recommendation ordering, search filters, route constraints, facility lookup ordering, journal recommendation, and food discovery.
-
-### Smoke Tests
-
-- `tests/integration/**` should exercise the compiled server or demo surface with deterministic seed data.
-
-## Example Result Expectations
+- `npm run build` passes.
 
 ### Data Validation
 
-- The validation command should print counts for destinations, buildings, facilities, edges, and users.
-- The command should exit non-zero if any minimum count or integrity rule fails.
+- `npm run validate:data` passes against `src/data/seed.ts`.
+- Current reported counts:
+  - destinations: `220`
+  - buildings: `660`
+  - facilityCategories: `10`
+  - facilities: `1100`
+  - edges: `4180`
+  - users: `12`
+  - journals: `12`
+  - foods: `880`
 
-### Recommendation and Search
+### Automated Tests
 
-- A user profile with interest tags should return a stable ordered list of destinations.
-- Empty or invalid ranking options should be rejected.
+- `npm test` passes with `17` tests.
+- The package-level test surface currently covers:
+  - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
+  - sample and real-seed validation
+  - real runtime/source verification
+  - invalid `sortBy` rejection
+  - typo-tolerant food search
+  - journal exact-title and full-text search behavior
+  - indoor route planning and nearby facility lookup
+  - deterministic end-to-end demo report coverage
 
-### Routing and Facility Lookup
+### Benchmarks
 
-- A valid start and goal should return node sequence, total distance, and transport mode summary.
-- Facility lookup should return facilities ordered by network distance within the requested radius.
+- `npm run benchmark` passes with deterministic output:
+  - `top-k: 5.801 ms over 25 iteration(s) with sample size 1000`
+  - `search: 26.677 ms over 25 iteration(s) with sample size 1000`
+  - `graph: 3.456 ms over 25 iteration(s) with sample size 64`
+  - `compression: 11.865 ms over 25 iteration(s) with sample size 2640`
 
-### Journals, Compression, and AIGC
+## Example Demo Results
 
-- Journal search should show matching titles or keyword hits.
-- Compression tests should prove that decompression restores the original payload exactly.
-- AIGC tests should use a mock generator and verify success and missing-input paths.
+`npm run demo` currently produces a deterministic report built from `createAppServices()` and the real seed/runtime data.
 
-### Demo Surface
+Representative outputs:
 
-- The demo should expose at least one scripted scenario for recommendation, routing, facility lookup, journal browsing, journal search, and food discovery.
+- Destination search:
+  - query: `river polytechnic`
+  - top ids: `dest-002`, `dest-022`, `dest-042`
+- Indoor route:
+  - start: `dest-002-gate`
+  - end: `dest-002-archive`
+  - reachable: `true`
+  - indoor step count: `4`
+- Nearby facility:
+  - category: `info`
+  - nearest id: `dest-002-facility-4`
+  - nearest distance: `480`
+- Journal flow:
+  - created id: `journal-13`
+  - exact-title exchange hit: `journal-13`
+  - full-text exchange hit: `journal-13`
+- Food flow:
+  - query: `noodle lab`
+  - top food id: `dest-002-food-3`
 
-## Benchmark Expectations
+## Environment Limitation
 
-- `scripts/run-benchmarks.ts` should report timing or operation counts for top-k, search, graph, and compression modules.
-- Benchmarks should use repeatable input sizes and avoid network access.
+- Live server bind/start verification is still blocked in this sandbox because listening on `127.0.0.1:3000` raises `EPERM`.
+- This is an environment verification gap only; the compiled server and package command surface otherwise pass local verification.
