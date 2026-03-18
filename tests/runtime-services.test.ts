@@ -11,12 +11,31 @@ function format(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+const SEEDED_JOURNAL_DESTINATION_IDS = [
+  "dest-001",
+  "dest-004",
+  "dest-007",
+  "dest-010",
+  "dest-013",
+  "dest-016",
+  "dest-019",
+  "dest-022",
+  "dest-025",
+  "dest-028",
+  "dest-031",
+  "dest-034",
+] as const;
+
 async function createIsolatedApp(name: string): Promise<AppServices> {
   const runtimeDir = path.join("/tmp", `ds-ts-runtime-services-${name}`);
   await fs.mkdir(runtimeDir, { recursive: true });
   const app = await createAppServices({ runtimeDir });
   await app.journalStore.reset();
   return app;
+}
+
+function destinationIds(items: Array<{ id: string }>): string[] {
+  return items.map((item) => item.id);
 }
 
 test("createAppServices resolves the real seed with external algorithms", async () => {
@@ -35,6 +54,27 @@ test("destination search rejects invalid sortBy values", async () => {
       sortBy: "bogus" as never,
     });
   });
+});
+
+test("bootstrap exposes full destination catalog for seeded journal lookups and keeps featured unchanged", async () => {
+  const app = await createIsolatedApp("bootstrap-destinations");
+  const bootstrap = await app.bootstrap();
+  const featured = bootstrap.featured as Array<{ id: string }>;
+  const destinations = bootstrap.destinations as Array<{ id: string }>;
+  const seededJournalDestinationIds = app.runtime.seedData.journals.map((journal) => journal.destinationId);
+
+  assert.deepEqual(seededJournalDestinationIds, [...SEEDED_JOURNAL_DESTINATION_IDS]);
+  assert.equal(destinations.length, app.runtime.seedData.destinations.length);
+  assert.deepEqual(destinationIds(featured), destinationIds(app.destinations.listCatalog(12) as Array<{ id: string }>));
+  assert.equal(featured.length, 12);
+  assert.equal(featured.some((destination) => destination.id === "dest-013"), false, format(featured));
+
+  for (const destinationId of SEEDED_JOURNAL_DESTINATION_IDS) {
+    assert.ok(
+      destinations.some((destination) => destination.id === destinationId),
+      format({ destinationId, destinationIds: destinationIds(destinations) }),
+    );
+  }
 });
 
 test("food search tolerates typo queries on the real dataset", async () => {

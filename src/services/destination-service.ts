@@ -21,6 +21,10 @@ function summarizeDestination(destination: DestinationRecord): Record<string, un
   };
 }
 
+function summarizeDestinations(destinations: DestinationRecord[]): Record<string, unknown>[] {
+  return destinations.map(summarizeDestination);
+}
+
 function filterDestinations(destinations: DestinationRecord[], category: string | undefined): DestinationRecord[] {
   if (!category) {
     return destinations;
@@ -63,7 +67,11 @@ function scoreRecommendedDestination(
 export function createDestinationService(runtime: ResolvedRuntime) {
   return {
     listCatalog(limit = 24) {
-      return runtime.seedData.destinations.slice(0, ensureLimit(limit, 24, 60)).map(summarizeDestination);
+      return summarizeDestinations(runtime.seedData.destinations.slice(0, ensureLimit(limit, 24, 60)));
+    },
+
+    listAll() {
+      return summarizeDestinations(runtime.seedData.destinations);
     },
 
     getDestination(destinationId: string) {

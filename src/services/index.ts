@@ -37,6 +37,7 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
         categories: destinations.listCategories(),
         cuisines: foods.listCuisines(),
         featured: destinations.listCatalog(12),
+        destinations: destinations.listAll(),
         source: runtime.source,
       };
     },
