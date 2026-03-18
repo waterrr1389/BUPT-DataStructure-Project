@@ -9,8 +9,8 @@
 - Shell: `bash`
 - Current date context: `2026-03-18`
 - Timezone context: `Asia/Shanghai`
-- Filesystem mode: `danger-full-access`
-- Network access: enabled
+- Filesystem mode: `workspace-write`
+- Network access: restricted
 - Approval policy: `never`
 - Project toolchain: global `node` and `tsc`, no npm dependencies
 
