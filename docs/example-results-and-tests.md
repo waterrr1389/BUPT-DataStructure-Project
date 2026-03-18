@@ -15,7 +15,7 @@ The repository regression surface is:
 
 The notes below combine two evidence sets:
 
-- March 19, 2026 automated-test and code-level evidence from this round
+- March 19, 2026 automated-test evidence from this round, plus targeted code-level confirmation where noted
 - March 18, 2026 unrestricted live-start and browser/API smoke evidence
 
 This round did not rerun the unrestricted March 18 smoke pass.
@@ -39,8 +39,8 @@ This round did not rerun the unrestricted March 18 smoke pass.
 
 ### Automated Tests
 
-- `npm test` passed with `25` tests.
-- March 19 automated-test and code-level evidence from this round includes:
+- `npm test` passed with `27` tests.
+- March 19 automated-test evidence from this round includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
   - external runtime/source verification
@@ -50,9 +50,10 @@ This round did not rerun the unrestricted March 18 smoke pass.
   - journal exact-title and full-text search behavior
   - duplicate destination-label disambiguation while preserving stable destination ids
   - readable journal and exchange destination and user labels with safe fallback when lookups are missing
+  - journal and exchange consumer-path coverage in `tests/journal-consumers.test.ts` for full-catalog selector binding from `bootstrap.destinations`, seeded journal destination reachability, stable destination option ids, and journal actions remaining anchored to `data-journal-id`
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
-- March 19 code inspection also showed that the current `public/app.js` selector wiring reads the journal and exchange destination options from `bootstrap.destinations`; that implementation detail was not rerun in the older live browser smoke.
+- March 19 code inspection also confirmed that `public/app.js` calls the shared journal/exchange binding helper exercised by those automated consumer-path tests; that implementation detail was not rerun in the older March 18 live browser smoke.
 
 ### Benchmarks
 
