@@ -905,6 +905,25 @@ async function handleFoodRecommend() {
   renderFoods(payload.items);
 }
 
+function installBackToTop() {
+  const button = document.querySelector("#back-to-top");
+  if (!button) {
+    return;
+  }
+
+  const syncVisibility = () => {
+    const shouldShow = window.scrollY > 320;
+    button.classList.toggle("is-visible", shouldShow);
+  };
+
+  button.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  window.addEventListener("scroll", syncVisibility, { passive: true });
+  syncVisibility();
+}
+
 function installEvents() {
   document.querySelector("#destination-form").addEventListener("submit", wrap(handleDestinationSearch));
   document.querySelector("#destination-recommend").addEventListener("click", wrap(handleDestinationRecommend));
@@ -934,6 +953,7 @@ function installEvents() {
   document.querySelector("#storyboard-form").addEventListener("submit", wrap(handleStoryboard));
   document.querySelector("#food-form").addEventListener("submit", wrap(handleFoodSearch));
   document.querySelector("#food-recommend").addEventListener("click", wrap(handleFoodRecommend));
+  installBackToTop();
 }
 
 function wrap(handler) {
