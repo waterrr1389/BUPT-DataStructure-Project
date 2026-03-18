@@ -150,11 +150,13 @@ button:hover {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 18px;
 }
 
 .card {
+  grid-column: span 2;
+  min-width: 0;
   padding: 20px;
   border-radius: 28px;
   border: 1px solid var(--line);
@@ -173,7 +175,11 @@ button:hover {
 }
 
 .span-2 {
-  grid-column: span 2;
+  grid-column: span 4;
+}
+
+.span-half {
+  grid-column: span 3;
 }
 
 .section-head {
@@ -238,8 +244,16 @@ button.ghost {
 
 .button-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: end;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.button-row > button {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .result-grid {
@@ -659,7 +673,12 @@ button.ghost {
     grid-template-columns: 1fr;
   }
 
+  .card,
   .span-2 {
+    grid-column: auto;
+  }
+
+  .span-half {
     grid-column: auto;
   }
 
