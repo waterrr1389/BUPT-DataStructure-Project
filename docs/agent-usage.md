@@ -158,11 +158,12 @@
   - `round-9-review-prompt.md`
   - `round-9-review-result.md`
   - `round-9-summary.md`
-- The Round 9 summary requested AC-6 closure, but the Round 9 review rejected that request because the file was still using a current-round recording model. The loop then stopped, and `stop-state.md` captured the need for a stable completed/stopped-round strategy.
+- The Round 9 summary requested AC-6 closure, but the Round 9 review rejected that request because the file was still using a current-round recording model. `round-9-review-result.md` records the repeated Round 7/8/9 artifact-drift problem and the need for a stable completed/stopped-round strategy, while `stop-state.md` records the stop metadata for the terminated loop.
 
 ## Stop Outcome
 
-- `stop-state.md` records that the loop hit a documentation-process circuit breaker after Round 7, Round 8, and Round 9 repeated the same current-round artifact problem.
+- `round-9-review-result.md` records that the loop hit a documentation-process circuit breaker after Round 7, Round 8, and Round 9 repeated the same current-round artifact problem.
+- `stop-state.md` records only the stop metadata for that terminated loop.
 - The remaining cleanup after that stop was documentation-process alignment only; the stopped review did not identify a new product-code regression.
 
 ## AI Assistance Record

@@ -13,16 +13,16 @@
 ## 历史失败模式
 
 - 历史 loop `.humanize/rlcr/2026-03-18_14-02-34/` 在 Round 7、8、9 连续重复同一个问题：`docs/agent-usage.md` 试图记录“当前轮”，结果 `round-N-review-result.md` 一落盘，文档就立即过时。
-- Round 9 的 review 和 stop artifact 是这次 docs-only 收尾的主要证据入口。
+- 这次 docs-only 收尾的叙述性证据以 `round-9-review-result.md` 为主；`stop-state.md` 只说明 loop 在 Round 9 review 之后停止，不承载详细原因说明。
 
 关键文件：
 
 - [draft.md](/home/frisk/ds-ts/draft.md)
 - [plan2.md](/home/frisk/ds-ts/plan2.md)
 - [docs/agent-usage.md](/home/frisk/ds-ts/docs/agent-usage.md)
-- [.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md)
-- [.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md)
-- [.humanize/rlcr/2026-03-18_14-02-34/stop-state.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/stop-state.md)
+- [.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md)（当时的 closure 请求）
+- [.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md)（驳回 closure 并解释循环问题）
+- [.humanize/rlcr/2026-03-18_14-02-34/stop-state.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/stop-state.md)（停止元数据）
 
 ## 允许修改范围
 
@@ -34,4 +34,4 @@
 
 1. 先确保 `docs/agent-usage.md` 只记录已完成或已停止的 loop，并完整覆盖历史 Round 9 artifact。
 2. 再确认 `README.md` 和本交接文件都把问题描述为文档流程对齐，而不是产品代码缺陷。
-3. 在请求 closure 前，对照 `round-9-summary.md`、`round-9-review-result.md`、`stop-state.md` 和当前文档做一次一致性复核。
+3. 在请求 closure 前，逐一对照 `README.md`、`README-next-session.md`、`docs/agent-usage.md`、`round-9-summary.md`、`round-9-review-result.md` 和 `stop-state.md` 做一次一致性复核。
