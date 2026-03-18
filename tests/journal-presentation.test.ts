@@ -1,0 +1,113 @@
+import assert from "node:assert/strict";
+import path from "node:path";
+import test from "node:test";
+
+type DestinationOption = {
+  id: string;
+  label: string;
+  name: string;
+  region?: string;
+};
+
+type DestinationInput = {
+  id: string;
+  name: string;
+  region?: string;
+};
+
+type NamedRecord = {
+  id: string;
+  name: string;
+};
+
+type JournalEntry = {
+  destinationId?: string;
+  userId?: string;
+};
+
+type JournalPresentationModule = {
+  createDestinationSelectOptions(destinations: DestinationInput[]): DestinationOption[];
+  formatJournalMetadata(
+    journal: JournalEntry,
+    lookups?: {
+      destinationById?: Map<string, NamedRecord>;
+      userById?: Map<string, NamedRecord>;
+    },
+  ): {
+    attribution: string;
+    destinationLabel: string;
+    userLabel: string;
+  };
+};
+
+const { createDestinationSelectOptions, formatJournalMetadata } = require(path.join(
+  process.cwd(),
+  "public",
+  "journal-presentation.js",
+)) as JournalPresentationModule;
+
+test("destination select labels disambiguate duplicate names while preserving destination ids", () => {
+  const options = createDestinationSelectOptions([
+    { id: "dest-001", name: "Amber Bay", region: "north belt" },
+    { id: "dest-011", name: "Amber Bay", region: "east loop" },
+    { id: "dest-002", name: "River Polytechnic", region: "river arc" },
+  ]);
+
+  assert.deepEqual(
+    options.map((option) => ({ id: option.id, label: option.label })),
+    [
+      { id: "dest-001", label: "Amber Bay (north belt)" },
+      { id: "dest-011", label: "Amber Bay (east loop)" },
+      { id: "dest-002", label: "River Polytechnic" },
+    ],
+  );
+});
+
+test("destination select labels fall back to ids when earlier qualifiers still collide", () => {
+  const options = createDestinationSelectOptions([
+    { id: "dest-001", name: "Amber Bay", region: "north belt" },
+    { id: "dest-021", name: "Amber Bay", region: "north belt" },
+  ]);
+
+  assert.deepEqual(
+    options.map((option) => option.label),
+    [
+      "Amber Bay (north belt · dest-001)",
+      "Amber Bay (north belt · dest-021)",
+    ],
+  );
+});
+
+test("journal metadata prefers readable destination and user names when lookups exist", () => {
+  const metadata = formatJournalMetadata(
+    {
+      destinationId: "dest-034",
+      userId: "user-12",
+    },
+    {
+      destinationById: new Map([["dest-034", { id: "dest-034", name: "Summit Polytechnic" }]]),
+      userById: new Map([["user-12", { id: "user-12", name: "Rory Pike" }]]),
+    },
+  );
+
+  assert.equal(metadata.destinationLabel, "Summit Polytechnic");
+  assert.equal(metadata.userLabel, "Rory Pike");
+  assert.equal(metadata.attribution, "Summit Polytechnic / Rory Pike");
+});
+
+test("journal metadata falls back safely when destination or user lookups are missing", () => {
+  const metadata = formatJournalMetadata(
+    {
+      destinationId: "dest-404",
+      userId: "user-404",
+    },
+    {
+      destinationById: new Map(),
+      userById: new Map(),
+    },
+  );
+
+  assert.equal(metadata.destinationLabel, "dest-404");
+  assert.equal(metadata.userLabel, "user-404");
+  assert.equal(metadata.attribution, "dest-404 / user-404");
+});

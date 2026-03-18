@@ -1,6 +1,8 @@
 const state = {
   bootstrap: null,
   destinationDetails: new Map(),
+  destinationById: new Map(),
+  userById: new Map(),
   lastCompressed: "",
   activeRoute: null,
 };
@@ -25,6 +27,13 @@ if (!routeVisualizationMarkers) {
 }
 
 const { createRouteMarkerLayout } = routeVisualizationMarkers;
+const journalPresentation = globalThis.JournalPresentation;
+
+if (!journalPresentation) {
+  throw new Error("Journal presentation helpers failed to load.");
+}
+
+const { createDestinationSelectOptions, formatJournalMetadata } = journalPresentation;
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -585,9 +594,14 @@ function renderFacilities(item) {
 }
 
 function journalCard(item) {
+  const metadata = formatJournalMetadata(item, {
+    destinationById: state.destinationById,
+    userById: state.userById,
+  });
+
   return `
     <article class="result-card" data-journal-id="${item.id}">
-      <p class="muted">${item.destinationId} / ${item.userId}</p>
+      <p class="muted">${metadata.attribution}</p>
       <h3>${item.title}</h3>
       <div class="result-meta">
         <span>views ${item.views}</span>
@@ -642,9 +656,19 @@ async function loadBootstrap() {
   const bootstrap = await api("/api/bootstrap");
   state.bootstrap = bootstrap;
   const users = bootstrap.users;
-  const destinations = bootstrap.featured;
+  const featuredDestinations = Array.isArray(bootstrap.featured) ? bootstrap.featured : [];
+  const journalDestinations =
+    Array.isArray(bootstrap.destinations) && bootstrap.destinations.length
+      ? bootstrap.destinations
+      : featuredDestinations;
+  const journalDestinationOptions = createDestinationSelectOptions(journalDestinations);
   const categories = bootstrap.categories.map((category) => ({ id: category, name: category }));
   const cuisines = bootstrap.cuisines.map((cuisine) => ({ id: cuisine, name: cuisine }));
+
+  state.userById = new Map(users.map((user) => [user.id, user]));
+  state.destinationById = new Map(
+    [...featuredDestinations, ...journalDestinations].map((destination) => [destination.id, destination]),
+  );
 
   fillSelect("#destination-user", users, { includeAny: true });
   fillSelect("#journal-user", users);
@@ -652,18 +676,17 @@ async function loadBootstrap() {
   fillSelect("#destination-category", categories, { value: "id", label: "name", includeAny: true });
   fillSelect("#food-cuisine", cuisines, { value: "id", label: "name", includeAny: true });
 
-  [
-    "#route-destination",
-    "#facility-destination",
-    "#journal-destination",
-    "#exchange-destination",
-    "#food-destination",
-  ].forEach((selector) => fillSelect(selector, destinations));
+  ["#route-destination", "#facility-destination", "#food-destination"].forEach((selector) =>
+    fillSelect(selector, featuredDestinations),
+  );
+  ["#journal-destination", "#exchange-destination"].forEach((selector) =>
+    fillSelect(selector, journalDestinationOptions, { label: "label" }),
+  );
 
-  renderDestinations(destinations);
+  renderDestinations(featuredDestinations);
   setStatus(`Runtime data: ${bootstrap.source.data}. Algorithms: ${bootstrap.source.algorithms}.`);
 
-  const firstDestinationId = destinations[0]?.id;
+  const firstDestinationId = featuredDestinations[0]?.id;
   if (firstDestinationId) {
     await syncNodeSelects(firstDestinationId, ["#route-start", "#route-end", "#facility-node"]);
     await refreshRouteVisualization(firstDestinationId);
