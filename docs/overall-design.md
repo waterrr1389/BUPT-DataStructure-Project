@@ -26,7 +26,7 @@ The project is designed as a single TypeScript codebase with custom algorithm mo
 
 `src/services/**` coordinates domain data with algorithm modules through the implemented service modules:
 
-- `src/services/index.ts` composes the application service container and bootstrap response.
+- `src/services/index.ts` composes the application service container and bootstrap response, keeping the `12`-item featured destination deck while also exposing the full destination catalog for journal and exchange lookups.
 - `src/services/runtime.ts` resolves seed data, validation, algorithm helpers, and fallback runtime behavior.
 - `src/services/destination-service.ts` serves destination catalog, search, and recommendation workflows.
 - `src/services/route-service.ts` plans shortest-path and multi-stop routes within destinations.
@@ -39,7 +39,7 @@ The project is designed as a single TypeScript codebase with custom algorithm mo
 ### Delivery Layer
 
 - `src/server/index.ts` serves the web or API demo.
-- `public/**` contains browser-facing assets and scenario data.
+- `public/**` contains browser-facing assets and scenario data, including journal and exchange controls that consume the full destination catalog and render readable destination and user labels from lookup data when available.
 - `scripts/validate-data.ts`, `scripts/run-benchmarks.ts`, and `scripts/demo.ts` provide repeatable CLI entrypoints.
 - `tests/**` contains unit, integration, and smoke tests.
 

@@ -13,7 +13,7 @@ The repository regression surface is:
 
 ## Current Verified Results
 
-The figures below reflect the verified workspace state for March 18, 2026, including the Round 6 live-start and smoke-verification pass.
+The figures below reflect the verified workspace state as of March 19, 2026. The unrestricted live-start and browser smoke evidence still comes from the March 18, 2026 verification pass.
 
 ### Build
 
@@ -34,14 +34,17 @@ The figures below reflect the verified workspace state for March 18, 2026, inclu
 
 ### Automated Tests
 
-- `npm test` passed with `20` tests.
+- `npm test` passed with `25` tests.
 - Current automated coverage includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
   - external runtime/source verification
+  - bootstrap contract coverage for the `12`-item featured deck plus the full destination catalog used by seeded journal lookups
   - invalid destination `sortBy` rejection
   - typo-tolerant food search
   - journal exact-title and full-text search behavior
+  - duplicate destination-label disambiguation while preserving stable destination ids
+  - readable journal and exchange destination and user labels with safe fallback when lookups are missing
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
 
@@ -120,11 +123,12 @@ Representative deterministic outputs:
   - `/api/foods/search`
 - Verified smoke highlights from that live run:
   - `/api/health` returned `ok: true` with external data, algorithms, and validation sources
-  - `/api/bootstrap` returned `12` users, `12` featured destinations, `20` categories, and `8` cuisines
+  - `/api/bootstrap` returned `12` users, `12` featured destinations, `20` categories, and `8` cuisines; the current contract also returns `destinations` with the full destination catalog used by the journal and exchange destination controls
   - destination search returned `dest-002`, `dest-022`, `dest-042` as the top ids for `river polytechnic`
   - route planning succeeded for `distance`, `time`, and `mixed`
   - facility lookup returned `dest-002-facility-4` at distance `480`
   - journal create/get/list/view/rate/recommendation succeeded on the live server
   - journal exchange exact-title lookup, full-text search, compression/decompression, and storyboard generation succeeded on the live server
   - food recommendation and cuisine-filtered search both returned `dest-002-food-3` with cuisine `noodle lab`
+- Current browser behavior uses the full bootstrap destination catalog for the journal and exchange destination selectors, disambiguates duplicate destination names in those controls, and renders readable destination or user names on journal and exchange cards when lookup data exists.
 - Earlier `EPERM` bind failures were specific to restricted-environment rounds and do not reflect the unrestricted March 18 verification state.
