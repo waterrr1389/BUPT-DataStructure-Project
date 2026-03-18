@@ -44,7 +44,7 @@ The package scripts are the delivery contract:
 
 ## Current Verified Evidence
 
-These results reflect the verified post-fix workspace state for March 18, 2026:
+These results reflect the verified workspace state for March 18, 2026, including the Round 4 regression fix and the Round 5 documentation alignment pass:
 
 - `npm run build` passed.
 - `npm run validate:data` passed with counts:
@@ -56,7 +56,7 @@ These results reflect the verified post-fix workspace state for March 18, 2026:
   - users `12`
   - journals `12`
   - foods `880`
-- `npm test` passed with `17` tests.
+- `npm test` passed with `20` tests.
 - `npm run benchmark` produced representative output:
   - `top-k: 6.250 ms over 25 iteration(s) with sample size 1000`
   - `search: 27.531 ms over 25 iteration(s) with sample size 1000`
@@ -69,6 +69,8 @@ These results reflect the verified post-fix workspace state for March 18, 2026:
   - algorithmCompressionRatio `0.7430167597765364`
   - spaceSavings `0.0949720670391061`
 - `timeout 15s npm run start` failed in a controlled way with `Server failed to start: listen EPERM: operation not permitted 127.0.0.1:3000`.
+
+All in-repository delivery work is now reflected in the docs. The only active non-doc follow-up is external live-bind verification in an environment that permits listening on `127.0.0.1:3000`.
 
 Benchmark timings are representative wall-clock measurements from one run, not permanent constants.
 

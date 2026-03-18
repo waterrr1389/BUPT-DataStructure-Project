@@ -26,7 +26,18 @@
 - [round-1-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-1-review-result.md)
 - [round-1-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-1-summary.md)
 - [round-2-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-2-prompt.md)
+- [round-2-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-2-review-prompt.md)
+- [round-2-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-2-review-result.md)
 - [round-2-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-2-summary.md)
+- [round-3-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-3-prompt.md)
+- [round-3-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-3-review-prompt.md)
+- [round-3-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-3-review-result.md)
+- [round-3-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-3-summary.md)
+- [round-4-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-4-prompt.md)
+- [round-4-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-4-review-prompt.md)
+- [round-4-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-4-review-result.md)
+- [round-4-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-4-summary.md)
+- [round-5-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-5-prompt.md)
 
 ## Round History
 
@@ -51,6 +62,26 @@
   - updated counts, test totals, startup behavior, and exchange metrics,
   - recorded route-strategy, indoor-routing, food-discovery, and innovation evidence,
   - added this round's summary artifact and goal-tracker update request.
+
+### Round 3
+
+- Round 3 landed the browser route-visualization surface and the last in-repository AC-6 wording fixes.
+- Artifact record for this round now exists in the RLCR workspace:
+  - `round-3-prompt.md`
+  - `round-3-review-prompt.md`
+  - `round-3-review-result.md`
+  - `round-3-summary.md`
+- The Round 3 summary records the route-map UI work and the wording-alignment follow-up, while the Round 3 review keeps the closed-loop marker regression and missing visualization-level tests open.
+
+### Round 4
+
+- Round 4 landed the closed-loop route-marker fix and direct regression coverage for browser marker placement.
+- Artifact record for this round now exists in the RLCR workspace:
+  - `round-4-prompt.md`
+  - `round-4-review-prompt.md`
+  - `round-4-review-result.md`
+  - `round-4-summary.md`
+- The Round 4 summary records the extracted browser marker helper and the 20-test suite, while the Round 4 review re-opened AC-6 evidence alignment because the delivery docs and agent-usage record still lagged the repository state.
 
 ## AI Assistance Record
 

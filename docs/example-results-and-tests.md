@@ -13,7 +13,7 @@ The repository regression surface is:
 
 ## Current Verified Results
 
-The figures below reflect the verified post-fix workspace state for March 18, 2026.
+The figures below reflect the verified workspace state for March 18, 2026, including the Round 4 regression fix and the Round 5 documentation alignment pass.
 
 ### Build
 
@@ -34,7 +34,7 @@ The figures below reflect the verified post-fix workspace state for March 18, 20
 
 ### Automated Tests
 
-- `npm test` passed with `17` tests.
+- `npm test` passed with `20` tests.
 - Current automated coverage includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
@@ -102,4 +102,4 @@ Representative deterministic outputs:
 - `timeout 15s npm run start` now fails in a controlled way with:
   - `Server failed to start: listen EPERM: operation not permitted 127.0.0.1:3000`
 - That output confirms the bind error is handled and surfaced cleanly.
-- The remaining gap is external live-bind verification in an environment that permits sockets.
+- The only remaining non-doc gap is external live-bind verification in an environment that permits sockets.
