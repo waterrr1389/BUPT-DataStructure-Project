@@ -384,8 +384,29 @@ export async function startServer(options: { port?: number; host?: string; runti
   const port = options.port ?? Number(process.env.PORT ?? 3000);
   const host = options.host ?? process.env.HOST ?? "127.0.0.1";
   const app = await createServerApp({ runtimeDir: options.runtimeDir });
-  await new Promise<void>((resolve) => {
-    app.server.listen(port, host, () => resolve());
+  const server = app.server as typeof app.server & {
+    once(event: "error", listener: (error: Error) => void): typeof app.server;
+    once(event: "listening", listener: () => void): typeof app.server;
+    removeListener(event: "error", listener: (error: Error) => void): typeof app.server;
+    removeListener(event: "listening", listener: () => void): typeof app.server;
+  };
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      server.removeListener("error", onError);
+      server.removeListener("listening", onListening);
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    const onListening = () => {
+      cleanup();
+      resolve();
+    };
+
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port, host);
   });
   return {
     ...app,
@@ -394,8 +415,13 @@ export async function startServer(options: { port?: number; host?: string; runti
 }
 
 async function runServerFromCli(): Promise<void> {
-  const started = await startServer();
-  process.stdout.write(`Server listening on ${started.url}\n`);
+  try {
+    const started = await startServer();
+    process.stdout.write(`Server listening on ${started.url}\n`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown startup error.";
+    throw new Error(`Server failed to start: ${message}`);
+  }
 }
 
 if (require.main === module) {
