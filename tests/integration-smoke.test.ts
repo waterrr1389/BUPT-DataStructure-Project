@@ -72,8 +72,17 @@ test("demo support exposes deterministic end-to-end coverage", async () => {
   assert.equal(report.exchange.exactTitleId, report.journal.createdId);
   assert.equal(report.exchange.fullTextTopId, report.journal.createdId);
   assert.deepEqual(report.exchange.fullTextMatches, ["media", "lab", "noodle"]);
+  assert.equal(report.exchange.inputLength > 0, true);
   assert.equal(report.exchange.compressedLength > 0, true);
-  assert.equal(report.exchange.compressionRatio > 1, true);
+  assert.equal(report.exchange.compressedLength < report.exchange.inputLength, true);
+  assert.equal(report.exchange.compressionRatio > 0, true);
+  assert.equal(report.exchange.compressionRatio < 1, true);
+  assert.equal(report.exchange.algorithmCompressionRatio > 0, true);
+  assert.equal(
+    report.exchange.algorithmCompressionRatio < report.exchange.compressionRatio,
+    true,
+  );
+  assert.equal(report.exchange.spaceSavings > 0, true);
   assert.equal(report.exchange.decompressedMatches, true);
   assert.equal(report.exchange.storyboardTitle, "River Polytechnic indoor loop memo storyboard");
   assert.deepEqual(report.exchange.storyboardFrameIds, [

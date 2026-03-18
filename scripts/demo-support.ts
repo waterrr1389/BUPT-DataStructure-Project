@@ -72,8 +72,11 @@ export interface DemoReport {
     exactTitleId: string;
     fullTextTopId: string;
     fullTextMatches: string[];
+    inputLength: number;
     compressedLength: number;
     compressionRatio: number;
+    algorithmCompressionRatio: number;
+    spaceSavings: number;
     decompressedMatches: boolean;
     storyboardTitle: string;
     storyboardFrameIds: string[];
@@ -332,8 +335,11 @@ export async function createDemoReport(): Promise<DemoReport> {
         viewedViews: readNumber(viewedJournal, "views"),
       },
       exchange: {
-        compressedLength: compressed.compressed.length,
-        compressionRatio: compressed.ratio,
+        inputLength: compressed.inputLength,
+        compressedLength: compressed.payloadLength,
+        compressionRatio: compressed.compressionRatio,
+        algorithmCompressionRatio: compressed.algorithmCompressionRatio,
+        spaceSavings: compressed.spaceSavings,
         decompressedMatches: decompressed.text === DEMO_JOURNAL_BODY,
         exactTitleId: readString(exactTitleMatch, "id"),
         fullTextMatches: matchedQueryTokens(
