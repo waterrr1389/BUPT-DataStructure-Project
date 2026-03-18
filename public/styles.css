@@ -253,6 +253,309 @@ button.ghost {
   gap: 12px;
 }
 
+.route-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.route-surface-card {
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(17, 32, 49, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 245, 226, 0.92)),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 36%);
+}
+
+.route-surface-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.route-surface-head h3 {
+  margin: 6px 0 0;
+}
+
+.route-surface-meta {
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
+.route-map-frame {
+  padding: 10px;
+  border-radius: 26px;
+  border: 1px solid rgba(17, 32, 49, 0.1);
+  background: rgba(255, 251, 244, 0.78);
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.route-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 18 / 11;
+}
+
+.map-canvas {
+  fill: rgba(255, 252, 246, 0.98);
+}
+
+.map-grid {
+  fill: url(#route-grid);
+  opacity: 0.8;
+}
+
+.map-grid-line {
+  fill: none;
+  stroke: rgba(17, 32, 49, 0.08);
+  stroke-width: 1;
+}
+
+.map-outdoor-zone {
+  fill: rgba(217, 93, 30, 0.08);
+  stroke: rgba(217, 93, 30, 0.18);
+  stroke-width: 2;
+}
+
+.map-building-zone {
+  fill: rgba(17, 32, 49, 0.06);
+  stroke: rgba(17, 32, 49, 0.18);
+  stroke-width: 2;
+  stroke-dasharray: 10 8;
+}
+
+.map-building-label {
+  fill: rgba(17, 32, 49, 0.66);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.map-edge {
+  stroke: rgba(17, 32, 49, 0.22);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.map-edge.is-indoor {
+  stroke: rgba(15, 118, 110, 0.34);
+  stroke-dasharray: 12 10;
+}
+
+.map-edge.is-bike-lane {
+  stroke: rgba(53, 89, 180, 0.3);
+}
+
+.map-edge.is-shuttle-lane {
+  stroke: rgba(139, 90, 20, 0.3);
+  stroke-dasharray: 10 7;
+}
+
+.route-segment {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.route-segment-halo {
+  stroke: rgba(255, 255, 255, 0.94);
+  stroke-width: 18;
+}
+
+.route-segment-line {
+  stroke-width: 10;
+}
+
+.route-segment-line.is-walkway {
+  stroke: var(--accent-3);
+}
+
+.route-segment-line.is-indoor {
+  stroke: var(--accent-2);
+  stroke-dasharray: 18 10;
+}
+
+.route-segment-line.is-bike-lane {
+  stroke: #3559b4;
+}
+
+.route-segment-line.is-shuttle-lane {
+  stroke: #8b5a14;
+  stroke-dasharray: 18 8;
+}
+
+.map-node {
+  stroke: rgba(255, 252, 246, 0.96);
+  stroke-width: 3;
+}
+
+.map-node.is-outdoor {
+  fill: rgba(217, 93, 30, 0.8);
+}
+
+.map-node.is-indoor {
+  fill: rgba(15, 118, 110, 0.82);
+}
+
+.map-node.is-route-node {
+  stroke-width: 4;
+}
+
+.map-node.is-preview-node {
+  fill: rgba(255, 251, 244, 0.96);
+  stroke: rgba(17, 32, 49, 0.58);
+  stroke-width: 4;
+}
+
+.route-marker {
+  stroke: rgba(255, 252, 246, 0.98);
+  stroke-width: 3;
+}
+
+.route-marker-start {
+  fill: var(--accent-2);
+}
+
+.route-marker-end {
+  fill: var(--accent);
+}
+
+.route-marker-transition {
+  fill: var(--accent-2);
+}
+
+.route-marker-turn {
+  fill: var(--ink);
+}
+
+.route-marker-preview-start,
+.route-marker-preview-end {
+  fill: rgba(17, 32, 49, 0.12);
+  stroke: rgba(17, 32, 49, 0.58);
+  stroke-dasharray: 4 4;
+}
+
+.map-pill rect {
+  fill: rgba(17, 32, 49, 0.92);
+}
+
+.map-pill text {
+  fill: #fff7ed;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.map-pill.is-start rect,
+.map-pill.is-transition rect {
+  fill: rgba(15, 118, 110, 0.96);
+}
+
+.map-pill.is-end rect {
+  fill: rgba(217, 93, 30, 0.95);
+}
+
+.map-pill.is-turn rect {
+  fill: rgba(17, 32, 49, 0.95);
+}
+
+.map-pill.is-preview rect {
+  fill: rgba(17, 32, 49, 0.74);
+}
+
+.route-legend,
+.route-cue-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.route-legend {
+  margin-top: 14px;
+}
+
+.route-legend-item,
+.route-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 32, 49, 0.08);
+  background: rgba(255, 251, 244, 0.82);
+  font-size: 0.84rem;
+}
+
+.route-legend-swatch {
+  width: 22px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(17, 32, 49, 0.16);
+  flex: 0 0 auto;
+}
+
+.route-legend-swatch.outdoor-path {
+  background: var(--accent-3);
+}
+
+.route-legend-swatch.indoor-path {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--accent-2),
+      var(--accent-2) 10px,
+      rgba(255, 251, 244, 0.92) 10px,
+      rgba(255, 251, 244, 0.92) 16px
+    );
+}
+
+.route-legend-swatch.transition {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 14px solid var(--accent-2);
+  border-radius: 0;
+  background: transparent;
+}
+
+.route-legend-swatch.turn {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--ink);
+  transform: rotate(45deg);
+}
+
+.route-legend-swatch.start {
+  width: 14px;
+  height: 14px;
+  background: var(--accent-2);
+  border-radius: 50%;
+}
+
+.route-legend-swatch.end {
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.route-cue-row {
+  margin-top: 12px;
+}
+
+.route-map-note {
+  margin: 12px 0 0;
+  color: rgba(17, 32, 49, 0.66);
+}
+
 .result-card {
   padding: 14px;
   border-radius: 20px;
@@ -359,6 +662,14 @@ button.ghost {
   .span-2 {
     grid-column: auto;
   }
+
+  .route-surface-head {
+    flex-direction: column;
+  }
+
+  .route-surface-meta {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 640px) {
@@ -379,5 +690,14 @@ button.ghost {
   .button-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .route-surface-card {
+    padding: 14px;
+  }
+
+  .route-map-frame {
+    padding: 6px;
+    border-radius: 20px;
   }
 }
