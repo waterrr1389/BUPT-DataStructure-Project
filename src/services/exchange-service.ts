@@ -1,7 +1,45 @@
-import { compressText, decompressText, excerpt, generateStoryboard, normalizeText } from "./fallback-algorithms";
+import {
+  compressText as compressJournalText,
+  decompressText as decompressJournalText,
+  type LzwCompressedData,
+} from "../algorithms/compression";
+import { excerpt, generateStoryboard, normalizeText } from "./fallback-algorithms";
 import { assertNonEmpty, ensureLimit, journalSummary } from "./service-helpers";
 import type { JournalStore } from "./journal-store";
 import type { ResolvedRuntime } from "./runtime";
+
+function isCompressedData(value: unknown): value is LzwCompressedData {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as { alphabet?: unknown; codes?: unknown };
+
+  return Array.isArray(candidate.alphabet)
+    && candidate.alphabet.every((symbol) => typeof symbol === "string")
+    && Array.isArray(candidate.codes)
+    && candidate.codes.every((code) => Number.isInteger(code) && code >= 0);
+}
+
+function serializeCompressedData(data: LzwCompressedData): string {
+  return JSON.stringify(data);
+}
+
+function deserializeCompressedData(input: string): LzwCompressedData {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(input) as unknown;
+  } catch {
+    throw new Error("Invalid compressed payload.");
+  }
+
+  if (!isCompressedData(parsed)) {
+    throw new Error("Invalid compressed payload.");
+  }
+
+  return parsed;
+}
 
 export function createExchangeService(runtime: ResolvedRuntime, store: JournalStore) {
   return {
@@ -47,7 +85,7 @@ export function createExchangeService(runtime: ResolvedRuntime, store: JournalSt
 
     compress(body: string) {
       const text = assertNonEmpty(body, "Compression requires journal text.");
-      const compressed = compressText(text);
+      const compressed = serializeCompressedData(compressJournalText(text).data);
       return {
         compressed,
         ratio: Number((compressed.length / text.length).toFixed(2)),
@@ -57,7 +95,7 @@ export function createExchangeService(runtime: ResolvedRuntime, store: JournalSt
     decompress(body: string) {
       const text = assertNonEmpty(body, "Decompression requires compressed text.");
       return {
-        text: decompressText(text),
+        text: decompressJournalText(deserializeCompressedData(text)),
       };
     },
 
