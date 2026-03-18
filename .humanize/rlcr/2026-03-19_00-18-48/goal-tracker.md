@@ -50,20 +50,22 @@ Source plan: plan.md
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 3 (Updated: Round 0 remediation bookkeeping)
+### Plan Version: 4 (Updated: Round 1 bookkeeping alignment and follow-up)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initialized the tracker from `plan.md` with a focused journal/exchange goal, five acceptance criteria, and a TDD-first task breakdown | Prevent goal drift before implementation starts and keep the round aligned with the plan's minimal-scope fix | AC-1, AC-2, AC-3, AC-4, AC-5 |
-| 0 | Recorded the integrated Round 0 implementation result after the service, presentation, and docs commits landed and `npm test` passed with 25 tests | Close the round with evidence-backed task completion and keep the tracker aligned with the verified branch state | AC-1, AC-2, AC-3, AC-4, AC-5 |
-| 0 | Applied the review-driven remediation after `round-0-review-result.md` identified missing consumer-path coverage and overstated March 19 docs evidence wording | Bring the mutable tracker back in line with the actual verified branch state before final Round 0 closure | AC-1, AC-3, AC-4, AC-5 |
+| 0 | Recorded the integrated Round 0 implementation result after the service, presentation, and initial docs commits landed and `npm test` passed with 25 tests | Capture the first integrated post-implementation state before follow-up review feedback arrived | AC-1, AC-2, AC-3, AC-4, AC-5 |
+| 0 | Applied the review-driven remediation after `round-0-review-result.md` identified missing consumer-path coverage and overstated March 19 docs evidence wording | Restore the live journal/exchange consumer path and narrow the docs/evidence mismatch, while leaving the final 27-test wording cleanup for later bookkeeping | AC-1, AC-3, AC-4, AC-5 |
+| 1 | Updated the tracker after Round 1 corrected `docs/example-results-and-tests.md` to the verified 27-test state and cited automated consumer-path coverage from `tests/journal-consumers.test.ts` | Keep the mutable tracker aligned with the current branch evidence and record the remaining `round-0-summary.md` follow-up discovered in this review | AC-5 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
+| Update `round-0-summary.md` so its closure language matches the final Round 1 docs/evidence chronology | AC-5 | pending | `round-0-summary.md` still says Round 0 already included the final docs/evidence correction and that no items remained, but the 27-test / automated consumer-path wording alignment landed in Round 1 |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -74,7 +76,7 @@ Source plan: plan.md
 | AC-2 | Introduce a shared duplicate-safe destination-label rule for affected dropdowns | 0 | 0 | Commit `c4daa81` added `public/journal-presentation.js` and `tests/journal-presentation.test.ts`, implementing and covering stable duplicate-name label disambiguation for destination options so same-name entries no longer surface as indistinguishable labels such as repeated `Amber Bay` |
 | AC-3 | Route journal/exchange rendering through destination and user lookups that prefer readable names | 0 | 0 | Commit `c4daa81` wired `public/app.js` through `public/journal-presentation.js` so journal and exchange cards render readable destination and user names instead of raw `dest-xxx / user-yy` IDs, while keeping fallback behavior test-covered. Remediation commit `5d64dab` added consumer-path regression coverage to ensure the live bindings continue to feed that readable presentation path correctly |
 | AC-4 | Add safe fallback handling for missing lookup entries and preserve journal-card interactions that depend on journal IDs | 0 | 0 | Commit `c4daa81` added safe lookup fallback coverage in `tests/journal-presentation.test.ts`. Review remediation in commit `5d64dab` extracted the journal action request path into the testable helper module `public/journal-consumers.js` and added `tests/journal-consumers.test.ts` coverage proving `data-journal-id` plus `view`, `rate`, and `delete` actions remain anchored to the journal ID rather than any destination or user lookup field |
-| AC-5 | Run the full test suite and update docs only for the exposed bootstrap/data-flow change | 0 | 0 | The integrated branch passed `npm test` with 27 passing tests after remediation. Documentation stayed scoped to the exposed behavior changes: earlier Round 0 docs alignment updated `docs/overall-design.md`, and remediation commit `9081fe0` revised `docs/example-results-and-tests.md` so March 19 automated/code-level evidence is clearly separated from the older March 18 live smoke evidence |
+| AC-5 | Run the full test suite and update docs only for the exposed bootstrap/data-flow change | 1 | 1 | The branch passed `npm test` with 27 passing tests. Documentation stayed scoped to the exposed behavior changes: earlier Round 0 docs alignment updated `docs/overall-design.md`, and Round 1 commit `9e99236` corrected `docs/example-results-and-tests.md` so March 19 automated evidence now records 27 tests, cites automated journal/exchange consumer-path coverage from `tests/journal-consumers.test.ts`, and keeps the March 18 smoke run separate as historical live verification |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
