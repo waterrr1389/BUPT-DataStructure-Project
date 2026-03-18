@@ -1,20 +1,27 @@
 # Agent Usage
 
-## RLCR Environment
+## Stable Recording Policy
+
+- This file records only completed or stopped RLCR workspaces.
+- Active loops are intentionally excluded until they finish or stop, because current-round artifact inventories change as soon as review results land.
+- The stable historical record below covers `.humanize/rlcr/2026-03-18_14-02-34/`, the loop that stopped after the Round 9 review identified a repeated current-round artifact drift.
+
+## Historical RLCR Environment
 
 - Repository root: `/home/frisk/ds-ts`
 - RLCR skill: `/home/frisk/.codex/skills/humanize-rlcr/SKILL.md`
 - RLCR runtime root: `/home/frisk/.codex/skills/humanize`
-- RLCR workspace: `.humanize/rlcr/2026-03-18_14-02-34/`
+- Recorded RLCR workspace: `.humanize/rlcr/2026-03-18_14-02-34/`
+- Outcome: stopped after the Round 9 review because the agent-usage record kept lagging the live artifact set
 - Shell: `bash`
-- Current date context: `2026-03-18`
+- Date context: `2026-03-18`
 - Timezone context: `Asia/Shanghai`
-- Filesystem mode: `workspace-write`
-- Network access: restricted
-- Approval policy: `never`
+- Filesystem mode during that loop: `workspace-write`
+- Network access during that loop: restricted
+- Approval policy during that loop: `never`
 - Project toolchain: global `node` and `tsc`, no npm dependencies
 
-## Repository RLCR Artifacts
+## Historical RLCR Artifacts
 
 - [goal-tracker.md](../.humanize/rlcr/2026-03-18_14-02-34/goal-tracker.md)
 - [round-0-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-0-prompt.md)
@@ -55,7 +62,9 @@
 - [round-8-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-summary.md)
 - [round-9-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-prompt.md)
 - [round-9-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-review-prompt.md)
+- [round-9-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md)
 - [round-9-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md)
+- [stop-state.md](../.humanize/rlcr/2026-03-18_14-02-34/stop-state.md)
 
 ## Round History
 
@@ -107,8 +116,8 @@
 - Artifact record for this round now exists in the RLCR workspace:
   - `round-5-prompt.md`
   - `round-5-review-prompt.md`
-  - `round-5-summary.md`
   - `round-5-review-result.md`
+  - `round-5-summary.md`
 - The Round 5 summary records the docs-alignment pass, while the Round 5 review kept live-bind verification open and narrowed the remaining AC-6 gap to this file's missing current-round artifact/history entry.
 
 ### Round 6
@@ -143,19 +152,26 @@
 
 ### Round 9
 
-- Round 9 is the in-progress agent-usage correction pass after the Round 8 review caught another current-round overstatement in this file.
-- Artifact record for this round is being assembled in the RLCR workspace:
+- Round 9 refreshed the agent-usage environment block and tried to close the remaining AC-6 documentation gap without changing product code.
+- Artifact record for this round exists in the RLCR workspace:
   - `round-9-prompt.md`
   - `round-9-review-prompt.md`
+  - `round-9-review-result.md`
   - `round-9-summary.md`
-- The review result for this round is still pending, so AC-6 should not be treated as closed from this record alone.
+- The Round 9 summary requested AC-6 closure, but the Round 9 review rejected that request because the file was still using a current-round recording model. The loop then stopped, and `stop-state.md` captured the need for a stable completed/stopped-round strategy.
+
+## Stop Outcome
+
+- `stop-state.md` records that the loop hit a documentation-process circuit breaker after Round 7, Round 8, and Round 9 repeated the same current-round artifact problem.
+- The remaining cleanup after that stop was documentation-process alignment only; the stopped review did not identify a new product-code regression.
 
 ## AI Assistance Record
 
 - Workflow: RLCR review loop with repository-local artifacts under `.humanize/rlcr/2026-03-18_14-02-34/`
+- Recorded scope in this file: completed or stopped RLCR history only
 - Skill used for this repository: `humanize-rlcr`
 - External services: none
-- Network usage: local loopback live-start and browser/API smoke verification
+- Network usage: local loopback live-start and browser/API smoke verification during completed historical rounds
 - Main AI-assisted areas:
   - architecture and repository bootstrapping,
   - algorithm and service implementation review,

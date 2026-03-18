@@ -2,64 +2,36 @@
 
 ## 目的
 
-这个文件给下一个会话做快速交接，避免再次加载旧 `plan.md` 的完整大上下文。
+这个文件只保留文档收尾所需的最小上下文，不再把旧 `plan.md` 当作主要实施背景。
 
 ## 当前结论
 
-产品实现基本可用，当前阻塞主要是文档流程，不是产品代码。
+- 产品实现和主要命令验证已经完成，剩余风险集中在 RLCR 文档记录策略与交接一致性。
+- 已验证命令包括 `npm run demo`、`npm run validate:data`、`npm test` 和 `npm run benchmark`。
+- `127.0.0.1:3000` 上的 `listen EPERM` 只说明受限环境限制；March 18 的 unrestricted-environment 验证已经证明应用可以正常启动并提供浏览器/API surface。
 
-已实际验证：
+## 历史失败模式
 
-- `npm run demo` 通过
-- `npm run validate:data` 通过
-- `npm test` 通过
-- `npm run benchmark` 通过
+- 历史 loop `.humanize/rlcr/2026-03-18_14-02-34/` 在 Round 7、8、9 连续重复同一个问题：`docs/agent-usage.md` 试图记录“当前轮”，结果 `round-N-review-result.md` 一落盘，文档就立即过时。
+- Round 9 的 review 和 stop artifact 是这次 docs-only 收尾的主要证据入口。
 
-当前无法在本执行环境里验证的只有本地监听端口：
+关键文件：
 
-- `npm run start` 在当前会话中报 `listen EPERM: operation not permitted 127.0.0.1:3000`
-- 最小化 Node HTTP server 直接 `listen(0, "127.0.0.1")` 也会报同类错误
-- 因此这是环境限制，不足以单独判定应用实现失败
-
-## 上一轮 RLCR 为什么停了
-
-历史 loop 反复卡在同一个问题：
-
-- `docs/agent-usage.md` 对“当前轮 artifact”的记录总是落后一步
-- 当新的 `round-N-review-result.md` 生成后，文档里“review result pending”就立刻过时
-- 这个问题在 Round 7/8/9 连续重复，最终触发 `STOP`
-
-关键历史目录：
-
-- `.humanize/rlcr/2026-03-18_14-02-34/`
-
-最关键的历史文件：
-
+- [draft.md](/home/frisk/ds-ts/draft.md)
+- [plan2.md](/home/frisk/ds-ts/plan2.md)
 - [docs/agent-usage.md](/home/frisk/ds-ts/docs/agent-usage.md)
+- [.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md)
 - [.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md)
 - [.humanize/rlcr/2026-03-18_14-02-34/stop-state.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_14-02-34/stop-state.md)
 
-## 新会话应该做什么
+## 允许修改范围
 
-只做文档收尾，不做产品代码修改。
+- 常规修改只应落在文档路径，例如 `docs/agent-usage.md`、`README.md`、`README-next-session.md`，以及确有必要时新增的短策略说明文档。
+- 不要把问题扩展到 `src/`、`public/`、`tests/`、`scripts/`。
+- 不要回写历史 RLCR 状态文件，例如旧 loop 目录里的 `state.md`、`goal-tracker.md` 或其他已落盘 artifact。
 
-建议新会话：
+## 推荐顺序
 
-1. 以 [draft.md](/home/frisk/ds-ts/draft.md) 为新的简化草稿。
-2. 生成一个 docs-only plan，或者直接围绕 `draft.md` 开文档型 loop。
-3. 优先修正 [docs/agent-usage.md](/home/frisk/ds-ts/docs/agent-usage.md) 的记录策略。
-4. 必要时只对 `README.md` 做少量补充说明，不去动 `src/`、`tests/`、`public/`、`scripts/`。
-
-## 推荐策略
-
-`docs/agent-usage.md` 最好只记录“已完成轮次”，不要再把“当前正在进行的轮次”写成类似验收结论的状态。
-
-如果一定要记录当前轮，也要明确标记为 in-progress，并说明它不作为闭环证据。
-
-## 当前附带状态
-
-本会话还新开了一个 review-only loop：
-
-- `.humanize/rlcr/2026-03-18_20-24-46/`
-
-它只是为了缩小上下文和尝试 review-only 流程，不是必须继续沿用。下个会话如果要完全清爽地重来，可以忽略它，按新草稿重新开一个 docs-only 流程。
+1. 先确保 `docs/agent-usage.md` 只记录已完成或已停止的 loop，并完整覆盖历史 Round 9 artifact。
+2. 再确认 `README.md` 和本交接文件都把问题描述为文档流程对齐，而不是产品代码缺陷。
+3. 在请求 closure 前，对照 `round-9-summary.md`、`round-9-review-result.md`、`stop-state.md` 和当前文档做一次一致性复核。
