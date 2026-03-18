@@ -42,6 +42,7 @@
 - [round-5-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-5-review-result.md)
 - [round-5-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-5-summary.md)
 - [round-6-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-prompt.md)
+- [round-6-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-summary.md)
 
 ## Round History
 
@@ -97,12 +98,20 @@
   - `round-5-review-result.md`
 - The Round 5 summary records the docs-alignment pass, while the Round 5 review kept live-bind verification open and narrowed the remaining AC-6 gap to this file's missing current-round artifact/history entry.
 
+### Round 6
+
+- Round 6 closed the stale current-round artifact gap in this file and refreshed the delivery evidence to include unrestricted-environment live-start plus browser/API smoke verification.
+- Artifact record for this round now exists in the RLCR workspace:
+  - `round-6-prompt.md`
+  - `round-6-summary.md`
+- The Round 6 summary records the successful `127.0.0.1:3000` bind evidence, the live browser/API smoke pass, and the tracker-update request to close the remaining AC-5 and AC-6 follow-up items.
+
 ## AI Assistance Record
 
 - Workflow: RLCR review loop with repository-local artifacts under `.humanize/rlcr/2026-03-18_14-02-34/`
 - Skill used for this repository: `humanize-rlcr`
 - External services: none
-- Network usage: local loopback startup verification attempts only
+- Network usage: local loopback live-start and browser/API smoke verification
 - Main AI-assisted areas:
   - architecture and repository bootstrapping,
   - algorithm and service implementation review,

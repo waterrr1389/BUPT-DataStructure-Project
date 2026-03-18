@@ -13,7 +13,7 @@ The repository regression surface is:
 
 ## Current Verified Results
 
-The figures below reflect the verified workspace state for March 18, 2026, including the Round 4 regression fix and the Round 5 documentation alignment pass.
+The figures below reflect the verified workspace state for March 18, 2026, including the Round 6 live-start and smoke-verification pass.
 
 ### Build
 
@@ -99,7 +99,32 @@ Representative deterministic outputs:
 
 ## Startup Behavior
 
-- `timeout 15s npm run start` now fails in a controlled way with:
-  - `Server failed to start: listen EPERM: operation not permitted 127.0.0.1:3000`
-- That output confirms the bind error is handled and surfaced cleanly.
-- The only remaining non-doc gap is external live-bind verification in an environment that permits sockets.
+- `node dist/src/server/index.js` successfully listened on `http://127.0.0.1:3000` in an unrestricted environment after the build step completed.
+- Live browser/API smoke verification against that server succeeded for:
+  - `/`
+  - `/api/health`
+  - `/api/bootstrap`
+  - `/api/destinations`
+  - `/api/destinations/recommendations`
+  - `/api/routes/plan`
+  - `/api/facilities/nearby`
+  - `/api/journals`
+  - `/api/journals/recommendations`
+  - `/api/journal-exchange/destination`
+  - `/api/journal-exchange/title`
+  - `/api/journal-exchange/search`
+  - `/api/journal-exchange/compress`
+  - `/api/journal-exchange/decompress`
+  - `/api/journal-exchange/storyboard`
+  - `/api/foods/recommendations`
+  - `/api/foods/search`
+- Verified smoke highlights from that live run:
+  - `/api/health` returned `ok: true` with external data, algorithms, and validation sources
+  - `/api/bootstrap` returned `12` users, `12` featured destinations, `20` categories, and `8` cuisines
+  - destination search returned `dest-002`, `dest-022`, `dest-042` as the top ids for `river polytechnic`
+  - route planning succeeded for `distance`, `time`, and `mixed`
+  - facility lookup returned `dest-002-facility-4` at distance `480`
+  - journal create/get/list/view/rate/recommendation succeeded on the live server
+  - journal exchange exact-title lookup, full-text search, compression/decompression, and storyboard generation succeeded on the live server
+  - food recommendation and cuisine-filtered search both returned `dest-002-food-3` with cuisine `noodle lab`
+- Earlier `EPERM` bind failures were specific to restricted-environment rounds and do not reflect the unrestricted March 18 verification state.

@@ -44,7 +44,7 @@ The package scripts are the delivery contract:
 
 ## Current Verified Evidence
 
-These results reflect the verified workspace state for March 18, 2026, including the Round 4 regression fix and the Round 5 documentation alignment pass:
+These results reflect the verified workspace state for March 18, 2026, including the Round 6 live-start and smoke-verification pass:
 
 - `npm run build` passed.
 - `npm run validate:data` passed with counts:
@@ -68,9 +68,10 @@ These results reflect the verified workspace state for March 18, 2026, including
   - compressionRatio `0.9050279329608939`
   - algorithmCompressionRatio `0.7430167597765364`
   - spaceSavings `0.0949720670391061`
-- `timeout 15s npm run start` failed in a controlled way with `Server failed to start: listen EPERM: operation not permitted 127.0.0.1:3000`.
+- `node dist/src/server/index.js` successfully bound to `http://127.0.0.1:3000` in an unrestricted environment.
+- Browser/API smoke verification against that live server succeeded for `/`, `/api/health`, `/api/bootstrap`, destination search and recommendation, route planning with `distance` / `time` / `mixed`, nearby facility lookup, journal create/get/list/view/rate/recommendation, journal exchange, and food discovery.
 
-All in-repository delivery work is now reflected in the docs. The only active non-doc follow-up is external live-bind verification in an environment that permits listening on `127.0.0.1:3000`.
+All in-repository delivery work and unrestricted-environment startup verification are now reflected in the docs.
 
 Benchmark timings are representative wall-clock measurements from one run, not permanent constants.
 
@@ -91,4 +92,4 @@ The required course-delivery material lives in `docs/`:
 
 ## Environment Note
 
-The remaining operational limitation is external live-bind verification. The compiled server now reports bind failures cleanly, but this sandbox does not permit listening on `127.0.0.1:3000`, so a full live-start check still has to be repeated in an unrestricted environment.
+Earlier `EPERM` bind failures came from restricted-environment rounds. March 18 unrestricted-environment verification confirmed that the compiled server can listen on `127.0.0.1:3000` and serve the browser/API demo surface successfully.
