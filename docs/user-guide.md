@@ -54,6 +54,6 @@ The demo covers:
 
 ## Troubleshooting
 
-- If `npm run start` fails with `EPERM` on `127.0.0.1:3000`, that is a sandbox limitation in this environment, not a known compile/runtime issue in the repo.
+- If `npm run start` fails with `EPERM` on `127.0.0.1:3000` inside a restricted sandbox, treat that as an environment limitation rather than a known compile/runtime issue in the repo. The March 18 unrestricted-environment verification recorded elsewhere in the delivery docs confirmed that the app can also start successfully and serve the browser/API surface.
 - If demo output changes, rerun `npm test` because `tests/integration-smoke.test.ts` asserts the deterministic demo report structure.
 - If validation fails, inspect `src/data/seed.ts` and `src/data/validation.ts`; `scripts/validate-data.ts` now checks the real runtime dataset, not a toy sample.

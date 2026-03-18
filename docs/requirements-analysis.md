@@ -103,8 +103,10 @@ Current evidence:
 - Global toolchain only: satisfied. The documented flow uses global `node` and `tsc`.
 - Deterministic command surface: satisfied for build, validation, tests, and demo. Benchmark timings remain representative because wall-clock results vary.
 - Multi-worker readability: satisfied through clear module boundaries across `src/algorithms/`, `src/services/`, `src/server/`, `scripts/`, and `tests/`.
-- Controlled startup errors: satisfied for local failure handling. Bind failures now reach the CLI wrapper and report a clear `Server failed to start: listen EPERM...` message in this sandbox.
+- Controlled startup errors: satisfied. Restricted environments still surface a clear `Server failed to start: listen EPERM...` message through the CLI wrapper, and the March 18 unrestricted-environment verification also confirmed a successful live bind on `127.0.0.1:3000`.
 
-## Remaining External Requirement
+## Startup Verification Status
 
-The only unresolved verification item is a successful live bind outside the sandbox. The code now handles bind errors cleanly, but the environment still blocks `127.0.0.1:3000`.
+March 18 unrestricted-environment verification confirmed a successful bind on `127.0.0.1:3000` plus browser/API smoke coverage across the demo surface.
+
+Earlier sandbox `EPERM` results remain useful only as historical evidence that restricted environments surface bind failures cleanly instead of crashing the server process.
