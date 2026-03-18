@@ -77,7 +77,10 @@
 
 - 当前仓库存在历史 RLCR 目录：`.humanize/rlcr/2026-03-18_14-02-34/`
 - 当前最新与此问题直接相关的 review 结论是：
+  - `round-9-summary.md` 记录了当时发起 closure 的总结
   - `round-9-review-result.md` 最终版本以 `STOP` 结尾
+  - 这次 docs-only 收尾的叙述性证据应以 `round-9-review-result.md` 为主
+  - `stop-state.md` 只说明 loop 在 Round 9 review 之后停止，不承载详细原因说明
   - 问题集中在 `docs/agent-usage.md`
 - 当前产品层验证可见结果：
   - `demo` 通过
@@ -91,3 +94,10 @@
 - 不要复用旧 `plan.md` 作为实施目标。
 - 可以基于本 `draft.md` 重新生成一个更短的 docs-only plan。
 - 新 loop 应优先面向文档收尾，而不是重新审视整个产品实现。
+- 在请求 closure 前，至少按下面顺序做一次一致性复核：
+  1. `README.md`
+  2. `draft.md` 与任何仍在保留的短交接文档
+  3. `docs/agent-usage.md`
+  4. `.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md`
+  5. `.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md`
+  6. `.humanize/rlcr/2026-03-18_14-02-34/stop-state.md`
