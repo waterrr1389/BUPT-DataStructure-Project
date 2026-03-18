@@ -17,6 +17,9 @@
 
 关键文件：
 
+- [.humanize/rlcr/2026-03-18_20-47-07/goal-tracker.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_20-47-07/goal-tracker.md)（当前 docs-only loop 的目标与已验证状态）
+- [.humanize/rlcr/2026-03-18_20-47-07/round-1-review-result.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_20-47-07/round-1-review-result.md)（当前 loop 已接受的 Round 1 结论）
+- [.humanize/rlcr/2026-03-18_20-47-07/state.md](/home/frisk/ds-ts/.humanize/rlcr/2026-03-18_20-47-07/state.md)（当前 loop 状态；现在已进入 review phase）
 - [draft.md](/home/frisk/ds-ts/draft.md)
 - [plan2.md](/home/frisk/ds-ts/plan2.md)
 - [docs/agent-usage.md](/home/frisk/ds-ts/docs/agent-usage.md)
