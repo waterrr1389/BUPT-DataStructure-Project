@@ -1,7 +1,5 @@
+import { seedData } from "../src/data/seed";
 import { assertValidSeedData, summarizeSeedData } from "../src/data/validation";
-import { createSampleSeedData } from "./sample-data";
-
-const seedData = createSampleSeedData();
 
 assertValidSeedData(seedData);
 
