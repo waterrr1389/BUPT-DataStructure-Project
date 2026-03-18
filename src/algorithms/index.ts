@@ -1,3 +1,4 @@
+export { recommendation, routing, search } from "./runtime-helpers";
 export * from "./compression";
 export * from "./fuzzy";
 export * from "./graph";

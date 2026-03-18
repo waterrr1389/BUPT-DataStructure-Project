@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
+import { parseDestinationSortBy } from "../services/contracts";
 import { createAppServices, type AppServices } from "../services/index";
 
 const publicDir = path.resolve(process.cwd(), "public");
@@ -119,7 +120,7 @@ async function handleApi(
     const query = url.searchParams.get("query") ?? undefined;
     const category = url.searchParams.get("category") ?? undefined;
     const userId = url.searchParams.get("userId") ?? undefined;
-    const sortBy = (url.searchParams.get("sortBy") as "heat" | "rating" | "match" | null) ?? undefined;
+    const sortBy = parseDestinationSortBy(url.searchParams.get("sortBy"));
     if (!query && !category) {
       json(response, 200, { items: services.destinations.listCatalog(asNumber(url.searchParams.get("limit")) ?? 18) });
       return true;
@@ -137,10 +138,13 @@ async function handleApi(
   }
 
   if (request.method === "GET" && url.pathname === "/api/destinations/recommendations") {
+    const sortBy = parseDestinationSortBy(url.searchParams.get("sortBy"));
     json(response, 200, {
       items: services.destinations.recommend({
         userId: url.searchParams.get("userId") ?? undefined,
         query: url.searchParams.get("query") ?? undefined,
+        category: url.searchParams.get("category") ?? undefined,
+        sortBy,
         limit: asNumber(url.searchParams.get("limit")),
       }),
     });

@@ -214,10 +214,27 @@ export interface ServiceContextOptions {
   runtimeDir?: string;
 }
 
+export const DESTINATION_SORT_BY_VALUES = ["heat", "rating", "match"] as const;
+
+export type DestinationSortBy = (typeof DESTINATION_SORT_BY_VALUES)[number];
+
+export function parseDestinationSortBy(value: string | null | undefined): DestinationSortBy | undefined {
+  const candidate = value?.trim();
+  if (!candidate) {
+    return undefined;
+  }
+
+  if ((DESTINATION_SORT_BY_VALUES as readonly string[]).includes(candidate)) {
+    return candidate as DestinationSortBy;
+  }
+
+  throw new Error(`Invalid sortBy value: ${candidate}. Expected one of ${DESTINATION_SORT_BY_VALUES.join(", ")}.`);
+}
+
 export interface DestinationQuery {
   query?: string;
   category?: string;
-  sortBy?: "heat" | "rating" | "match";
+  sortBy?: DestinationSortBy;
   limit?: number;
   userId?: string;
 }
