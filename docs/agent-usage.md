@@ -42,6 +42,8 @@
 - [round-5-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-5-review-result.md)
 - [round-5-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-5-summary.md)
 - [round-6-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-prompt.md)
+- [round-6-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-review-prompt.md)
+- [round-6-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-review-result.md)
 - [round-6-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-summary.md)
 
 ## Round History
@@ -100,11 +102,13 @@
 
 ### Round 6
 
-- Round 6 closed the stale current-round artifact gap in this file and refreshed the delivery evidence to include unrestricted-environment live-start plus browser/API smoke verification.
+- Round 6 refreshed the delivery evidence to include unrestricted-environment live-start plus browser/API smoke verification, then recorded the follow-up review artifacts that kept the remaining AC-6 docs-alignment task open.
 - Artifact record for this round now exists in the RLCR workspace:
   - `round-6-prompt.md`
+  - `round-6-review-prompt.md`
+  - `round-6-review-result.md`
   - `round-6-summary.md`
-- The Round 6 summary records the successful `127.0.0.1:3000` bind evidence, the live browser/API smoke pass, and the tracker-update request to close the remaining AC-5 and AC-6 follow-up items.
+- The Round 6 summary records the successful `127.0.0.1:3000` bind evidence, the live browser/API smoke pass, and the tracker-update request that closed AC-5 while leaving one final AC-6 docs-consistency pass for Round 7.
 
 ## AI Assistance Record
 
