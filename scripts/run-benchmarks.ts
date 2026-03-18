@@ -2,7 +2,7 @@ import { collectBenchmarkResults } from "./benchmark-support";
 
 const results = collectBenchmarkResults();
 
-console.log("Deterministic benchmark results:");
+console.log("Representative benchmark results:");
 
 for (const result of results) {
   console.log(

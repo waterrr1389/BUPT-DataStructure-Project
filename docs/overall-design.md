@@ -24,15 +24,17 @@ The project is designed as a single TypeScript codebase with custom algorithm mo
 
 ### Service Layer
 
-`src/services/**` coordinates domain data with algorithm modules. Expected service groups include:
+`src/services/**` coordinates domain data with algorithm modules through the implemented service modules:
 
-- Recommendation services
-- Search services
-- Routing services
-- Facility lookup services
-- Journal services
-- Food services
-- AIGC orchestration services
+- `src/services/index.ts` composes the application service container and bootstrap response.
+- `src/services/runtime.ts` resolves seed data, validation, algorithm helpers, and fallback runtime behavior.
+- `src/services/destination-service.ts` serves destination catalog, search, and recommendation workflows.
+- `src/services/route-service.ts` plans shortest-path and multi-stop routes within destinations.
+- `src/services/facility-service.ts` finds nearby facilities by category, radius, and travel mode.
+- `src/services/food-service.ts` handles food recommendation, cuisine filtering, and text search.
+- `src/services/journal-service.ts` and `src/services/journal-store.ts` manage journal persistence and CRUD-style operations.
+- `src/services/exchange-service.ts` supports journal discovery, text compression, and storyboard generation features.
+- `src/services/contracts.ts`, `src/services/service-helpers.ts`, `src/services/fallback-data.ts`, and `src/services/fallback-algorithms.ts` provide shared service types and support utilities.
 
 ### Delivery Layer
 
