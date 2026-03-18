@@ -12,7 +12,8 @@
 - `npm run demo`、`npm run validate:data`、`npm test`、`npm run benchmark` 在草稿中给出的结果，视为 2026-03-18 当前仓库状态的已验证证据，不额外提升为新的长期硬性指标。
 - `20/20` 测试数、数据规模计数和 benchmark 数值属于当前证据快照；硬性要求是文档如实表述已验证状态，不把这些瞬时数值写成未来必须永久保持的独立业务约束。
 - 当前受限执行环境中的 `listen EPERM 127.0.0.1` 失败应被表述为环境限制说明，而不是产品实现失败证据。
-- 计划正文统一使用中文，以匹配 `draft.md` 和 `README-next-session.md` 的交接语境；实际文档落地时可继续沿用仓库既有的英文或中英文混合风格，但单个文档内部应保持自洽。
+- 计划正文统一使用中文，以匹配 `draft.md` 的简化交接语境；实际文档落地时可继续沿用仓库既有的英文或中英文混合风格，但单个文档内部应保持自洽。
+- 若仓库不保留单独的 `README-next-session.md`，可由 `draft.md` 或等价短文档承担最小交接上下文，只要信息一致、足够短且可直接驱动下一次 docs-only 会话。
 
 ## 验收标准
 
@@ -48,7 +49,7 @@
 
 - AC-4: 交接材料足够短、足够直接，使后续 reviewer 不必重新依赖旧 `plan.md` 的完整上下文。
   - 正向测试（应通过）：
-    - `README-next-session.md` 或等价文档能用简短说明概括当前结论、核心失败模式、推荐策略和允许修改范围。
+    - `draft.md` 或等价短交接文档能用简短说明概括当前结论、核心失败模式、推荐策略和允许修改范围。
     - 后续会话仅通过 `draft.md`、新计划和关键文档即可理解任务，无需重新解析旧的大计划背景。
     - 交接文档指出最关键的 RLCR 目录与 Round 9 相关文件，帮助 reviewer 快速定位证据。
   - 反向测试（应失败）：
@@ -81,7 +82,7 @@
 
 - 重写 `docs/agent-usage.md` 的轮次记录策略与 Round 9 历史描述；
 - 在 `README.md` 中补齐交付状态、环境限制和文档流程问题说明；
-- 更新 `README-next-session.md`，使其可直接驱动下一次 docs-only 会话；
+- 更新 `draft.md` 或等价短交接文档，使其可直接驱动下一次 docs-only 会话；
 - 如有必要，新增一个专门说明“RLCR artifact 记录策略”的短文档，用于固化“只记录已完成轮次”或等价稳定策略；
 - 对关键文档做一次最终一致性复核，确保 closure 结论只建立在已完成状态上。
 
@@ -96,7 +97,7 @@
 ### 允许的实现选择
 
 - 可以使用：只记录已完成轮次的历史策略；或把当前轮隔离为明确的 `in-progress` 区块并声明其不作为验收依据。
-- 可以使用：在 `README.md`、`README-next-session.md`、新增短文档之间分摊说明职责，只要最终信息一致。
+- 可以使用：在 `README.md`、`draft.md`、新增短文档之间分摊说明职责，只要最终信息一致。
 - 可以使用：重新组织 `docs/agent-usage.md` 的结构，例如把“Artifact Inventory”和“Round History”改为只面向 completed rounds 的写法。
 - 不能使用：修改 `src/`、`public/`、`tests/`、`scripts/` 来“解决”文档问题。
 - 不能使用：回写历史 RLCR 状态文件、伪造未生成的 artifact、或把未来动作提前写成已完成事实。
@@ -113,7 +114,7 @@
 1. 先读取真实 artifact 状态：
    - `docs/agent-usage.md`
    - `README.md`
-   - `README-next-session.md`
+   - `draft.md`（若其承担本轮最小交接上下文）
    - `.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md`
    - `.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md`
 2. 明确记录策略：
@@ -122,17 +123,17 @@
 3. 再更新文档叙述：
    - 先修 `docs/agent-usage.md` 的结构和 Round 9 描述；
    - 再对 `README.md` 做最少量澄清；
-   - 最后刷新 `README-next-session.md` 或新增策略说明文档。
+   - 最后刷新 `draft.md` 或新增策略说明文档。
 4. 最后做 closure 前复核：
    - 对照相关文档与 RLCR artifact，确认没有“summary 已关闭、文档仍滞后”的情况；
    - 只有在各文档描述同一已完成状态时，才允许提出收口结论。
 
 ### 相关参考路径
 
-- `draft.md`：本计划的直接输入草稿。
+- `draft.md`：本计划的直接输入草稿，也可作为最小交接上下文的默认入口。
 - `docs/agent-usage.md`：当前问题最集中的文档，也是优先修复对象。
 - `README.md`：产品交付状态和环境说明的主入口。
-- `README-next-session.md`：缩短上下文、支撑下一轮 docs-only 会话的交接文档。
+- `draft.md`：若未保留单独交接文档，它也是支撑下一轮 docs-only 会话的简化交接入口。
 - `.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md`：直接指出 Round 9 文档循环问题的 review 结论。
 - `.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md`：需要与最终文档状态重新对齐的 summary 证据。
 - `.humanize/rlcr/2026-03-18_14-02-34/goal-tracker.md`：只读参考，用于确认当前 AC-6 仍未闭合；除非新的 loop 明确要求，否则不应主动修改。
@@ -141,7 +142,7 @@
 
 - 优先稳定真实性，而不是追求“当前轮实时同步”。对 RLCR 文档来说，延迟记录已完成轮次比错误声称当前轮已闭合更可控。
 - 若 `README.md` 已经较完整，应只补充必要澄清，不要重新改写整个交付说明。
-- 若 `README-next-session.md` 已经足够短，可只增强其“策略说明”和“边界约束”，避免再次膨胀成旧计划的替代品。
+- 若 `draft.md` 已经足够短，可只增强其“策略说明”和“边界约束”，避免再次膨胀成旧计划的替代品。
 - 任何新增文档都应服务于减少循环问题，而不是引入新的维护面。
 
 ## 依赖关系与实施顺序
@@ -149,7 +150,7 @@
 ### 里程碑
 
 1. 里程碑一：确认真实状态与失败模式
-   - 阶段 A：核对 `draft.md`、`docs/agent-usage.md`、`README.md`、`README-next-session.md`
+   - 阶段 A：核对 `draft.md`、`docs/agent-usage.md`、`README.md`，以及任何仍在使用的短交接文档
    - 阶段 B：核对 Round 9 review result、summary 与相关 RLCR artifact
    - 阶段 C：明确哪些表述属于“事实证据”，哪些属于“流程状态”
 
@@ -160,7 +161,7 @@
 
 3. 里程碑三：刷新交付与交接文档
    - 阶段 A：在 `README.md` 中补齐产品状态与环境限制澄清
-   - 阶段 B：在 `README-next-session.md` 中保留最小可继续上下文
+   - 阶段 B：在 `draft.md` 或等价短交接文档中保留最小可继续上下文
    - 阶段 C：确认范围说明始终维持 docs-only 边界
 
 4. 里程碑四：完成一致性复核并准备收口
