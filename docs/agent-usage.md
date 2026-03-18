@@ -45,6 +45,12 @@
 - [round-6-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-review-prompt.md)
 - [round-6-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-review-result.md)
 - [round-6-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-6-summary.md)
+- [round-7-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-7-prompt.md)
+- [round-7-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-7-review-prompt.md)
+- [round-7-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-7-review-result.md)
+- [round-7-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-7-summary.md)
+- [round-8-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-prompt.md)
+- [round-8-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-summary.md)
 
 ## Round History
 
@@ -109,6 +115,23 @@
   - `round-6-review-result.md`
   - `round-6-summary.md`
 - The Round 6 summary records the successful `127.0.0.1:3000` bind evidence, the live browser/API smoke pass, and the tracker-update request that closed AC-5 while leaving one final AC-6 docs-consistency pass for Round 7.
+
+### Round 7
+
+- Round 7 aligned the remaining delivery docs with the March 18 unrestricted-environment verification state after the Round 6 review narrowed AC-6 to documentation consistency only.
+- Artifact record for this round now exists in the RLCR workspace:
+  - `round-7-prompt.md`
+  - `round-7-review-prompt.md`
+  - `round-7-review-result.md`
+  - `round-7-summary.md`
+- The Round 7 summary records the final docs-alignment closure request, while the Round 7 review kept AC-6 open only because this file still lagged the current RLCR workspace by one round.
+
+### Round 8
+
+- Round 8 is the in-progress agent-usage catch-up pass that extends this record through the current RLCR workspace and targets the last remaining AC-6 docs-alignment gap.
+- Artifact record for this round is being created in the RLCR workspace:
+  - `round-8-prompt.md`
+  - `round-8-summary.md`
 
 ## AI Assistance Record
 
