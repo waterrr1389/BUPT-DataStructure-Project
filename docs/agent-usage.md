@@ -55,7 +55,6 @@
 - [round-8-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-8-summary.md)
 - [round-9-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-prompt.md)
 - [round-9-review-prompt.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-review-prompt.md)
-- [round-9-review-result.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-review-result.md)
 - [round-9-summary.md](../.humanize/rlcr/2026-03-18_14-02-34/round-9-summary.md)
 
 ## Round History
@@ -144,12 +143,12 @@
 
 ### Round 9
 
-- Round 9 is the in-progress final agent-usage alignment pass that extends this record through the active prompt, review, and summary cycle so the RLCR artifact history stops lagging the live workspace.
+- Round 9 is the in-progress agent-usage correction pass after the Round 8 review caught another current-round overstatement in this file.
 - Artifact record for this round is being assembled in the RLCR workspace:
   - `round-9-prompt.md`
   - `round-9-review-prompt.md`
-  - `round-9-review-result.md`
   - `round-9-summary.md`
+- The review result for this round is still pending, so AC-6 should not be treated as closed from this record alone.
 
 ## AI Assistance Record
 
