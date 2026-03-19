@@ -43,6 +43,10 @@ type AppShellModule = {
       viewRoot: unknown;
     };
     fetchFeed(filters?: Record<string, unknown>): Promise<unknown>;
+    fetchJournalComments(
+      journalId: string,
+      options?: { cursor?: string; limit?: number },
+    ): Promise<CommentResponse>;
     navigate(href: string, options?: Record<string, unknown>): void;
     start(): Promise<void>;
     state: {
@@ -107,6 +111,16 @@ function createCommentPage(start: number, count: number, nextCursor: string, tot
   };
 }
 
+function buildHref(pathname: string, params: Record<string, string | undefined> = {}) {
+  const url = new URL(pathname, "http://localhost");
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  });
+  return `${url.pathname}${url.search}`;
+}
+
 function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] } = {}) {
   const bootstrap = {
     users: [
@@ -142,10 +156,10 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
       return { available: true, item: { id: "comment-new" }, notice: "" };
     },
     buildMapHref(params: Record<string, string>) {
-      return `/map?destinationId=${params.destinationId}`;
+      return buildHref("/map", params);
     },
     buildPostHref(journalId: string, params: { actor?: string }) {
-      return params.actor ? `/posts/${journalId}?actor=${params.actor}` : `/posts/${journalId}`;
+      return buildHref(`/posts/${journalId}`, params);
     },
     async ensureDestinationDetails() {
       return {
@@ -348,7 +362,7 @@ function createExploreFixture(overrides: {
       });
     },
     buildMapHref(params: Record<string, string>) {
-      return `/map?destinationId=${params.destinationId}`;
+      return buildHref("/map", params);
     },
     debounce(callback: () => void) {
       const wrapped = () => callback();
@@ -1077,14 +1091,14 @@ test("post detail preserves the current actor on compose links", async () => {
 
     const composeLink = root.querySelector("[data-compose-href='true']");
     assert.ok(composeLink);
-    assert.equal(composeLink?.getAttribute("href"), "/compose?actor=user-2&destinationId=dest-1");
+    assert.equal(composeLink?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-2");
 
     const actorSelect = requireElement(root, "#post-actor");
     actorSelect.value = "user-1";
     dispatchDomEvent(actorSelect, "change");
     await settleAsync();
 
-    assert.equal(composeLink?.getAttribute("href"), "/compose?actor=user-1&destinationId=dest-1");
+    assert.equal(composeLink?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-1");
     assert.deepEqual(fixture.navigateCalls[0], {
       href: "/posts/journal-1?actor=user-1",
       options: {
@@ -1093,6 +1107,69 @@ test("post detail preserves the current actor on compose links", async () => {
         replace: true,
       },
     });
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("post detail preserves actor-aware map and feed hand-offs, including delete return", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const feedLink = requireElement(root, "[data-feed-href='true']");
+    const mapLink = requireElement(root, "[data-map-href='true']");
+    assert.equal(feedLink.getAttribute("href"), "/feed?actor=user-2");
+    assert.equal(mapLink.getAttribute("href"), "/map?destinationId=dest-1&actor=user-2");
+
+    const actorSelect = requireElement(root, "#post-actor");
+    actorSelect.value = "user-1";
+    dispatchDomEvent(actorSelect, "change");
+    await settleAsync();
+
+    assert.equal(feedLink.getAttribute("href"), "/feed?actor=user-1");
+    assert.equal(mapLink.getAttribute("href"), "/map?destinationId=dest-1&actor=user-1");
+
+    dispatchDomEvent(requireElement(root, "#post-delete"), "click");
+    await settleAsync();
+
+    assert.deepEqual(fixture.actionCalls[fixture.actionCalls.length - 1], {
+      action: "delete",
+      journalId: "journal-1",
+      userId: "user-1",
+    });
+    assert.deepEqual(fixture.navigateCalls, [
+      {
+        href: "/posts/journal-1?actor=user-1",
+        options: {
+          preserveScroll: true,
+          render: false,
+          replace: true,
+        },
+      },
+      {
+        href: "/feed?actor=user-1",
+        options: undefined,
+      },
+    ]);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1128,6 +1205,178 @@ test("explore defers destination details until the facility surface is first tou
     await settleAsync();
 
     assert.deepEqual(fixture.ensureDestinationDetailsCalls, ["dest-1"]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("explore destination cards preserve actor context across featured, search, and recommendation results", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ExploreModule>("views/explore.js");
+    const fixture = createExploreFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
+          return { items: [] };
+        }
+        if (endpoint === "/api/destinations?query=harbor&limit=8") {
+          return {
+            items: [
+              {
+                categories: ["museum"],
+                description: "Lantern decks and quiet overlooks.",
+                heat: 76,
+                id: "dest-2",
+                name: "Lantern Point",
+                nodeCount: 9,
+                rating: 4.6,
+                region: "East Bluffs",
+                type: "campus",
+              },
+            ],
+          };
+        }
+        if (endpoint === "/api/destinations/recommendations?query=harbor&limit=8") {
+          return {
+            items: [
+              {
+                categories: ["museum"],
+                description: "Reeds, galleries, and late ferry light.",
+                heat: 82,
+                id: "dest-3",
+                name: "Reed Market",
+                nodeCount: 11,
+                rating: 4.9,
+                region: "South Basin",
+                type: "district",
+              },
+            ],
+          };
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "explore",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const featuredLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
+    assert.equal(featuredLinks[0]?.getAttribute("href"), "/map?destinationId=dest-1&actor=user-2");
+    assert.equal(featuredLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-2");
+
+    requireElement(root, "#explore-query").value = "harbor";
+    dispatchDomEvent(requireElement(root, "#explore-destination-form"), "submit");
+    await settleAsync();
+
+    const searchLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
+    assert.equal(searchLinks[0]?.getAttribute("href"), "/map?destinationId=dest-2&actor=user-2");
+    assert.equal(searchLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-2&actor=user-2");
+
+    dispatchDomEvent(requireElement(root, "#explore-destination-recommend"), "click");
+    await settleAsync();
+
+    const recommendationLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
+    assert.equal(recommendationLinks[0]?.getAttribute("href"), "/map?destinationId=dest-3&actor=user-2");
+    assert.equal(recommendationLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-3&actor=user-2");
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("explore destination cards keep clean URLs when no actor is present", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ExploreModule>("views/explore.js");
+    const fixture = createExploreFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
+          return { items: [] };
+        }
+        if (endpoint === "/api/destinations?query=harbor&limit=8") {
+          return {
+            items: [
+              {
+                categories: ["museum"],
+                description: "Lantern decks and quiet overlooks.",
+                heat: 76,
+                id: "dest-2",
+                name: "Lantern Point",
+                nodeCount: 9,
+                rating: 4.6,
+                region: "East Bluffs",
+                type: "campus",
+              },
+            ],
+          };
+        }
+        if (endpoint === "/api/destinations/recommendations?query=harbor&limit=8") {
+          return {
+            items: [
+              {
+                categories: ["museum"],
+                description: "Reeds, galleries, and late ferry light.",
+                heat: 82,
+                id: "dest-3",
+                name: "Reed Market",
+                nodeCount: 11,
+                rating: 4.9,
+                region: "South Basin",
+                type: "district",
+              },
+            ],
+          };
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "explore",
+        params: {},
+      },
+      root,
+    );
+
+    const featuredLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
+    assert.equal(featuredLinks[0]?.getAttribute("href"), "/map?destinationId=dest-1");
+    assert.equal(featuredLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-1");
+
+    requireElement(root, "#explore-query").value = "harbor";
+    dispatchDomEvent(requireElement(root, "#explore-destination-form"), "submit");
+    await settleAsync();
+
+    const searchLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
+    assert.equal(searchLinks[0]?.getAttribute("href"), "/map?destinationId=dest-2");
+    assert.equal(searchLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-2");
+
+    dispatchDomEvent(requireElement(root, "#explore-destination-recommend"), "click");
+    await settleAsync();
+
+    const recommendationLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
+    assert.equal(recommendationLinks[0]?.getAttribute("href"), "/map?destinationId=dest-3");
+    assert.equal(recommendationLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-3");
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1354,6 +1603,138 @@ test("map falls back to a valid destination when the query points at a missing d
   }
 });
 
+test("map preserves actor context on fallback, return links, and renderless URL rewrites", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
+  };
+  const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
+
+  try {
+    globals.RouteVisualizationMarkers = require(path.join(
+      process.cwd(),
+      "public",
+      "route-visualization-markers.js",
+    ));
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          actor: "user-2",
+          destinationId: "dest-missing",
+          from: "ghost-start",
+          mode: "walk",
+          strategy: "distance",
+          to: "ghost-end",
+          waypoints: "ghost-waypoint",
+        },
+      },
+      root,
+    );
+
+    assert.equal(requireElement(root, "a[data-nav='true']").getAttribute("href"), "/explore?actor=user-2");
+    assert.deepEqual(fixture.navigateCalls[0], {
+      href: "/map?destinationId=dest-1&actor=user-2",
+      options: {
+        preserveScroll: true,
+        render: false,
+        replace: true,
+      },
+    });
+
+    const destinationSelect = requireElement(root, "#map-destination");
+    destinationSelect.value = "dest-2";
+    dispatchDomEvent(destinationSelect, "change");
+    await settleAsync();
+
+    assert.deepEqual(fixture.navigateCalls[1], {
+      href: "/map?destinationId=dest-2&from=dest-2-node-a&to=dest-2-node-b&strategy=distance&mode=walk&actor=user-2",
+      options: {
+        preserveScroll: true,
+        render: false,
+        replace: true,
+      },
+    });
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    restore();
+  }
+});
+
+test("map keeps clean URLs when no actor is present during renderless rewrites", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
+  };
+  const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
+
+  try {
+    globals.RouteVisualizationMarkers = require(path.join(
+      process.cwd(),
+      "public",
+      "route-visualization-markers.js",
+    ));
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          actor: "",
+          destinationId: "",
+          from: "",
+          mode: "",
+          strategy: "",
+          to: "",
+          waypoints: "",
+        },
+      },
+      root,
+    );
+
+    assert.equal(requireElement(root, "a[data-nav='true']").getAttribute("href"), "/explore");
+
+    const destinationSelect = requireElement(root, "#map-destination");
+    destinationSelect.value = "dest-2";
+    dispatchDomEvent(destinationSelect, "change");
+    await settleAsync();
+
+    assert.deepEqual(fixture.navigateCalls, [
+      {
+        href: "/map?destinationId=dest-2&from=dest-2-node-a&to=dest-2-node-b&strategy=distance&mode=walk",
+        options: {
+          preserveScroll: true,
+          render: false,
+          replace: true,
+        },
+      },
+    ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    restore();
+  }
+});
+
 test("map ignores stale node loads after destination changes", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -1548,6 +1929,102 @@ test("feed fallback surfaces social feed errors instead of swapping to the journ
     );
 
     assert.deepEqual(requests, ["/api/feed?viewerUserId=user-2&cursor=bogus"]);
+  } finally {
+    globalThis.fetch = previousFetch;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("comments fallback returns an unavailable response when the endpoint is missing", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
+    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+
+    const requests: string[] = [];
+    globalThis.fetch = (async (input: string | URL) => {
+      const url = String(input);
+      requests.push(url);
+      if (url === "/api/journals/journal-1/comments?cursor=cursor-1&limit=5") {
+        return createJsonResponse(404, { error: "Unknown API endpoint" });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<AppShellModule>("app-shell.js");
+    const app = module.createAppShell(root);
+
+    const response = await app.fetchJournalComments("journal-1", {
+      cursor: "cursor-1",
+      limit: 5,
+    });
+
+    assert.deepEqual(requests, ["/api/journals/journal-1/comments?cursor=cursor-1&limit=5"]);
+    assert.deepEqual(response, {
+      available: false,
+      items: [],
+      nextCursor: "",
+      notice: "Comments have not been wired in this workspace yet.",
+      totalCount: 0,
+    });
+  } finally {
+    globalThis.fetch = previousFetch;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("comments failures reject when the endpoint exists but returns an error", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
+    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+
+    const requests: string[] = [];
+    globalThis.fetch = (async (input: string | URL) => {
+      const url = String(input);
+      requests.push(url);
+      if (url === "/api/journals/journal-1/comments?limit=5") {
+        return createJsonResponse(500, { error: "Comment store offline." });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<AppShellModule>("app-shell.js");
+    const app = module.createAppShell(root);
+
+    await expectRejects(
+      () =>
+        app.fetchJournalComments("journal-1", {
+          limit: 5,
+        }),
+      /Comment store offline\./,
+    );
+
+    assert.deepEqual(requests, ["/api/journals/journal-1/comments?limit=5"]);
   } finally {
     globalThis.fetch = previousFetch;
     globals.JournalConsumers = previousJournalConsumers;
