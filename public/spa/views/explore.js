@@ -11,9 +11,13 @@ import {
   text,
 } from "../lib.js";
 
-function destinationCardMarkup(app, item, context = null) {
+function buildContextualMapHref(app, params, context = null) {
   const actor = resolveRouteActor(context);
-  const mapHref = app.buildMapHref(actor ? { destinationId: item.id, actor } : { destinationId: item.id });
+  return app.buildMapHref(actor ? { ...params, actor } : params);
+}
+
+function destinationCardMarkup(app, item, context = null) {
+  const mapHref = buildContextualMapHref(app, { destinationId: item.id }, context);
   const composeHref = createRouteContextHref("/compose", { destinationId: item.id }, context);
 
   return `
@@ -41,11 +45,11 @@ function facilityCardMarkup(app, item, context) {
       <div class="story-card-actions">
         <a
           class="inline-link"
-          href="${app.buildMapHref({
+          href="${buildContextualMapHref(app, {
             destinationId: context.destinationId,
             from: context.fromNodeId,
             to: item.nodeId,
-          })}"
+          }, context)}"
           data-nav="true"
         >
           Open in map
@@ -55,7 +59,7 @@ function facilityCardMarkup(app, item, context) {
   `;
 }
 
-function foodCardMarkup(app, item, destinationId) {
+function foodCardMarkup(app, item, context) {
   return `
     <article class="story-card compact-story-card">
       <p class="muted">${escapeHtml(item.cuisine)} · ${escapeHtml(item.venue)}</p>
@@ -63,7 +67,13 @@ function foodCardMarkup(app, item, destinationId) {
       ${resultMetaMarkup([`rating ${item.rating}`, `heat ${item.heat}`, `$${item.avgPrice}`])}
       ${app.tagsMarkup(item.keywords)}
       <div class="story-card-actions">
-        <a class="inline-link" href="${app.buildMapHref({ destinationId })}" data-nav="true">Open in map</a>
+        <a
+          class="inline-link"
+          href="${buildContextualMapHref(app, { destinationId: context.destinationId }, context)}"
+          data-nav="true"
+        >
+          Open in map
+        </a>
       </div>
     </article>
   `;
@@ -72,6 +82,7 @@ function foodCardMarkup(app, item, destinationId) {
 export async function render(app, route, root) {
   app.setDocumentTitle("Explore");
 
+  const routeActor = resolveRouteActor(route);
   const bootstrap = await app.loadBootstrap();
   const destinationBindings = app.getDestinationBindings();
   const featuredDestinations = app.getFeaturedDestinations();
@@ -387,7 +398,14 @@ export async function render(app, route, root) {
     }
     const items = safeArray(payload.items);
     foodResults.innerHTML = items.length
-      ? `<div class="story-grid">${items.map((item) => foodCardMarkup(app, item, requestedDestinationId)).join("")}</div>`
+      ? `<div class="story-grid">${items
+          .map((item) =>
+            foodCardMarkup(app, item, {
+              destinationId: requestedDestinationId,
+              actor: routeActor,
+            }),
+          )
+          .join("")}</div>`
       : emptyStateMarkup({
           title: "No food results yet",
           body: "Adjust cuisine, traveler context, or text to reveal another nearby option.",
@@ -482,6 +500,7 @@ export async function render(app, route, root) {
               facilityCardMarkup(app, item, {
                 destinationId: payload.item.destinationId,
                 fromNodeId: payload.item.fromNodeId,
+                actor: routeActor,
               }),
             )
             .join("")}</div>`
