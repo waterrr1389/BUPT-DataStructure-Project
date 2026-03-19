@@ -211,6 +211,8 @@ export async function render(app, route, root) {
   const commentNotice = root.querySelector("#post-comment-notice");
   const commentsContainer = root.querySelector("#post-comments");
   const commentsFooter = root.querySelector("#post-comments-footer");
+  const commentBody = root.querySelector("#post-comment-body");
+  const commentSubmitButton = root.querySelector("#post-comment-form button[type='submit']");
   const actorSelect = root.querySelector("#post-actor");
   const likeButton = root.querySelector("#post-like");
   const heroMeta = root.querySelector("#post-hero-meta");
@@ -319,6 +321,31 @@ export async function render(app, route, root) {
     commentsFooter.innerHTML = footerParts.join("");
   }
 
+  function setCommentFormDisabled(disabled) {
+    commentBody.disabled = disabled;
+    commentSubmitButton.disabled = disabled;
+  }
+
+  function applyCommentsResponse(response, reset) {
+    commentNotice.innerHTML = response.notice
+      ? noticeMarkup(response.available ? "note" : "quiet", "Comment status", response.notice)
+      : "";
+    commentsAvailable = response.available;
+    commentsTotalCount = response.totalCount;
+    commentsNextCursor = response.nextCursor;
+    commentItems = reset ? response.items : commentItems.concat(response.items);
+    commentsLoading = false;
+    renderComments();
+    setCommentFormDisabled(!response.available);
+  }
+
+  function applyCommentsError(error) {
+    commentsLoading = false;
+    commentsError = error instanceof Error ? error.message : "Comments could not be loaded.";
+    commentNotice.innerHTML = noticeMarkup("error", "Comments failed to load", commentsError);
+    renderComments();
+  }
+
   async function refreshJournalDetail() {
     const token = journalRequestToken + 1;
     journalRequestToken = token;
@@ -346,26 +373,12 @@ export async function render(app, route, root) {
       if (disposed) {
         return;
       }
-      commentNotice.innerHTML = response.notice
-        ? noticeMarkup(response.available ? "note" : "quiet", "Comment status", response.notice)
-        : "";
-      commentsAvailable = response.available;
-      commentsTotalCount = response.totalCount;
-      commentsNextCursor = response.nextCursor;
-      commentItems = reset ? response.items : commentItems.concat(response.items);
-      commentsLoading = false;
-      renderComments();
-
-      root.querySelector("#post-comment-body").disabled = !response.available;
-      root.querySelector("#post-comment-form button[type='submit']").disabled = !response.available;
+      applyCommentsResponse(response, reset);
     } catch (error) {
       if (disposed) {
         return;
       }
-      commentsLoading = false;
-      commentsError = error instanceof Error ? error.message : "Comments could not be loaded.";
-      commentNotice.innerHTML = noticeMarkup("error", "Comments failed to load", commentsError);
-      renderComments();
+      applyCommentsError(error);
       throw error;
     }
   }
@@ -485,8 +498,6 @@ export async function render(app, route, root) {
     try {
       await refreshComments({ reset: false });
     } catch (error) {
-      commentsLoading = false;
-      renderComments();
       app.setStatus(error instanceof Error ? error.message : "Comments could not be loaded.", "error");
     }
   });
