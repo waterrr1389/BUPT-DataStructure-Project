@@ -45,10 +45,10 @@ Source plan: plan.md
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Extract/extend shared destination option builder so all modules use one disambiguation rule and stable `id` values | AC-1 | pending | selector unification/disambiguation |
-| Refactor browser bindings in `public/app.js` and journal/exchange consumers to consume the same authoritative destination source | AC-1, AC-2 | pending | browser binding alignment |
-| Replace single fallback graph template with deterministic variant generation keyed by destination/type/region and preserve graph integrity constraints | AC-3 | pending | deterministic graph variants |
-| Add/adjust regression tests for duplicate-label disambiguation, cross-module selector parity, and representative routing/facility behavior across graph variants | AC-1, AC-2, AC-3, AC-4 | pending | regression tests |
+| Extract/extend shared destination option builder so all modules use one disambiguation rule and stable `id` values | AC-1 | in_progress | selector unification/disambiguation |
+| Refactor browser bindings in `public/app.js` and journal/exchange consumers to consume the same authoritative destination source | AC-1, AC-2 | in_progress | browser binding alignment |
+| Replace single fallback graph template with deterministic variant generation keyed by destination/type/region and preserve graph integrity constraints | AC-3 | in_progress | deterministic graph variants |
+| Add/adjust regression tests for duplicate-label disambiguation, cross-module selector parity, and representative routing/facility behavior across graph variants | AC-1, AC-2, AC-3, AC-4 | in_progress | regression tests |
 | Run full verification (`npm run build`, `npm test`, `npm run validate:data`) and update impacted docs if behavior descriptions changed | AC-4 | pending | docs/verification |
 
 ### Completed and Verified
