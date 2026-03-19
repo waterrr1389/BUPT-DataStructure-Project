@@ -26,7 +26,7 @@ The project is designed as a single TypeScript codebase with custom algorithm mo
 
 `src/services/**` coordinates domain data with algorithm modules through the implemented service modules:
 
-- `src/services/index.ts` composes the application service container and bootstrap response, keeping the `12`-item featured destination deck while also exposing the full destination catalog for journal and exchange lookups.
+- `src/services/index.ts` composes the application service container and bootstrap response, keeping the `12`-item featured destination deck for homepage cards while also exposing the full destination catalog for route, facility, food, journal, and exchange selectors.
 - `src/services/runtime.ts` resolves seed data, validation, algorithm helpers, and fallback runtime behavior.
 - `src/services/destination-service.ts` serves destination catalog, search, and recommendation workflows.
 - `src/services/route-service.ts` plans shortest-path and multi-stop routes within destinations.
@@ -39,7 +39,7 @@ The project is designed as a single TypeScript codebase with custom algorithm mo
 ### Delivery Layer
 
 - `src/server/index.ts` serves the web or API demo.
-- `public/**` contains browser-facing assets and scenario data, including journal and exchange controls that consume the full destination catalog and render readable destination and user labels from lookup data when available.
+- `public/**` contains browser-facing assets and scenario data, including one shared destination-option preparation path for all five destination selectors. That shared path consumes the full destination catalog, applies consistent duplicate-name disambiguation, and still leaves the featured deck available for homepage cards.
 - `scripts/validate-data.ts`, `scripts/run-benchmarks.ts`, and `scripts/demo.ts` provide repeatable CLI entrypoints.
 - `tests/**` contains unit, integration, and smoke tests.
 
@@ -50,6 +50,8 @@ The project is designed as a single TypeScript codebase with custom algorithm mo
 3. Services build or consume indexes and graph structures from the validated dataset.
 4. The server and demo scripts expose the service outputs for browser and CLI use.
 5. Tests and benchmarks exercise the same service and algorithm contracts.
+
+The fallback runtime keeps deterministic scenic and campus graph variants so routing and nearby-facility behavior are exercised against multiple graph shapes rather than one effectively reused template.
 
 ## Design Decisions
 

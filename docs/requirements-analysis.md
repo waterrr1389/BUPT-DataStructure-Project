@@ -13,7 +13,7 @@ Implemented in:
 
 Current evidence:
 
-- The real seed validates at `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4180` edges, `12` users, `12` journals, and `880` foods.
+- The real seed validates at `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` edges, `12` users, `12` journals, and `880` foods.
 - Validation rejects broken coordinates, missing metadata, invalid travel-mode bindings, and broken graph references.
 
 ### FR-2 Recommendation And Search
@@ -30,6 +30,8 @@ Current evidence:
 
 - Destination search supports query, category, and `sortBy` handling.
 - Destination recommendation uses bounded top-k ranking.
+- Route, facility, food, journal, and exchange selectors all consume one authoritative destination-option preparation path backed by the full destination catalog.
+- Duplicate destination names are disambiguated consistently across those selectors while preserving stable destination ids.
 - Invalid destination `sortBy` values are rejected, and the runtime-service tests cover that behavior.
 
 ### FR-3 Routing And Facility Lookup
@@ -46,6 +48,7 @@ Current evidence:
 - Routing supports shortest-path and multi-stop planning.
 - The exposed strategy set is `distance`, `time`, and `mixed`.
 - The exposed travel modes are `walk`, `bike`, `shuttle`, and `mixed`.
+- Fallback runtime generation uses deterministic scenic and campus graph variants rather than one effectively reused graph template.
 - Indoor route coverage is exercised by both runtime-service tests and the deterministic demo.
 - Nearby facilities are filtered by category and ordered by network distance.
 
@@ -95,6 +98,7 @@ Current evidence:
 
 - The browser surface covers destinations, routes, facilities, journals, exchange, and food.
 - `npm run demo` provides a deterministic report centered on `dest-002` / `River Polytechnic`.
+- `npm test` now includes explicit selector-parity coverage and graph-variant structure/regression coverage.
 - `README.md` and the delivery docs now align with the implemented module structure and verified outputs.
 
 ## Non-Functional Requirements

@@ -50,10 +50,12 @@ The demo covers:
 
 - `GET /api/health` reports the runtime source bundle, including whether data/algorithms/validation are external or fallback.
 - The server serves `public/` plus JSON API endpoints from `src/server/index.ts`.
+- Route, facility, food, journal, and exchange destination selectors now draw from the same full destination catalog and use the same duplicate-name disambiguation. The featured destination subset is still reserved for homepage cards.
 - Invalid destination `sortBy` inputs are rejected instead of being silently treated as `rating`.
 
 ## Troubleshooting
 
 - If `npm run start` fails with `EPERM` on `127.0.0.1:3000` inside a restricted sandbox, treat that as an environment limitation rather than a known compile/runtime issue in the repo. The March 18 unrestricted-environment verification recorded elsewhere in the delivery docs confirmed that the app can also start successfully and serve the browser/API surface.
 - If demo output changes, rerun `npm test` because `tests/integration-smoke.test.ts` asserts the deterministic demo report structure.
+- If fallback-only runtime behavior changes, rerun `npm test` because `tests/runtime-services.test.ts` now checks the deterministic scenic and campus graph variants directly.
 - If validation fails, inspect `src/data/seed.ts` and `src/data/validation.ts`; `scripts/validate-data.ts` now checks the real runtime dataset, not a toy sample.

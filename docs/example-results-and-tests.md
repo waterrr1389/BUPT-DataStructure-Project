@@ -32,28 +32,29 @@ This round did not rerun the unrestricted March 18 smoke pass.
   - buildings: `660`
   - facilityCategories: `10`
   - facilities: `1100`
-  - edges: `4180`
+  - edges: `4070`
   - users: `12`
   - journals: `12`
   - foods: `880`
 
 ### Automated Tests
 
-- `npm test` passed with `27` tests.
+- `npm test` passed with `30` tests.
 - March 19 automated-test evidence from this round includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
   - external runtime/source verification
-  - bootstrap contract coverage for the `12`-item featured deck plus the full destination catalog used by seeded journal lookups
+  - bootstrap contract coverage for the `12`-item featured deck plus the full destination catalog used by route, facility, food, journal, and exchange selectors
   - invalid destination `sortBy` rejection
   - typo-tolerant food search
   - journal exact-title and full-text search behavior
-  - duplicate destination-label disambiguation while preserving stable destination ids
+  - duplicate destination-label disambiguation while preserving stable destination ids across every destination selector
   - readable journal and exchange destination and user labels with safe fallback when lookups are missing
-  - journal and exchange consumer-path coverage in `tests/journal-consumers.test.ts` for full-catalog selector binding from `bootstrap.destinations`, seeded journal destination reachability, stable destination option ids, and journal actions remaining anchored to `data-journal-id`
+  - selector-parity coverage in `tests/journal-consumers.test.ts` for one authoritative destination-option preparation path, shared selector bindings, full-catalog reachability from `bootstrap.destinations`, and journal actions remaining anchored to `data-journal-id`
+  - deterministic graph-variant regression coverage in `tests/runtime-services.test.ts` for distinct scenic and campus fallback graph structures
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
-- March 19 code inspection also confirmed that `public/app.js` calls the shared journal/exchange binding helper exercised by those automated consumer-path tests; that implementation detail was not rerun in the older March 18 live browser smoke.
+- March 19 code inspection also confirmed that `public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail was not rerun in the older March 18 live browser smoke.
 
 ### Benchmarks
 

@@ -44,7 +44,7 @@ The package scripts are the delivery contract:
 
 ## Current Verified Evidence
 
-These results reflect the verified workspace state for March 18, 2026, including the Round 6 live-start and smoke-verification pass:
+These results reflect the verified workspace state for March 19, 2026. They combine the current automated evidence below with the earlier March 18 unrestricted live-start and smoke-verification record.
 
 - `npm run build` passed.
 - `npm run validate:data` passed with counts:
@@ -52,11 +52,11 @@ These results reflect the verified workspace state for March 18, 2026, including
   - buildings `660`
   - facilityCategories `10`
   - facilities `1100`
-  - edges `4180`
+  - edges `4070`
   - users `12`
   - journals `12`
   - foods `880`
-- `npm test` passed with `20` tests.
+- `npm test` passed with `30` tests.
 - `npm run benchmark` produced representative output:
   - `top-k: 6.250 ms over 25 iteration(s) with sample size 1000`
   - `search: 27.531 ms over 25 iteration(s) with sample size 1000`
@@ -71,10 +71,14 @@ These results reflect the verified workspace state for March 18, 2026, including
 - `node dist/src/server/index.js` successfully bound to `http://127.0.0.1:3000` in an unrestricted environment.
 - Browser/API smoke verification against that live server succeeded for `/`, `/api/health`, `/api/bootstrap`, destination search and recommendation, route planning with `distance` / `time` / `mixed`, nearby facility lookup, journal create/get/list/view/rate/recommendation, journal exchange, and food discovery.
 
+The current implementation also keeps all five destination selectors on one authoritative destination-option preparation path, applies the same duplicate-name disambiguation across route, facility, food, journal, and exchange selectors, and preserves the `12`-item featured deck specifically for homepage destination cards.
+
+Fallback seed graph generation now uses deterministic scenic and campus variants instead of effectively reusing one template shape, and the test suite includes explicit selector-parity and graph-variant regression coverage.
+
 All in-repository delivery work and unrestricted-environment startup verification are now reflected in the docs.
 The remaining repository cleanup is documentation-process alignment around RLCR history and handoff materials, not missing product implementation in `src/`, `public/`, `tests/`, or `scripts/`.
 
-The counts, benchmark timings, and demo metrics listed here are evidence snapshots from the verified March 18 state, not new permanent product constraints.
+The counts, benchmark timings, and demo metrics listed here are evidence snapshots from the verified March 18-19 state, not new permanent product constraints.
 
 ## Delivery Docs
 
