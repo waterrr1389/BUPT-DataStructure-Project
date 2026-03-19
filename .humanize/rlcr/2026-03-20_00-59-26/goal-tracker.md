@@ -88,23 +88,24 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0)
+### Plan Version: 1 (Updated: Round 0 execution-state sync)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
+| 0 | Realigned active-task statuses so implemented shared-helper/app-shell and comments-taxonomy work stay active as review-pending items, while Explore, Map, and Post Detail hand-off execution moves to `in_progress`. | The tracker needed to reflect actual execution state without overstating unreviewed implementation as verified completion. | AC-1, AC-2, AC-3, AC-4 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Add the shared actor-aware route-context helper and route `buildMapHref()` / `buildPostHref()` through it without introducing DOM or fetch behavior. | AC-1 | in_progress | Foundational work for the actor-preserving URL convergence across touched SPA views. |
-| Correct `fetchJournalComments()` missing-endpoint classification so only genuine missing capabilities degrade to `{ available: false }`. | AC-4 | in_progress | Can begin immediately in parallel because it is scoped to app-shell error taxonomy. |
-| Update Explore destination-card hand-offs for featured, search, and recommendation flows to preserve actor through the shared helper rules. | AC-2 | pending | Depends on the shared URL helper shape to avoid repeating actor query assembly. |
-| Update Map query rewrites, missing-destination fallback navigation, and the return-to-Explore link to preserve actor on every `render: false` route update. | AC-2 | pending | Depends on the shared helper so rewritten URLs stay consistent with Explore and shell hand-offs. |
-| Align Post Detail map, compose, and delete-return links with the shared route-context rules while preserving current `render: false` actor updates. | AC-3 | pending | Follows the same helper adoption after the primary Explore and Map convergence path is established. |
+| Add the shared actor-aware route-context helper and route `buildMapHref()` / `buildPostHref()` through it without introducing DOM or fetch behavior. | AC-1 | pending-review | Implementation is already landed in worker-owned code, but team-leader review has not yet verified the shared helper/app-shell convergence. |
+| Correct `fetchJournalComments()` missing-endpoint classification so only genuine missing capabilities degrade to `{ available: false }`. | AC-4 | pending-review | Implementation is already landed in worker-owned code, but team-leader review has not yet verified the comments taxonomy behavior. |
+| Update Explore destination-card hand-offs for featured, search, and recommendation flows to preserve actor through the shared helper rules. | AC-2 | in_progress | Worker execution is starting now for the Explore hand-off paths that consume the shared helper behavior. |
+| Update Map query rewrites, missing-destination fallback navigation, and the return-to-Explore link to preserve actor on every `render: false` route update. | AC-2 | in_progress | Worker execution is starting now for Map URL/fallback preservation so rewrites stay aligned with the shared helper rules. |
+| Align Post Detail map, compose, and delete-return links with the shared route-context rules while preserving current `render: false` actor updates. | AC-3 | in_progress | Worker execution is starting now for the Post Detail hand-offs while keeping the existing `render: false` actor update flow intact. |
 | Extend SPA regression fixtures and `AppShellModule` typing so tests can assert arbitrary query params and exercise the comments API directly. | AC-5 | pending | Should land before or alongside the first new regression that needs actor-aware query serialization. |
 | Add deterministic regressions for actor preservation and comment error taxonomy, run `npm test`, and audit affected docs for consistency. | AC-5, AC-6 | pending | Final verification work after implementation paths settle; no doc changes unless touched behavior invalidates checked-in claims. |
 
