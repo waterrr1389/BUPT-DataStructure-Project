@@ -38,12 +38,15 @@ type PreparedDestinationBindings = {
 type JournalEntry = {
   averageRating?: number;
   body: string;
+  commentCount?: number;
   destinationId: string;
   id: string;
+  likeCount?: number;
   ratings: number[];
   tags: string[];
   title: string;
   userId: string;
+  viewerHasLiked?: boolean;
   views: number;
 };
 
@@ -67,6 +70,14 @@ type JournalConsumersModule = {
     journal: JournalEntry,
     metadata: { attribution: string },
     renderTagsMarkup: (tags: string[]) => string,
+    options?: {
+      hideDelete?: boolean;
+      hideSocialAction?: boolean;
+      mapHref?: string;
+      postHref?: string;
+      summarizeBody?: (body: string, maxLength?: number) => string;
+      summaryLength?: number;
+    },
   ): string;
   prepareDestinationSelectorBindings(
     bootstrap: BootstrapPayload,
@@ -95,11 +106,12 @@ type JournalConsumersModule = {
 };
 
 const ALL_DESTINATION_SELECTORS = [
-  "#route-destination",
-  "#facility-destination",
-  "#food-destination",
-  "#journal-destination",
-  "#exchange-destination",
+  "#explore-facility-destination",
+  "#explore-food-destination",
+  "#map-destination",
+  "#feed-destination-filter",
+  "#feed-exchange-destination",
+  "#compose-destination",
 ] as const;
 
 const SEEDED_JOURNAL_DESTINATION_IDS = [
@@ -242,7 +254,7 @@ test("journal and exchange bindings stay aligned with the shared destination sel
   assert.deepEqual(journalPrepared.journalDestinationOptions, sharedPrepared.destinationOptions);
   assert.deepEqual(
     journalPrepared.selectorBindings.map((binding) => binding.selector),
-    ["#journal-destination", "#exchange-destination"],
+    ["#compose-destination", "#feed-exchange-destination"],
   );
   for (const binding of journalPrepared.selectorBindings) {
     assert.deepEqual(binding.items, sharedPrepared.destinationOptions);
@@ -254,12 +266,15 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
   const journal: JournalEntry = {
     averageRating: 4.7,
     body: "Layered indoor walk with a quiet overlook and late-night tea stop.",
+    commentCount: 4,
     destinationId: "dest-034",
     id: "journal-12",
+    likeCount: 3,
     ratings: [5, 4, 5],
     tags: ["campus", "night"],
     title: "Summit Polytechnic field note 12",
     userId: "user-12",
+    viewerHasLiked: true,
     views: 42,
   };
 
@@ -270,14 +285,24 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
       userById: new Map([["user-12", { id: "user-12", name: "Rory Pike" }]]),
     }),
     renderTagsMarkup,
+    {
+      mapHref: "/map?destinationId=dest-034",
+      postHref: "/posts/journal-12",
+      summaryLength: 64,
+    },
   );
   const readableJournalId = readJournalId(readableMarkup);
   const viewRequest = resolveJournalActionRequest("view", readableJournalId, "user-03");
   const rateRequest = resolveJournalActionRequest("rate", readableJournalId, "user-03");
+  const likeRequest = resolveJournalActionRequest("like", readableJournalId, "user-03");
+  const unlikeRequest = resolveJournalActionRequest("unlike", readableJournalId, "user-03");
   const deleteRequest = resolveJournalActionRequest("delete", readableJournalId, "user-03");
 
   assert.equal(readableJournalId, "journal-12");
   assert.ok(/Summit Polytechnic \/ Rory Pike/.test(readableMarkup), readableMarkup);
+  assert.ok(/data-action="unlike"/.test(readableMarkup), readableMarkup);
+  assert.ok(/href="\/posts\/journal-12"/.test(readableMarkup), readableMarkup);
+  assert.ok(/href="\/map\?destinationId=dest-034"/.test(readableMarkup), readableMarkup);
   assert.deepEqual(viewRequest, {
     path: "/api/journals/journal-12/view",
     options: {
@@ -290,6 +315,20 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
     options: {
       method: "POST",
       body: JSON.stringify({ userId: "user-03", score: 5 }),
+    },
+  });
+  assert.deepEqual(likeRequest, {
+    path: "/api/journals/journal-12/likes",
+    options: {
+      method: "POST",
+      body: JSON.stringify({ userId: "user-03" }),
+    },
+  });
+  assert.deepEqual(unlikeRequest, {
+    path: "/api/journals/journal-12/likes",
+    options: {
+      method: "DELETE",
+      body: JSON.stringify({ userId: "user-03" }),
     },
   });
   assert.deepEqual(deleteRequest, {
@@ -309,12 +348,18 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
       userById: new Map(),
     }),
     renderTagsMarkup,
+    {
+      hideDelete: true,
+      hideSocialAction: true,
+    },
   );
   const fallbackJournalId = readJournalId(fallbackMarkup);
   const fallbackViewRequest = resolveJournalActionRequest("view", fallbackJournalId, "user-88");
 
   assert.equal(fallbackJournalId, "journal-12");
   assert.ok(/dest-034 \/ user-12/.test(fallbackMarkup), fallbackMarkup);
+  assert.equal(/data-action="delete"/.test(fallbackMarkup), false, fallbackMarkup);
+  assert.equal(/data-action="like"/.test(fallbackMarkup), false, fallbackMarkup);
   assert.deepEqual(fallbackViewRequest, {
     path: "/api/journals/journal-12/view",
     options: {

@@ -9,13 +9,13 @@ const publicDir = path.resolve(process.cwd(), "public");
 function json(
   response: ServerResponse,
   statusCode: number,
-  payload: Record<string, unknown> | Array<unknown>,
+  payload: unknown,
 ): void {
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
   });
-  response.end(`${JSON.stringify(payload, null, 2)}\n`);
+  response.end(JSON.stringify(payload));
 }
 
 function mimeType(filePath: string): string {
@@ -37,6 +37,17 @@ function mimeType(filePath: string): string {
   return "application/octet-stream";
 }
 
+function staticCacheControl(filePath: string): string {
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === ".html" || extension === ".json") {
+    return "no-store";
+  }
+  if (extension === ".js" || extension === ".css" || extension === ".svg") {
+    return "public, max-age=300, must-revalidate";
+  }
+  return "public, max-age=300, must-revalidate";
+}
+
 async function serveStatic(requestPath: string, response: ServerResponse): Promise<void> {
   const normalizedPath = requestPath === "/" ? "/index.html" : requestPath;
   const safePath = path.normalize(normalizedPath).replace(/^(\.\.[/\\])+/, "");
@@ -49,7 +60,7 @@ async function serveStatic(requestPath: string, response: ServerResponse): Promi
     const content = await fs.readFile(targetPath);
     response.writeHead(200, {
       "content-type": mimeType(targetPath),
-      "cache-control": "no-store",
+      "cache-control": staticCacheControl(targetPath),
     });
     response.end(content);
   } catch (error) {
@@ -69,14 +80,27 @@ async function serveStatic(requestPath: string, response: ServerResponse): Promi
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
+  let totalSize = 0;
   for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalSize += buffer.length;
+    if (totalSize > 1_000_000) {
+      throw new Error("Request body exceeds 1 MB.");
+    }
+    chunks.push(buffer);
   }
   if (chunks.length === 0) {
     return {};
   }
-  const raw = Buffer.concat(chunks).toString("utf8");
-  return JSON.parse(raw);
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) {
+    return {};
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("Request body must be valid JSON.");
+  }
 }
 
 function asNumber(value: string | null): number | undefined {
@@ -89,6 +113,13 @@ function asNumber(value: string | null): number | undefined {
 
 function pathParts(pathname: string): string[] {
   return pathname.split("/").filter(Boolean);
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Request body must be a JSON object.");
+  }
+  return value as Record<string, unknown>;
 }
 
 async function handleApi(
@@ -113,6 +144,21 @@ async function handleApi(
 
   if (request.method === "GET" && url.pathname === "/api/bootstrap") {
     json(response, 200, await services.bootstrap());
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/feed") {
+    json(
+      response,
+      200,
+      await services.journals.feed({
+        cursor: url.searchParams.get("cursor") ?? undefined,
+        destinationId: url.searchParams.get("destinationId") ?? undefined,
+        limit: asNumber(url.searchParams.get("limit")),
+        userId: url.searchParams.get("userId") ?? undefined,
+        viewerUserId: url.searchParams.get("viewerUserId") ?? undefined,
+      }),
+    );
     return true;
   }
 
@@ -157,7 +203,7 @@ async function handleApi(
   }
 
   if (request.method === "POST" && url.pathname === "/api/routes/plan") {
-    const body = (await readBody(request)) as Record<string, unknown>;
+    const body = asObject(await readBody(request));
     json(response, 200, {
       item: services.routing.plan({
         destinationId: String(body.destinationId ?? ""),
@@ -203,6 +249,7 @@ async function handleApi(
         destinationId: url.searchParams.get("destinationId") ?? undefined,
         userId: url.searchParams.get("userId") ?? undefined,
         limit: asNumber(url.searchParams.get("limit")),
+        viewerUserId: url.searchParams.get("viewerUserId") ?? undefined,
       }),
     });
     return true;
@@ -220,7 +267,7 @@ async function handleApi(
   }
 
   if (request.method === "POST" && url.pathname === "/api/journals") {
-    const body = (await readBody(request)) as Record<string, unknown>;
+    const body = asObject(await readBody(request));
     json(response, 201, {
       item: await services.journals.create({
         userId: String(body.userId ?? ""),
@@ -245,11 +292,15 @@ async function handleApi(
   if (parts[1] === "journals" && parts.length >= 3) {
     const journalId = parts[2];
     if (request.method === "GET" && parts.length === 3) {
-      json(response, 200, { item: await services.journals.get(journalId) });
+      json(response, 200, {
+        item: await services.journals.get(journalId, {
+          viewerUserId: url.searchParams.get("viewerUserId") ?? undefined,
+        }),
+      });
       return true;
     }
     if (request.method === "PATCH" && parts.length === 3) {
-      const body = (await readBody(request)) as Record<string, unknown>;
+      const body = asObject(await readBody(request));
       json(response, 200, {
         item: await services.journals.update(journalId, {
           title: body.title ? String(body.title) : undefined,
@@ -268,6 +319,45 @@ async function handleApi(
       });
       return true;
     }
+    if (request.method === "GET" && parts[3] === "comments") {
+      json(
+        response,
+        200,
+        await services.journals.listComments({
+          journalId,
+          cursor: url.searchParams.get("cursor") ?? undefined,
+          limit: asNumber(url.searchParams.get("limit")),
+        }),
+      );
+      return true;
+    }
+    if (request.method === "POST" && parts[3] === "comments") {
+      const body = asObject(await readBody(request));
+      json(response, 201, {
+        item: await services.journals.createComment(journalId, {
+          userId: String(body.userId ?? ""),
+          body: String(body.body ?? ""),
+        }),
+      });
+      return true;
+    }
+    if (request.method === "POST" && parts[3] === "likes") {
+      const body = asObject(await readBody(request));
+      json(response, 200, {
+        item: await services.journals.like(journalId, String(body.userId ?? "")),
+      });
+      return true;
+    }
+    if (request.method === "DELETE" && parts[3] === "likes") {
+      const body = asObject(await readBody(request));
+      json(response, 200, {
+        item: await services.journals.unlike(
+          journalId,
+          String(body.userId ?? url.searchParams.get("userId") ?? ""),
+        ),
+      });
+      return true;
+    }
     if (request.method === "DELETE" && parts.length === 3) {
       json(response, 200, await services.journals.delete(journalId));
       return true;
@@ -277,12 +367,22 @@ async function handleApi(
       return true;
     }
     if (request.method === "POST" && parts[3] === "rate") {
-      const body = (await readBody(request)) as Record<string, unknown>;
+      const body = asObject(await readBody(request));
       json(response, 200, {
         item: await services.journals.rate(journalId, String(body.userId ?? ""), Number(body.score)),
       });
       return true;
     }
+  }
+
+  if (request.method === "DELETE" && parts[1] === "comments" && parts.length === 3) {
+    const body = asObject(await readBody(request));
+    json(
+      response,
+      200,
+      await services.journals.deleteComment(parts[2], String(body.userId ?? url.searchParams.get("userId") ?? "")),
+    );
+    return true;
   }
 
   if (request.method === "GET" && url.pathname === "/api/journal-exchange/destination") {
@@ -307,7 +407,7 @@ async function handleApi(
   }
 
   if (request.method === "POST" && url.pathname === "/api/journal-exchange/compress") {
-    const body = (await readBody(request)) as Record<string, unknown>;
+    const body = asObject(await readBody(request));
     json(response, 200, {
       item: services.exchange.compress(String(body.body ?? "")),
     });
@@ -315,7 +415,7 @@ async function handleApi(
   }
 
   if (request.method === "POST" && url.pathname === "/api/journal-exchange/decompress") {
-    const body = (await readBody(request)) as Record<string, unknown>;
+    const body = asObject(await readBody(request));
     json(response, 200, {
       item: services.exchange.decompress(String(body.body ?? "")),
     });
@@ -323,7 +423,7 @@ async function handleApi(
   }
 
   if (request.method === "POST" && url.pathname === "/api/journal-exchange/storyboard") {
-    const body = (await readBody(request)) as Record<string, unknown>;
+    const body = asObject(await readBody(request));
     json(response, 200, {
       item: services.exchange.generateStoryboard({
         title: body.title ? String(body.title) : undefined,
@@ -363,9 +463,8 @@ async function handleApi(
   return true;
 }
 
-export async function createServerApp(options: { runtimeDir?: string } = {}) {
-  const services = await createAppServices(options);
-  const server = http.createServer(async (request: IncomingMessage, response: ServerResponse) => {
+export function createServerHandler(services: AppServices) {
+  return async (request: IncomingMessage, response: ServerResponse) => {
     try {
       const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
       const handled = await handleApi(request, response, services, requestUrl);
@@ -376,7 +475,12 @@ export async function createServerApp(options: { runtimeDir?: string } = {}) {
       const message = error instanceof Error ? error.message : "Internal server error.";
       json(response, 400, { error: message });
     }
-  });
+  };
+}
+
+export async function createServerApp(options: { runtimeDir?: string } = {}) {
+  const services = await createAppServices(options);
+  const server = http.createServer(createServerHandler(services));
   return { server, services };
 }
 
@@ -385,6 +489,7 @@ export async function startServer(options: { port?: number; host?: string; runti
   const host = options.host ?? process.env.HOST ?? "127.0.0.1";
   const app = await createServerApp({ runtimeDir: options.runtimeDir });
   const server = app.server as typeof app.server & {
+    address(): { port: number } | string | null;
     once(event: "error", listener: (error: Error) => void): typeof app.server;
     once(event: "listening", listener: () => void): typeof app.server;
     removeListener(event: "error", listener: (error: Error) => void): typeof app.server;
@@ -408,9 +513,11 @@ export async function startServer(options: { port?: number; host?: string; runti
     server.once("listening", onListening);
     server.listen(port, host);
   });
+  const address = server.address();
+  const resolvedPort = typeof address === "object" && address ? address.port : port;
   return {
     ...app,
-    url: `http://${host}:${port}`,
+    url: `http://${host}:${resolvedPort}`,
   };
 }
 

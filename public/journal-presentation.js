@@ -107,6 +107,17 @@
     return fallbackLabel
   }
 
+  function summarizeText(value, maxLength = 180) {
+    const normalized = normalizeText(value).replace(/\s+/g, " ")
+    if (normalized.length <= maxLength) {
+      return normalized
+    }
+
+    const trimmed = normalized.slice(0, Math.max(0, maxLength - 3))
+    const safeBoundary = trimmed.lastIndexOf(" ")
+    return `${(safeBoundary > 40 ? trimmed.slice(0, safeBoundary) : trimmed).trim()}...`
+  }
+
   function formatJournalMetadata(journal, lookups = {}) {
     const destinationLabel = resolveLookupLabel(
       journal?.destinationId,
@@ -127,5 +138,6 @@
     createSelectOptionsWithDisambiguatedLabels,
     formatJournalMetadata,
     resolveLookupLabel,
+    summarizeText,
   }
 })

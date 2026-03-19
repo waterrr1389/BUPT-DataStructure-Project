@@ -11,6 +11,17 @@ function format(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+async function expectRejects(run: () => Promise<unknown>, pattern: RegExp): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.equal(pattern.test(message), true, message);
+    return;
+  }
+  throw new Error(`Expected rejection matching ${pattern}.`);
+}
+
 const SEEDED_JOURNAL_DESTINATION_IDS = [
   "dest-001",
   "dest-004",
@@ -27,11 +38,23 @@ const SEEDED_JOURNAL_DESTINATION_IDS = [
 ] as const;
 
 async function createIsolatedApp(name: string): Promise<AppServices> {
-  const runtimeDir = path.join("/tmp", `ds-ts-runtime-services-${name}`);
+  const runtimeDir = path.join(
+    "/tmp",
+    `ds-ts-runtime-services-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
   await fs.mkdir(runtimeDir, { recursive: true });
   const app = await createAppServices({ runtimeDir });
   await app.journalStore.reset();
   return app;
+}
+
+async function createRuntimeDir(name: string): Promise<string> {
+  const runtimeDir = path.join(
+    "/tmp",
+    `ds-ts-runtime-services-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
+  await fs.mkdir(runtimeDir, { recursive: true });
+  return runtimeDir;
 }
 
 function destinationIds(items: Array<{ id: string }>): string[] {
@@ -82,6 +105,7 @@ test("bootstrap exposes full destination catalog for seeded journal lookups and 
   const bootstrap = await app.bootstrap();
   const featured = bootstrap.featured as Array<{ id: string }>;
   const destinations = bootstrap.destinations as Array<{ id: string }>;
+  const users = bootstrap.users as Array<Record<string, unknown>>;
   const seededJournalDestinationIds = app.runtime.seedData.journals.map((journal) => journal.destinationId);
 
   assert.deepEqual(seededJournalDestinationIds, [...SEEDED_JOURNAL_DESTINATION_IDS]);
@@ -96,6 +120,15 @@ test("bootstrap exposes full destination catalog for seeded journal lookups and 
       format({ destinationId, destinationIds: destinationIds(destinations) }),
     );
   }
+
+  assert.equal("graph" in (destinations[0] ?? {}), false, format(destinations[0]));
+  assert.equal("buildings" in (destinations[0] ?? {}), false, format(destinations[0]));
+  assert.equal("interests" in (users[0] ?? {}), false, format(users[0]));
+  assert.deepEqual(
+    Object.keys(users[0] ?? {}).sort(),
+    ["id", "name"],
+    format(users[0]),
+  );
 });
 
 test("food search tolerates typo queries on the real dataset", async () => {
@@ -227,4 +260,130 @@ test("indoor route planning and nearby facility lookup work on scenic and campus
   assert.equal(campusFirst.nodePath[0], "dest-002-gate");
   assert.equal(campusFirst.nodePath[campusFirst.nodePath.length - 1], "dest-002-hub");
   assert.ok(campusFirst.nodePath.includes("dest-002-garden"), format(campusFirst));
+});
+
+test("journal social flows keep feed summaries compact and preserve legacy journal behavior", async () => {
+  const app = await createIsolatedApp("journal-social");
+  const authorName = app.runtime.lookups.userById.get("user-2")?.name;
+  const firstCommentUserName = app.runtime.lookups.userById.get("user-5")?.name;
+  const secondCommentUserName = app.runtime.lookups.userById.get("user-6")?.name;
+  const created = await app.journals.create({
+    body: "Started at the main gate, crossed the lobby, and ended at the archive with a quiet tea stop.",
+    destinationId: "dest-002",
+    tags: ["indoor", "loop"],
+    title: "River Polytechnic archive route",
+    userId: "user-2",
+  });
+  const createdId = (created as { id: string }).id;
+
+  const liked = await app.journals.like(createdId, "user-4");
+  const firstComment = await app.journals.createComment(createdId, {
+    body: "The indoor archive leg saved time when the plaza got crowded.",
+    userId: "user-5",
+  });
+  const secondComment = await app.journals.createComment(createdId, {
+    body: "Late tea stop sounds right for that route.",
+    userId: "user-6",
+  });
+  const detail = await app.journals.get(createdId, { viewerUserId: "user-4" });
+  const feedPage = await app.journals.feed({
+    limit: 1,
+    viewerUserId: "user-4",
+  });
+  const nextFeedPage = await app.journals.feed({
+    cursor: feedPage.nextCursor ?? undefined,
+    limit: 1,
+    viewerUserId: "user-4",
+  });
+  const commentPage = await app.journals.listComments({
+    journalId: createdId,
+    limit: 1,
+  });
+  const nextCommentPage = await app.journals.listComments({
+    journalId: createdId,
+    cursor: commentPage.nextCursor ?? undefined,
+    limit: 1,
+  });
+  await expectRejects(() => app.journals.like(createdId, "user-4"), /already liked/i);
+  const unliked = await app.journals.unlike(createdId, "user-4");
+  const rated = await app.journals.rate(createdId, "user-7", 5);
+  const viewed = await app.journals.recordView(createdId);
+
+  assert.equal((liked as { likeCount: number }).likeCount, 1, format(liked));
+  assert.equal(detail.commentCount, 2, format(detail));
+  assert.equal(detail.likeCount, 1, format(detail));
+  assert.equal(detail.viewerHasLiked, true, format(detail));
+  assert.equal(typeof detail.summaryBody, "string", format(detail));
+  assert.equal(detail.destinationLabel, "River Polytechnic");
+  assert.equal(detail.userLabel, authorName);
+  assert.equal((rated as { averageRating: number }).averageRating, 5, format(rated));
+  assert.equal((viewed as { views: number }).views, 1, format(viewed));
+
+  assert.equal(feedPage.items.length, 1, format(feedPage));
+  assert.equal(feedPage.totalCount > 1, true, format(feedPage));
+  assert.equal(feedPage.nextCursor !== null, true, format(feedPage));
+  assert.equal(feedPage.items[0]?.id, createdId, format(feedPage.items[0]));
+  assert.equal(feedPage.items[0] ? "body" in feedPage.items[0] : false, false, format(feedPage.items[0]));
+  assert.equal(feedPage.items[0] ? "ratings" in feedPage.items[0] : false, false, format(feedPage.items[0]));
+  assert.equal(feedPage.items[0] ? "graph" in feedPage.items[0] : false, false, format(feedPage.items[0]));
+  assert.equal(feedPage.items[0]?.viewerHasLiked, true, format(feedPage.items[0]));
+  assert.equal(feedPage.items[0]?.commentCount, 2, format(feedPage.items[0]));
+  assert.equal(nextFeedPage.items[0]?.id === createdId, false, format(nextFeedPage));
+
+  assert.equal(commentPage.totalCount, 2, format(commentPage));
+  assert.equal(commentPage.nextCursor !== null, true, format(commentPage));
+  assert.equal(commentPage.items[0]?.id, (secondComment as { id: string }).id, format(commentPage));
+  assert.equal(commentPage.items[0]?.userLabel, secondCommentUserName);
+  assert.equal(nextCommentPage.items[0]?.id, (firstComment as { id: string }).id, format(nextCommentPage));
+  assert.equal(nextCommentPage.items[0]?.userLabel, firstCommentUserName);
+
+  assert.equal((unliked as { likeCount: number; viewerHasLiked: boolean }).likeCount, 0, format(unliked));
+  assert.equal((unliked as { likeCount: number; viewerHasLiked: boolean }).viewerHasLiked, false, format(unliked));
+
+  await expectRejects(() => app.journals.feed({ cursor: "bogus", viewerUserId: "user-4" }), /Invalid cursor/);
+  await expectRejects(
+    () => app.journals.createComment(createdId, { body: "   ", userId: "user-5" }),
+    /Comment body is required/,
+  );
+  await expectRejects(
+    () => app.journals.createComment("journal-404", { body: "Unknown journal", userId: "user-5" }),
+    /Unknown journal/,
+  );
+  await expectRejects(
+    () => app.journals.createComment(createdId, { body: "Unknown user", userId: "user-404" }),
+    /Unknown user/,
+  );
+});
+
+test("journal likes and comments persist across service reloads and reset clears social state", async () => {
+  const runtimeDir = await createRuntimeDir("journal-social-persistence");
+  const app = await createAppServices({ runtimeDir });
+  await app.journalStore.reset();
+
+  const comment = await app.journals.createComment("journal-1", {
+    body: "Archive routes need that indoor cutoff.",
+    userId: "user-3",
+  });
+  await app.journals.like("journal-1", "user-4");
+
+  const reloaded = await createAppServices({ runtimeDir });
+  const persistedDetail = await reloaded.journals.get("journal-1", { viewerUserId: "user-4" });
+  const persistedComments = await reloaded.journals.listComments({ journalId: "journal-1", limit: 10 });
+
+  assert.equal(persistedDetail.commentCount, 1, format(persistedDetail));
+  assert.equal(persistedDetail.likeCount, 1, format(persistedDetail));
+  assert.equal(persistedDetail.viewerHasLiked, true, format(persistedDetail));
+  assert.equal(persistedComments.totalCount, 1, format(persistedComments));
+  assert.equal(persistedComments.items[0]?.id, (comment as { id: string }).id, format(persistedComments));
+
+  await reloaded.journalStore.reset();
+
+  const resetApp = await createAppServices({ runtimeDir });
+  const resetDetail = await resetApp.journals.get("journal-1", { viewerUserId: "user-4" });
+  const resetComments = await resetApp.journals.listComments({ journalId: "journal-1", limit: 10 });
+
+  assert.equal(resetDetail.commentCount, 0, format(resetDetail));
+  assert.equal(resetDetail.likeCount, 0, format(resetDetail));
+  assert.equal(resetDetail.viewerHasLiked, false, format(resetDetail));
+  assert.equal(resetComments.totalCount, 0, format(resetComments));
 });

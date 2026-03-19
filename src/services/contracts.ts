@@ -127,6 +127,66 @@ export interface JournalRecord {
   recommendedFor: string[];
 }
 
+export interface JournalCommentRecord {
+  id: string;
+  journalId: string;
+  userId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JournalLikeRecord {
+  journalId: string;
+  userId: string;
+  createdAt: string;
+}
+
+export interface JournalFeedItem {
+  id: string;
+  userId: string;
+  userLabel: string;
+  destinationId: string;
+  destinationLabel: string;
+  title: string;
+  summaryBody: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  views: number;
+  averageRating: number;
+  likeCount: number;
+  commentCount: number;
+  viewerHasLiked: boolean;
+  mediaCount: number;
+}
+
+export interface JournalDetailRecord extends JournalRecord {
+  averageRating: number;
+  summaryBody: string;
+  destinationLabel: string;
+  userLabel: string;
+  likeCount: number;
+  commentCount: number;
+  viewerHasLiked: boolean;
+}
+
+export interface JournalCommentView {
+  id: string;
+  journalId: string;
+  userId: string;
+  userLabel: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CursorPage<T> {
+  items: T[];
+  nextCursor: string | null;
+  totalCount: number;
+}
+
 export interface SeedDataContract {
   destinations: DestinationRecord[];
   users: UserRecord[];
@@ -273,6 +333,25 @@ export interface JournalUpdateInput {
   tags?: string[];
   media?: JournalMedia[];
   recommendedFor?: string[];
+}
+
+export interface JournalFeedQuery {
+  destinationId?: string;
+  userId?: string;
+  viewerUserId?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface JournalCommentListQuery {
+  journalId: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface JournalCommentCreateInput {
+  userId: string;
+  body: string;
 }
 
 export interface JournalSearchResult {

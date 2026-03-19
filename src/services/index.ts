@@ -5,8 +5,15 @@ import { createFoodService } from "./food-service";
 import { createJournalService } from "./journal-service";
 import { JournalStore } from "./journal-store";
 import { createRouteService } from "./route-service";
-import type { ServiceContextOptions } from "./contracts";
+import type { ServiceContextOptions, UserRecord } from "./contracts";
 import { getRuntime } from "./runtime";
+
+function summarizeBootstrapUser(user: UserRecord): Pick<UserRecord, "id" | "name"> {
+  return {
+    id: user.id,
+    name: user.name,
+  };
+}
 
 export async function createAppServices(options: ServiceContextOptions = {}) {
   const runtime = await getRuntime(options);
@@ -33,7 +40,7 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
     foods,
     async bootstrap() {
       return {
-        users: runtime.seedData.users,
+        users: runtime.seedData.users.map(summarizeBootstrapUser),
         categories: destinations.listCategories(),
         cuisines: foods.listCuisines(),
         featured: destinations.listCatalog(12),

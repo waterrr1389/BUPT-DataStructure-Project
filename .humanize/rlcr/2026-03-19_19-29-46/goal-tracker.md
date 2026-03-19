@@ -102,40 +102,41 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0)
+### Plan Version: 1 (Updated: Round 0, verified integrated state)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
+| 0 | Task status reconciled against integrated workspace verification and test pass (`npm test`: 34 passing, 0 failures). | Round 0 implementation completed across backend social services, API/server, SPA routes, and tests. | No scope change; closes planned AC work for Round 0. |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Backend social: extend contracts, persistence, and services for likes and flat comments without breaking journal flows. | AC-1, AC-2 | in_progress | Define social payload shapes; add runtime stores alongside runtime journals and keep seeded data stable. |
-| HTTP API and bootstrap: add feed/detail/comment/like endpoints and keep `/api/bootstrap` lean with compact JSON and clearer caching. | AC-2, AC-6 | in_progress | Expose social operations via `/api/feed` and related endpoints while preserving existing travel and journal APIs. |
-| Routed SPA shell: implement navigation and URL routing for Explore, Map, Feed, Post Detail, and Compose views. | AC-3, AC-4 | in_progress | Replace monolithic anchors with an SPA shell that handles direct entry routes and unknown-route fallbacks. |
-| Explore/Map migration: move destination, route, facility, and food tools into dedicated Explore and Map views. | AC-3, AC-4, AC-6 | in_progress | Preserve all course capabilities and avoid eager destination-detail loading for non-map views. |
-| Feed/Post Detail/Compose flows: build social browsing UI, comment and like actions, and Compose behavior using compact data shapes. | AC-3, AC-5, AC-7 | in_progress | Align layouts, hierarchy, and pacing with `docs/journal-social-design-style.md` while keeping feed summary-first. |
-| Verification and smoke coverage: extend service, integration, and browser tests to cover social APIs and SPA routes. | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7 | in_progress | Update runtime, integration, and app smoke tests plus server/browser smoke checks for new behavior. |
-| Performance and visual polish: enforce lazy-loading, debounced inputs, map caches, targeted cache headers, and shared CSS tokens. | AC-6, AC-7 | pending | Apply after route boundaries and core social flows are stable to avoid rework. |
+| None | - | complete | Round 0 planned implementation tasks are complete and moved to `Completed and Verified`. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
+| AC-1, AC-2 | Backend social contracts/services/persistence for likes and comments. | 0 | 0 | `src/services/contracts.ts`, `src/services/journal-service.ts`, `src/services/journal-store.ts`, and `src/services/index.ts` now provide like/comment operations, compact feed summaries, enriched detail views, and persisted social records. |
+| AC-2, AC-6 | API and bootstrap/cache refinements for social journal flows and SPA support. | 0 | 0 | `src/server/index.ts` includes `GET /api/feed`, journal like/comment endpoints, comment deletion endpoint, bootstrap usage for selectors, and static-asset cache-control refinement for SPA delivery. |
+| AC-3, AC-4 | Routed SPA shell replacing the monolithic one-page browser app. | 0 | 0 | `public/index.html`, `public/app.js`, and `public/spa/app-shell.js` now serve/boot routed views with route parsing/navigation and fallback handling. |
+| AC-3, AC-4, AC-6 | Explore/Map migration into dedicated route modules while preserving course tools. | 0 | 0 | `public/spa/views/explore.js` and `public/spa/views/map.js` now own destination search/recommendation, facilities, food, route planning, deep-link hydration, and map-scene caching paths (`public/spa/**`). |
+| AC-3, AC-5, AC-7 | Feed, Post Detail, and Compose route flows for summary-first social browsing and interactions. | 0 | 0 | `public/spa/views/feed.js`, `public/spa/views/post-detail.js`, `public/spa/views/compose.js`, plus `public/styles.css` and journal helpers deliver feed summaries, like/unlike/comment actions, detail reads, compose submission, and routed not-found handling. |
+| AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7 | Verification and smoke coverage updates for social API and SPA behavior. | 0 | 0 | Updated tests: `tests/integration-smoke.test.ts`, `tests/journal-consumers.test.ts`, `tests/journal-presentation.test.ts`, and `tests/runtime-services.test.ts`; integrated `npm test` passed with 34 passing and 0 failures. |
+| AC-6, AC-7 | Performance and UX polish baseline integrated in routed implementation. | 0 | 0 | `public/spa/app-shell.js` lazy-loads route modules; Explore/Map inputs are debounced (`public/spa/views/explore.js`, `public/spa/views/map.js`); map projections/overlays are cached per destination (`public/spa/map-rendering.js`); shared styling moved into `public/styles.css`. |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
 | Task | Original AC | Deferred Since | Justification | When to Reconsider |
 |------|-------------|----------------|---------------|-------------------|
+| None | - | - | - | - |
 
 ### Open Issues
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| JSON helper pretty-prints responses and sets `cache-control: no-store` for all payloads and static assets, which conflicts with compact JSON and targeted caching requirements. | 0 | AC-6 | Refine `json` helper and static-asset headers once social API and SPA entrypoints are in place to emit compact JSON and more nuanced cache behavior. |
-| `/api/bootstrap` currently returns a broad payload tailored to the single-page demo; reusing it for social feed/detail would violate payload and summary-first constraints. | 0 | AC-5, AC-6 | Introduce dedicated feed and detail endpoints with compact views and keep bootstrap focused on selector data; update frontend to rely on those lighter payloads. |
-| Single-page `public/index.html` and `public/app.js` own all course features; migrating to a routed SPA risks temporary gaps where tools become unreachable. | 0 | AC-3, AC-4 | Plan view-by-view migration and maintain interim navigation or fallback routes until Explore, Map, and social views are fully wired. |
+| None | - | - | No residual blocking issues recorded after the integrated green test run (`npm test`: 34 passing, 0 failures). |

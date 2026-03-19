@@ -38,9 +38,10 @@ type JournalPresentationModule = {
     destinationLabel: string;
     userLabel: string;
   };
+  summarizeText(value: string, maxLength?: number): string;
 };
 
-const { createDestinationSelectOptions, formatJournalMetadata } = require(path.join(
+const { createDestinationSelectOptions, formatJournalMetadata, summarizeText } = require(path.join(
   process.cwd(),
   "public",
   "journal-presentation.js",
@@ -110,4 +111,13 @@ test("journal metadata falls back safely when destination or user lookups are mi
   assert.equal(metadata.destinationLabel, "dest-404");
   assert.equal(metadata.userLabel, "user-404");
   assert.equal(metadata.attribution, "dest-404 / user-404");
+});
+
+test("journal summaries compress long prose without cutting straight through a word", () => {
+  const summary = summarizeText(
+    "Layered indoor walk with a quiet overlook, tea stop, long bridge, and a slow return through the atrium after sunset.",
+    72,
+  );
+
+  assert.equal(summary, "Layered indoor walk with a quiet overlook, tea stop, long bridge,...");
 });

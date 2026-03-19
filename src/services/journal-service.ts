@@ -1,8 +1,44 @@
-import { averageRating } from "./fallback-algorithms";
-import { assertNonEmpty, dedupeTags, ensureLimit, findDestination, findUser, journalSummary, scoreJournal } from "./service-helpers";
-import type { JournalCreateInput, JournalRecord, JournalUpdateInput } from "./contracts";
+import { averageRating, excerpt } from "./fallback-algorithms";
+import {
+  assertNonEmpty,
+  dedupeTags,
+  ensureLimit,
+  findDestination,
+  findUser,
+  scoreJournal,
+} from "./service-helpers";
+import type {
+  CursorPage,
+  JournalCommentCreateInput,
+  JournalCommentListQuery,
+  JournalCommentRecord,
+  JournalCommentView,
+  JournalCreateInput,
+  JournalDetailRecord,
+  JournalFeedItem,
+  JournalFeedQuery,
+  JournalLikeRecord,
+  JournalRecord,
+  JournalUpdateInput,
+} from "./contracts";
 import type { JournalStore } from "./journal-store";
 import type { ResolvedRuntime } from "./runtime";
+
+const COMMENT_CURSOR_KIND = "comment";
+const FEED_CURSOR_KIND = "feed";
+
+type JournalListOptions = {
+  destinationId?: string;
+  userId?: string;
+  limit?: number;
+  viewerUserId?: string;
+};
+
+type SocialMaps = {
+  commentCountByJournal: Map<string, number>;
+  likeCountByJournal: Map<string, number>;
+  likedUsersByJournal: Map<string, Set<string>>;
+};
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -16,33 +52,258 @@ function nextJournalId(journals: JournalRecord[]): string {
   return `journal-${maxId + 1}`;
 }
 
-export function createJournalService(runtime: ResolvedRuntime, store: JournalStore) {
+function nextCommentId(comments: JournalCommentRecord[]): string {
+  const maxId = comments.reduce((max, comment) => {
+    const value = Number.parseInt(comment.id.replace("comment-", ""), 10);
+    return Number.isNaN(value) ? max : Math.max(max, value);
+  }, 0);
+  return `comment-${maxId + 1}`;
+}
+
+function sortJournals(left: JournalRecord, right: JournalRecord): number {
+  const timestampOrder = right.updatedAt.localeCompare(left.updatedAt);
+  return timestampOrder !== 0 ? timestampOrder : right.id.localeCompare(left.id);
+}
+
+function sortComments(left: JournalCommentRecord, right: JournalCommentRecord): number {
+  const timestampOrder = right.createdAt.localeCompare(left.createdAt);
+  return timestampOrder !== 0 ? timestampOrder : right.id.localeCompare(left.id);
+}
+
+function encodeCursor(kind: string, stamp: string, id: string): string {
+  return btoa(`${kind}|${stamp}|${id}`);
+}
+
+function decodeCursor(kind: string, cursor: string): { stamp: string; id: string } {
+  try {
+    const decoded = atob(cursor);
+    const [cursorKind, stamp, id] = decoded.split("|");
+    if (cursorKind !== kind || !stamp || !id) {
+      throw new Error("Invalid cursor.");
+    }
+    return { stamp, id };
+  } catch {
+    throw new Error("Invalid cursor.");
+  }
+}
+
+function resolveCursorIndex<T extends { id: string }>(
+  items: T[],
+  cursor: string | undefined,
+  kind: string,
+  stampOf: (item: T) => string,
+): number {
+  if (!cursor) {
+    return 0;
+  }
+
+  const decoded = decodeCursor(kind, cursor);
+  const index = items.findIndex((item) => item.id === decoded.id && stampOf(item) === decoded.stamp);
+  if (index < 0) {
+    throw new Error("Invalid cursor.");
+  }
+  return index + 1;
+}
+
+function nextCursorForPage<T extends { id: string }>(
+  items: T[],
+  startIndex: number,
+  limit: number,
+  kind: string,
+  stampOf: (item: T) => string,
+): string | null {
+  if (startIndex + limit >= items.length) {
+    return null;
+  }
+  const lastItem = items[startIndex + limit - 1];
+  if (!lastItem) {
+    return null;
+  }
+  return encodeCursor(kind, stampOf(lastItem), lastItem.id);
+}
+
+function buildSocialMaps(comments: JournalCommentRecord[], likes: JournalLikeRecord[]): SocialMaps {
+  const commentCountByJournal = new Map<string, number>();
+  for (const comment of comments) {
+    commentCountByJournal.set(comment.journalId, (commentCountByJournal.get(comment.journalId) ?? 0) + 1);
+  }
+
+  const likeCountByJournal = new Map<string, number>();
+  const likedUsersByJournal = new Map<string, Set<string>>();
+  for (const like of likes) {
+    likeCountByJournal.set(like.journalId, (likeCountByJournal.get(like.journalId) ?? 0) + 1);
+    const bucket = likedUsersByJournal.get(like.journalId) ?? new Set<string>();
+    bucket.add(like.userId);
+    likedUsersByJournal.set(like.journalId, bucket);
+  }
+
   return {
-    async list(options: { destinationId?: string; userId?: string; limit?: number } = {}) {
+    commentCountByJournal,
+    likeCountByJournal,
+    likedUsersByJournal,
+  };
+}
+
+function summarizeBody(body: string): string {
+  const normalized = body.trim();
+  const summary = excerpt(normalized, []).trim();
+  if (summary.length === 0) {
+    return normalized;
+  }
+  return summary.length < normalized.length ? `${summary}...` : summary;
+}
+
+function destinationLabel(runtime: ResolvedRuntime, destinationId: string): string {
+  return runtime.lookups.destinationById.get(destinationId)?.name ?? destinationId;
+}
+
+function userLabel(runtime: ResolvedRuntime, userId: string): string {
+  return runtime.lookups.userById.get(userId)?.name ?? userId;
+}
+
+function viewerHasLiked(maps: SocialMaps, journalId: string, viewerUserId?: string): boolean {
+  if (!viewerUserId) {
+    return false;
+  }
+  return maps.likedUsersByJournal.get(journalId)?.has(viewerUserId) ?? false;
+}
+
+function buildJournalDetail(
+  runtime: ResolvedRuntime,
+  journal: JournalRecord,
+  maps: SocialMaps,
+  viewerUserId?: string,
+): JournalDetailRecord {
+  return {
+    ...journal,
+    averageRating: averageRating(journal.ratings),
+    summaryBody: summarizeBody(journal.body),
+    destinationLabel: destinationLabel(runtime, journal.destinationId),
+    userLabel: userLabel(runtime, journal.userId),
+    likeCount: maps.likeCountByJournal.get(journal.id) ?? 0,
+    commentCount: maps.commentCountByJournal.get(journal.id) ?? 0,
+    viewerHasLiked: viewerHasLiked(maps, journal.id, viewerUserId),
+  };
+}
+
+function buildFeedItem(
+  runtime: ResolvedRuntime,
+  journal: JournalRecord,
+  maps: SocialMaps,
+  viewerUserId?: string,
+): JournalFeedItem {
+  return {
+    id: journal.id,
+    userId: journal.userId,
+    userLabel: userLabel(runtime, journal.userId),
+    destinationId: journal.destinationId,
+    destinationLabel: destinationLabel(runtime, journal.destinationId),
+    title: journal.title,
+    summaryBody: summarizeBody(journal.body),
+    tags: [...journal.tags],
+    createdAt: journal.createdAt,
+    updatedAt: journal.updatedAt,
+    views: journal.views,
+    averageRating: averageRating(journal.ratings),
+    likeCount: maps.likeCountByJournal.get(journal.id) ?? 0,
+    commentCount: maps.commentCountByJournal.get(journal.id) ?? 0,
+    viewerHasLiked: viewerHasLiked(maps, journal.id, viewerUserId),
+    mediaCount: journal.media.length,
+  };
+}
+
+function buildCommentView(runtime: ResolvedRuntime, comment: JournalCommentRecord): JournalCommentView {
+  return {
+    ...comment,
+    userLabel: userLabel(runtime, comment.userId),
+  };
+}
+
+function filterJournals(
+  journals: JournalRecord[],
+  options: { destinationId?: string; userId?: string },
+): JournalRecord[] {
+  return journals
+    .filter((journal) => (options.destinationId ? journal.destinationId === options.destinationId : true))
+    .filter((journal) => (options.userId ? journal.userId === options.userId : true));
+}
+
+function requireKnownUser(runtime: ResolvedRuntime, userId: string, errorMessage = "User is required.") {
+  const user = findUser(runtime.seedData.users, assertNonEmpty(userId, errorMessage));
+  if (!user) {
+    throw new Error(`Unknown user: ${userId}`);
+  }
+  return user;
+}
+
+export function createJournalService(runtime: ResolvedRuntime, store: JournalStore) {
+  async function loadViewerUserId(viewerUserId?: string): Promise<string | undefined> {
+    if (!viewerUserId) {
+      return undefined;
+    }
+    return requireKnownUser(runtime, viewerUserId, "Viewer user is required.").id;
+  }
+
+  async function loadJournal(journalId: string): Promise<JournalRecord> {
+    const journal = await store.get(journalId);
+    if (!journal) {
+      throw new Error(`Unknown journal: ${journalId}`);
+    }
+    return journal;
+  }
+
+  async function loadSocialMaps(options: { journalId?: string } = {}): Promise<SocialMaps> {
+    const [comments, likes] = await Promise.all([
+      store.listComments(options.journalId),
+      store.listLikes(options.journalId ? { journalId: options.journalId } : {}),
+    ]);
+    return buildSocialMaps(comments, likes);
+  }
+
+  async function getJournalDetail(journalId: string, viewerUserId?: string): Promise<JournalDetailRecord> {
+    const resolvedViewerUserId = await loadViewerUserId(viewerUserId);
+    const [journal, maps] = await Promise.all([loadJournal(journalId), loadSocialMaps({ journalId })]);
+    return buildJournalDetail(runtime, journal, maps, resolvedViewerUserId);
+  }
+
+  return {
+    async list(options: JournalListOptions = {}) {
       const limit = ensureLimit(options.limit, 12, 60);
-      const journals = await store.list();
-      return journals
-        .filter((journal) => (options.destinationId ? journal.destinationId === options.destinationId : true))
-        .filter((journal) => (options.userId ? journal.userId === options.userId : true))
-        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      const resolvedViewerUserId = await loadViewerUserId(options.viewerUserId);
+      const [journals, maps] = await Promise.all([store.list(), loadSocialMaps()]);
+      return filterJournals(journals, options)
+        .sort(sortJournals)
         .slice(0, limit)
-        .map((journal) => journalSummary(journal));
+        .map((journal) => buildJournalDetail(runtime, journal, maps, resolvedViewerUserId));
     },
 
-    async get(journalId: string) {
-      const journal = await store.get(journalId);
-      if (!journal) {
-        throw new Error(`Unknown journal: ${journalId}`);
-      }
-      return journalSummary(journal);
+    async feed(options: JournalFeedQuery = {}): Promise<CursorPage<JournalFeedItem>> {
+      const limit = ensureLimit(options.limit, 12, 40);
+      const resolvedViewerUserId = await loadViewerUserId(options.viewerUserId);
+      const [journals, maps] = await Promise.all([store.list(), loadSocialMaps()]);
+      const filtered = filterJournals(journals, options).sort(sortJournals);
+      const startIndex = resolveCursorIndex(filtered, options.cursor, FEED_CURSOR_KIND, (journal) => journal.updatedAt);
+      const items = filtered
+        .slice(startIndex, startIndex + limit)
+        .map((journal) => buildFeedItem(runtime, journal, maps, resolvedViewerUserId));
+
+      return {
+        items,
+        nextCursor: nextCursorForPage(filtered, startIndex, limit, FEED_CURSOR_KIND, (journal) => journal.updatedAt),
+        totalCount: filtered.length,
+      };
+    },
+
+    async get(journalId: string, options: { viewerUserId?: string } = {}) {
+      return getJournalDetail(journalId, options.viewerUserId);
     },
 
     async create(input: JournalCreateInput) {
-      const user = findUser(runtime.seedData.users, assertNonEmpty(input.userId, "Journal author is required."));
-      if (!user) {
-        throw new Error(`Unknown user: ${input.userId}`);
-      }
-      const destination = findDestination(runtime.seedData.destinations, assertNonEmpty(input.destinationId, "Destination is required."));
+      const user = requireKnownUser(runtime, input.userId, "Journal author is required.");
+      const destination = findDestination(
+        runtime.seedData.destinations,
+        assertNonEmpty(input.destinationId, "Destination is required."),
+      );
       const journals = await store.list();
       const timestamp = nowIso();
       const journal: JournalRecord = {
@@ -60,14 +321,11 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
         recommendedFor: input.recommendedFor ?? [],
       };
       await store.upsert(journal);
-      return journalSummary(journal);
+      return buildJournalDetail(runtime, journal, buildSocialMaps([], []));
     },
 
     async update(journalId: string, input: JournalUpdateInput) {
-      const existing = await store.get(journalId);
-      if (!existing) {
-        throw new Error(`Unknown journal: ${journalId}`);
-      }
+      const [existing, maps] = await Promise.all([loadJournal(journalId), loadSocialMaps({ journalId })]);
       const updated: JournalRecord = {
         ...existing,
         title: input.title ? assertNonEmpty(input.title, "Journal title is required.") : existing.title,
@@ -78,7 +336,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
         updatedAt: nowIso(),
       };
       await store.upsert(updated);
-      return journalSummary(updated);
+      return buildJournalDetail(runtime, updated, maps);
     },
 
     async delete(journalId: string) {
@@ -86,35 +344,27 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       if (!removed) {
         throw new Error(`Unknown journal: ${journalId}`);
       }
+      await Promise.all([store.removeCommentsByJournal(journalId), store.removeLikesByJournal(journalId)]);
       return { deleted: true };
     },
 
     async recordView(journalId: string) {
-      const journal = await store.get(journalId);
-      if (!journal) {
-        throw new Error(`Unknown journal: ${journalId}`);
-      }
+      const [journal, maps] = await Promise.all([loadJournal(journalId), loadSocialMaps({ journalId })]);
       const updated = {
         ...journal,
         views: journal.views + 1,
         updatedAt: nowIso(),
       };
       await store.upsert(updated);
-      return journalSummary(updated);
+      return buildJournalDetail(runtime, updated, maps);
     },
 
     async rate(journalId: string, userId: string, score: number) {
-      const user = findUser(runtime.seedData.users, userId);
-      if (!user) {
-        throw new Error(`Unknown user: ${userId}`);
-      }
+      const user = requireKnownUser(runtime, userId);
       if (!Number.isInteger(score) || score < 1 || score > 5) {
         throw new Error("Journal score must be an integer between 1 and 5.");
       }
-      const journal = await store.get(journalId);
-      if (!journal) {
-        throw new Error(`Unknown journal: ${journalId}`);
-      }
+      const [journal, maps] = await Promise.all([loadJournal(journalId), loadSocialMaps({ journalId })]);
       if (journal.ratings.some((rating) => rating.userId === user.id)) {
         throw new Error(`User ${user.id} has already rated journal ${journalId}.`);
       }
@@ -124,10 +374,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
         updatedAt: nowIso(),
       };
       await store.upsert(updated);
-      return {
-        ...journalSummary(updated),
-        averageRating: averageRating(updated.ratings),
-      };
+      return buildJournalDetail(runtime, updated, maps, user.id);
     },
 
     async recommend(options: { userId?: string; destinationId?: string; limit?: number } = {}) {
@@ -136,14 +383,115 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       const destinationName = options.destinationId
         ? findDestination(runtime.seedData.destinations, options.destinationId).name
         : "";
-      const journals = await store.list();
+      const [journals, maps] = await Promise.all([store.list(), loadSocialMaps()]);
       return runtime.algorithms.recommendation
         .topK(
           journals.filter((journal) => (options.destinationId ? journal.destinationId === options.destinationId : true)),
           limit,
           (journal) => scoreJournal(journal, user, destinationName),
         )
-        .map((journal) => journalSummary(journal));
+        .map((journal) => buildJournalDetail(runtime, journal, maps, user?.id));
+    },
+
+    async listComments(query: JournalCommentListQuery): Promise<CursorPage<JournalCommentView>> {
+      await loadJournal(query.journalId);
+      const limit = ensureLimit(query.limit, 20, 50);
+      const comments = (await store.listComments(query.journalId)).sort(sortComments);
+      const startIndex = resolveCursorIndex(comments, query.cursor, COMMENT_CURSOR_KIND, (comment) => comment.createdAt);
+      const items = comments
+        .slice(startIndex, startIndex + limit)
+        .map((comment) => buildCommentView(runtime, comment));
+
+      return {
+        items,
+        nextCursor: nextCursorForPage(comments, startIndex, limit, COMMENT_CURSOR_KIND, (comment) => comment.createdAt),
+        totalCount: comments.length,
+      };
+    },
+
+    async createComment(journalId: string, input: JournalCommentCreateInput) {
+      const user = requireKnownUser(runtime, input.userId);
+      const journal = await loadJournal(journalId);
+      const comments = await store.listComments();
+      const timestamp = nowIso();
+      const comment: JournalCommentRecord = {
+        id: nextCommentId(comments),
+        journalId: journal.id,
+        userId: user.id,
+        body: assertNonEmpty(input.body, "Comment body is required."),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      await Promise.all([
+        store.upsertComment(comment),
+        store.upsert({
+          ...journal,
+          updatedAt: timestamp,
+        }),
+      ]);
+      return buildCommentView(runtime, comment);
+    },
+
+    async deleteComment(commentId: string, userId: string) {
+      const user = requireKnownUser(runtime, userId);
+      const comment = await store.getComment(commentId);
+      if (!comment) {
+        throw new Error(`Unknown comment: ${commentId}`);
+      }
+      if (comment.userId !== user.id) {
+        throw new Error(`User ${user.id} cannot delete comment ${commentId}.`);
+      }
+
+      const timestamp = nowIso();
+      const journal = await store.get(comment.journalId);
+      await Promise.all([
+        store.removeComment(commentId),
+        journal
+          ? store.upsert({
+              ...journal,
+              updatedAt: timestamp,
+            })
+          : Promise.resolve(journal),
+      ]);
+      return { deleted: true };
+    },
+
+    async like(journalId: string, userId: string) {
+      const user = requireKnownUser(runtime, userId);
+      const journal = await loadJournal(journalId);
+      const existing = await store.getLike(journalId, user.id);
+      if (existing) {
+        throw new Error(`User ${user.id} has already liked journal ${journalId}.`);
+      }
+
+      const timestamp = nowIso();
+      await Promise.all([
+        store.upsertLike({
+          journalId: journal.id,
+          userId: user.id,
+          createdAt: timestamp,
+        }),
+        store.upsert({
+          ...journal,
+          updatedAt: timestamp,
+        }),
+      ]);
+      return getJournalDetail(journalId, user.id);
+    },
+
+    async unlike(journalId: string, userId: string) {
+      const user = requireKnownUser(runtime, userId);
+      const journal = await loadJournal(journalId);
+      const removed = await store.removeLike(journalId, user.id);
+      if (!removed) {
+        throw new Error(`User ${user.id} has not liked journal ${journalId}.`);
+      }
+
+      await store.upsert({
+        ...journal,
+        updatedAt: nowIso(),
+      });
+      return getJournalDetail(journalId, user.id);
     },
   };
 }
