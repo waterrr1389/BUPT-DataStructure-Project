@@ -1,5 +1,5 @@
 import {
-  createUrl,
+  createRouteContextHref,
   emptyStateMarkup,
   escapeHtml,
   fillSelect,
@@ -34,8 +34,8 @@ export async function render(app, route, root) {
   const actorDefault = users.some((user) => user.id === route.params.actor)
     ? route.params.actor
     : users[0]?.id || "";
-  const feedHref = createUrl("/feed", actorDefault ? { actor: actorDefault } : {});
-  const composeHref = createUrl("/compose", actorDefault ? { actor: actorDefault } : {});
+  const feedHref = createRouteContextHref("/feed", {}, actorDefault);
+  const composeHref = createRouteContextHref("/compose", {}, actorDefault);
 
   let journal;
   try {
@@ -144,7 +144,13 @@ export async function render(app, route, root) {
             `Updated ${formatDate(journal.updatedAt)}`,
           ])}
           <div class="story-card-actions">
-            <a class="inline-link" href="${app.buildMapHref({ destinationId: journal.destinationId })}" data-nav="true">Open destination in map</a>
+            <a
+              class="inline-link"
+              href="${escapeHtml(buildMapHref(actorDefault, journal.destinationId))}"
+              data-nav="true"
+              data-map-href="true"
+              data-map-destination="${escapeHtml(journal.destinationId)}"
+            >Open destination in map</a>
             <a
               class="inline-link"
               href="${escapeHtml(buildComposeHref(actorDefault, journal.destinationId))}"
@@ -218,19 +224,26 @@ export async function render(app, route, root) {
   let disposed = false;
 
   function buildFeedHref(actorId) {
-    return createUrl("/feed", actorId ? { actor: actorId } : {});
+    return createRouteContextHref("/feed", {}, actorId);
+  }
+
+  function buildMapHref(actorId, destinationId) {
+    return createRouteContextHref("/map", { destinationId }, actorId);
   }
 
   function buildComposeHref(actorId, destinationId) {
-    return createUrl("/compose", {
-      actor: actorId,
-      destinationId,
-    });
+    return createRouteContextHref("/compose", { destinationId }, actorId);
   }
 
   function syncFeedLinks(actorId) {
     root.querySelectorAll("[data-feed-href]").forEach((link) => {
       link.setAttribute("href", buildFeedHref(actorId));
+    });
+  }
+
+  function syncMapLinks(actorId) {
+    root.querySelectorAll("[data-map-href]").forEach((link) => {
+      link.setAttribute("href", buildMapHref(actorId, link.getAttribute("data-map-destination") || ""));
     });
   }
 
@@ -256,6 +269,7 @@ export async function render(app, route, root) {
     currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
     likeButton.textContent = currentLikeAction === "like" ? "Like" : "Unlike";
     syncFeedLinks(actorSelect.value);
+    syncMapLinks(actorSelect.value);
     syncComposeLinks(actorSelect.value);
   }
 
@@ -363,7 +377,7 @@ export async function render(app, route, root) {
   root.querySelector("#post-delete").addEventListener("click", async () => {
     try {
       await app.sendJournalAction("delete", route.journalId, actorSelect.value);
-      app.navigate("/feed");
+      app.navigate(buildFeedHref(actorSelect.value));
     } catch (error) {
       app.setStatus(error instanceof Error ? error.message : "Delete action failed.", "error");
     }
