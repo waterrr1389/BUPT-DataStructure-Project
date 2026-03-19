@@ -295,6 +295,25 @@ export function createAppShell(root) {
     dom.backToTop = root.querySelector("#back-to-top");
   }
 
+  function syncShellLinks(route = parseRoute()) {
+    const actor = text(route?.params?.actor);
+    const actorParams = actor ? { actor } : {};
+    const shellLinks = [
+      [".site-brand", createUrl("/", actorParams)],
+      ["a[data-route-name='explore']", createUrl("/explore", actorParams)],
+      ["a[data-route-name='map']", createUrl("/map", actorParams)],
+      ["a[data-route-name='feed']", createUrl("/feed", actorParams)],
+      ["a[data-route-name='compose']", createUrl("/compose", actorParams)],
+    ];
+
+    shellLinks.forEach(([selector, href]) => {
+      const link = root.querySelector(selector);
+      if (link) {
+        link.setAttribute("href", href);
+      }
+    });
+  }
+
   function syncActiveNav(route) {
     if (!dom.nav) {
       return;
@@ -359,6 +378,7 @@ export function createAppShell(root) {
     }
 
     closeNav();
+    syncShellLinks(parseRoute(new URL(window.location.href)));
     if (options.render !== false) {
       void renderRoute({ preserveScroll: options.preserveScroll === true });
     }
@@ -401,6 +421,11 @@ export function createAppShell(root) {
 
     if (social.missing) {
       state.socialAvailability.feed = false;
+    }
+
+    const fallbackAllowed = social.missing || /Unknown API endpoint/i.test(text(social.error));
+    if (!fallbackAllowed) {
+      throw new Error(text(social.error, "Feed loading failed."));
     }
 
     const fallback = await requestJson(
@@ -603,6 +628,7 @@ export function createAppShell(root) {
 
     const route = parseRoute();
     state.currentRoute = route;
+    syncShellLinks(route);
     syncActiveNav(route);
 
     const token = state.renderToken + 1;

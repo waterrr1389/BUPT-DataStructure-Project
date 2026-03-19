@@ -77,6 +77,17 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
+async function expectRejects(run: () => Promise<unknown>, pattern: RegExp): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.equal(pattern.test(message), true, message);
+    return;
+  }
+  throw new Error(`Expected rejection matching ${pattern}.`);
+}
+
 function createComment(index: number): JournalComment {
   return {
     body: `Comment ${index}`,
@@ -1474,6 +1485,125 @@ test("feed fallback preserves viewer context when the social feed endpoint is un
       requests[1],
       "/api/journals?destinationId=dest-1&viewerUserId=user-2&limit=3&cursor=cursor-1",
     );
+  } finally {
+    globalThis.fetch = previousFetch;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("feed fallback surfaces social feed errors instead of swapping to the journal list", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
+    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+
+    const requests: string[] = [];
+    globalThis.fetch = (async (input: string | URL) => {
+      const url = String(input);
+      requests.push(url);
+      if (url.startsWith("/api/feed")) {
+        return createJsonResponse(400, { error: "Invalid cursor." });
+      }
+      if (url.startsWith("/api/journals")) {
+        return createJsonResponse(200, { items: [] });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<AppShellModule>("app-shell.js");
+    const app = module.createAppShell(root);
+
+    await expectRejects(
+      () =>
+        app.fetchFeed({
+          cursor: "bogus",
+          viewerUserId: "user-2",
+        }),
+      /Invalid cursor\./,
+    );
+
+    assert.deepEqual(requests, ["/api/feed?viewerUserId=user-2&cursor=bogus"]);
+  } finally {
+    globalThis.fetch = previousFetch;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("shell nav links preserve actor context after non-rendering navigation", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
+    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+
+    env.window.history.replaceState({}, "", "/feed?actor=user-1");
+
+    globalThis.fetch = (async (input: string | URL) => {
+      const url = String(input);
+      if (url === "/api/bootstrap") {
+        return createJsonResponse(200, {
+          categories: [],
+          cuisines: [],
+          destinations: [
+            {
+              id: "dest-1",
+              name: "Harbor Reach",
+              region: "North Wharf",
+              type: "campus",
+            },
+          ],
+          featured: [],
+          source: {
+            algorithms: "fallback",
+            data: "seeded",
+          },
+          users: [
+            { id: "user-1", name: "Avery Vale" },
+            { id: "user-2", name: "Mina Hart" },
+          ],
+        });
+      }
+      if (url.startsWith("/api/feed")) {
+        return createJsonResponse(200, { items: [], nextCursor: null });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<AppShellModule>("app-shell.js");
+    const app = module.createAppShell(root);
+
+    await app.start();
+    app.navigate("/feed?actor=user-2", { replace: true, render: false });
+    await settleAsync();
+
+    assert.equal(requireElement(root, ".site-brand").getAttribute("href"), "/?actor=user-2");
+    assert.equal(requireElement(root, "a[data-route-name='explore']").getAttribute("href"), "/explore?actor=user-2");
+    assert.equal(requireElement(root, "a[data-route-name='map']").getAttribute("href"), "/map?actor=user-2");
+    assert.equal(requireElement(root, "a[data-route-name='feed']").getAttribute("href"), "/feed?actor=user-2");
+    assert.equal(requireElement(root, "a[data-route-name='compose']").getAttribute("href"), "/compose?actor=user-2");
   } finally {
     globalThis.fetch = previousFetch;
     globals.JournalConsumers = previousJournalConsumers;
