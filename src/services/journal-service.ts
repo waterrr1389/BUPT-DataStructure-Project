@@ -353,7 +353,6 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       const updated = {
         ...journal,
         views: journal.views + 1,
-        updatedAt: nowIso(),
       };
       await store.upsert(updated);
       return buildJournalDetail(runtime, updated, maps);
@@ -422,13 +421,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
         createdAt: timestamp,
         updatedAt: timestamp,
       };
-      await Promise.all([
-        store.upsertComment(comment),
-        store.upsert({
-          ...journal,
-          updatedAt: timestamp,
-        }),
-      ]);
+      await store.upsertComment(comment);
       return buildCommentView(runtime, comment);
     },
 
@@ -441,18 +434,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       if (comment.userId !== user.id) {
         throw new Error(`User ${user.id} cannot delete comment ${commentId}.`);
       }
-
-      const timestamp = nowIso();
-      const journal = await store.get(comment.journalId);
-      await Promise.all([
-        store.removeComment(commentId),
-        journal
-          ? store.upsert({
-              ...journal,
-              updatedAt: timestamp,
-            })
-          : Promise.resolve(journal),
-      ]);
+      await store.removeComment(commentId);
       return { deleted: true };
     },
 
@@ -465,32 +447,21 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       }
 
       const timestamp = nowIso();
-      await Promise.all([
-        store.upsertLike({
-          journalId: journal.id,
-          userId: user.id,
-          createdAt: timestamp,
-        }),
-        store.upsert({
-          ...journal,
-          updatedAt: timestamp,
-        }),
-      ]);
+      await store.upsertLike({
+        journalId: journal.id,
+        userId: user.id,
+        createdAt: timestamp,
+      });
       return getJournalDetail(journalId, user.id);
     },
 
     async unlike(journalId: string, userId: string) {
       const user = requireKnownUser(runtime, userId);
-      const journal = await loadJournal(journalId);
+      await loadJournal(journalId);
       const removed = await store.removeLike(journalId, user.id);
       if (!removed) {
         throw new Error(`User ${user.id} has not liked journal ${journalId}.`);
       }
-
-      await store.upsert({
-        ...journal,
-        updatedAt: nowIso(),
-      });
       return getJournalDetail(journalId, user.id);
     },
   };

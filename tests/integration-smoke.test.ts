@@ -402,3 +402,78 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(appAsset.headers["cache-control"], "public, max-age=300, must-revalidate");
   });
 });
+
+test("server keeps feed cursors valid across social activity and rejects malformed journal social suffixes", async () => {
+  await withServer("social-route-regressions", async ({ requestJson }) => {
+    const created = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "River Polytechnic route suffix regression",
+        body: "Archive pass-through with a quiet indoor finish.",
+        tags: ["indoor", "archive"],
+      },
+      method: "POST",
+    });
+    const createdId = created.body.item.id;
+    const feedPage = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      nextCursor: string | null;
+      totalCount: number;
+    }>(`/api/feed?limit=1&viewerUserId=user-4`);
+    const malformedGetComments = await requestJson<{ error: string }>(`/api/journals/${createdId}/comments/extra`);
+    const malformedPostComment = await requestJson<{ error: string }>(`/api/journals/${createdId}/comments/extra`, {
+      body: { userId: "user-5", body: "Should not be accepted." },
+      method: "POST",
+    });
+    const malformedPostLike = await requestJson<{ error: string }>(`/api/journals/${createdId}/likes/extra`, {
+      body: { userId: "user-4" },
+      method: "POST",
+    });
+    const malformedDeleteLike = await requestJson<{ error: string }>(
+      `/api/journals/${createdId}/likes/extra?userId=user-4`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    assert.equal(feedPage.body.items[0]?.id, createdId, feedPage.text);
+    assert.equal(feedPage.body.nextCursor !== null, true, feedPage.text);
+
+    await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/likes`, {
+      body: { userId: "user-4" },
+      method: "POST",
+    });
+    await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/comments`, {
+      body: {
+        userId: "user-5",
+        body: "Archive finish still looks right.",
+      },
+      method: "POST",
+    });
+    await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/view`, {
+      method: "POST",
+    });
+    await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/likes?userId=user-4`, {
+      method: "DELETE",
+    });
+
+    const nextFeedPage = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      nextCursor: string | null;
+      totalCount: number;
+    }>(`/api/feed?limit=1&viewerUserId=user-4&cursor=${encodeURIComponent(feedPage.body.nextCursor ?? "")}`);
+
+    assert.equal(nextFeedPage.status, 200, nextFeedPage.text);
+    assert.equal(nextFeedPage.body.items[0]?.id === createdId, false, nextFeedPage.text);
+
+    assert.equal(malformedGetComments.status, 404, malformedGetComments.text);
+    assert.equal(malformedGetComments.body.error, "Unknown API endpoint.", malformedGetComments.text);
+    assert.equal(malformedPostComment.status, 404, malformedPostComment.text);
+    assert.equal(malformedPostComment.body.error, "Unknown API endpoint.", malformedPostComment.text);
+    assert.equal(malformedPostLike.status, 404, malformedPostLike.text);
+    assert.equal(malformedPostLike.body.error, "Unknown API endpoint.", malformedPostLike.text);
+    assert.equal(malformedDeleteLike.status, 404, malformedDeleteLike.text);
+    assert.equal(malformedDeleteLike.body.error, "Unknown API endpoint.", malformedDeleteLike.text);
+  });
+});

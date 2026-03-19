@@ -319,7 +319,7 @@ async function handleApi(
       });
       return true;
     }
-    if (request.method === "GET" && parts[3] === "comments") {
+    if (request.method === "GET" && parts.length === 4 && parts[3] === "comments") {
       json(
         response,
         200,
@@ -331,7 +331,7 @@ async function handleApi(
       );
       return true;
     }
-    if (request.method === "POST" && parts[3] === "comments") {
+    if (request.method === "POST" && parts.length === 4 && parts[3] === "comments") {
       const body = asObject(await readBody(request));
       json(response, 201, {
         item: await services.journals.createComment(journalId, {
@@ -341,14 +341,14 @@ async function handleApi(
       });
       return true;
     }
-    if (request.method === "POST" && parts[3] === "likes") {
+    if (request.method === "POST" && parts.length === 4 && parts[3] === "likes") {
       const body = asObject(await readBody(request));
       json(response, 200, {
         item: await services.journals.like(journalId, String(body.userId ?? "")),
       });
       return true;
     }
-    if (request.method === "DELETE" && parts[3] === "likes") {
+    if (request.method === "DELETE" && parts.length === 4 && parts[3] === "likes") {
       const body = asObject(await readBody(request));
       json(response, 200, {
         item: await services.journals.unlike(
@@ -362,11 +362,11 @@ async function handleApi(
       json(response, 200, await services.journals.delete(journalId));
       return true;
     }
-    if (request.method === "POST" && parts[3] === "view") {
+    if (request.method === "POST" && parts.length === 4 && parts[3] === "view") {
       json(response, 200, { item: await services.journals.recordView(journalId) });
       return true;
     }
-    if (request.method === "POST" && parts[3] === "rate") {
+    if (request.method === "POST" && parts.length === 4 && parts[3] === "rate") {
       const body = asObject(await readBody(request));
       json(response, 200, {
         item: await services.journals.rate(journalId, String(body.userId ?? ""), Number(body.score)),

@@ -355,6 +355,47 @@ test("journal social flows keep feed summaries compact and preserve legacy journ
   );
 });
 
+test("feed cursors stay valid across social-only journal activity", async () => {
+  const app = await createIsolatedApp("journal-feed-cursor-stability");
+  const created = await app.journals.create({
+    body: "Indoor archive notes with a tea stop at the end of the route.",
+    destinationId: "dest-002",
+    tags: ["indoor", "archive"],
+    title: "River Polytechnic cursor stability memo",
+    userId: "user-2",
+  });
+  const createdId = created.id;
+  const initialUpdatedAt = created.updatedAt;
+  const feedPage = await app.journals.feed({
+    limit: 1,
+    viewerUserId: "user-4",
+  });
+
+  assert.equal(feedPage.items[0]?.id, createdId, format(feedPage));
+  assert.equal(feedPage.nextCursor !== null, true, format(feedPage));
+
+  await app.journals.like(createdId, "user-4");
+  await app.journals.createComment(createdId, {
+    body: "Archive shortcut still works after the indoor split.",
+    userId: "user-5",
+  });
+  await app.journals.recordView(createdId);
+  await app.journals.unlike(createdId, "user-4");
+
+  const detail = await app.journals.get(createdId, { viewerUserId: "user-4" });
+  const nextFeedPage = await app.journals.feed({
+    cursor: feedPage.nextCursor ?? undefined,
+    limit: 1,
+    viewerUserId: "user-4",
+  });
+
+  assert.equal(detail.updatedAt, initialUpdatedAt, format(detail));
+  assert.equal(detail.commentCount, 1, format(detail));
+  assert.equal(detail.likeCount, 0, format(detail));
+  assert.equal(detail.views, 1, format(detail));
+  assert.equal(nextFeedPage.items[0]?.id === createdId, false, format(nextFeedPage));
+});
+
 test("journal likes and comments persist across service reloads and reset clears social state", async () => {
   const runtimeDir = await createRuntimeDir("journal-social-persistence");
   const app = await createAppServices({ runtimeDir });
