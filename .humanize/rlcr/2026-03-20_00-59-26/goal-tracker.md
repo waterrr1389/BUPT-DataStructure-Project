@@ -88,7 +88,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0 finalization)
+### Plan Version: 1 (Updated: Round 1 verification)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -99,34 +99,35 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 | 0 | Synced the tracker to the pre-regression handoff: Explore, Map, and Post Detail implementation moved to `pending-review`, regression coverage/verification moved to `in_progress`, and docs audit remained `pending` as a separate follow-up. | Implementation work for the route hand-offs is complete and awaiting team-leader/test verification, while a test worker is now starting the regression pass and docs should not be marked active yet. | AC-2, AC-3, AC-5, AC-6 |
 | 0 | Updated the tracker for the final documentation handoff: regression/verification moved out of active execution to `pending-review`, and the docs audit/update task moved to `in_progress`. | Regression coverage is now implemented and green test runs have already been reported by both the test worker and the team leader, so active execution shifts to the documentation pass without prematurely finalizing the completed/verified tables. | AC-5, AC-6 |
 | 0 | Finalized Round 0 bookkeeping by clearing stale active rows, moving the entire scoped change set into `Completed and Verified`, and recording that no Round 0 items remain open. | Verified evidence now exists on `main` through commits `df0dba0`, `521e677`, `5b13874`, `bb3af4e`, `d708a51`, plus the integrated `npm test` pass reported by the team leader (`66 tests, 0 failures`). | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6 |
+| 1 | Reopened the tracker for the two Codex-identified Round 0 misses, then re-closed it after targeted fixes and regression expansion. | Round 0 evidence overstated completion: Explore food/facility map hand-offs still dropped `actor`, and real Post Detail comments failures still escalated to a route-level error. Round 1 fixed those gaps in `5a2c357` and `a945680`, expanded coverage in `e6f0c98`, and re-verified the integrated branch with `npm test` (`70 tests, 0 failures`). | AC-2, AC-4, AC-5 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| None. | - | complete | Round 0 scoped work is fully implemented, verified, and moved into `Completed and Verified`; no active tasks remain. |
+| None. | - | complete | All scoped work is implemented and verified after the Round 1 corrections; no active tasks remain. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
 | AC-1 | Add the shared actor-aware route-context helper and route `buildMapHref()` / `buildPostHref()` through it without introducing DOM or fetch behavior. | 0 | 0 | `df0dba0` added `resolveRouteActor()`, `mergeRouteContextParams()`, and `createRouteContextHref()` in `public/spa/lib.js`, then routed `buildMapHref()`, `buildPostHref()`, and shell links in `public/spa/app-shell.js` through the shared helper without adding DOM or fetch side effects to the helper layer. |
-| AC-4 | Correct `fetchJournalComments()` missing-endpoint classification so only genuine missing capabilities degrade to `{ available: false }`. | 0 | 0 | `df0dba0` added `isMissingEndpointResponse()` in `public/spa/app-shell.js`, kept feed fallback behavior aligned, and changed `fetchJournalComments()` to throw real API failures instead of degrading them; `bb3af4e` added direct missing-endpoint and real-error regressions for the comments API. |
-| AC-2 | Update Explore destination-card hand-offs for featured, search, and recommendation flows to preserve actor through the shared helper rules. | 0 | 0 | `521e677` updated `public/spa/views/explore.js` so featured, search, recommendation, and refresh flows build actor-aware map/compose links from shared helper rules; `bb3af4e` added explore regressions for both actor-present and no-actor cases. |
+| AC-4 | Correct comments missing-endpoint classification and keep real Post Detail comments-load failures scoped to the comments surface. | 1 | 1 | `df0dba0` added `isMissingEndpointResponse()` in `public/spa/app-shell.js`, kept feed fallback behavior aligned, and changed `fetchJournalComments()` to throw real API failures instead of degrading them; `bb3af4e` added direct missing-endpoint and real-error regressions for the comments API; `a945680` updated `public/spa/views/post-detail.js` so initial comments failures render in the comments notice/body instead of collapsing the route; `e6f0c98` added a deterministic post-detail regression for the in-view failure path. |
+| AC-2 | Update Explore destination, food, and facility map hand-offs for featured, search, recommendation, and lookup flows to preserve actor through the shared helper rules. | 1 | 1 | `521e677` updated `public/spa/views/explore.js` so featured, search, recommendation, and refresh flows build actor-aware destination map/compose links from shared helper rules; `5a2c357` routed food and facility map links through the same actor-aware context; `bb3af4e` added explore destination-card regressions; `e6f0c98` added deterministic food/facility actor-present and no-actor regressions. |
 | AC-2 | Update Map query rewrites, missing-destination fallback navigation, and the return-to-Explore link to preserve actor on every `render: false` route update. | 0 | 0 | `521e677` updated `public/spa/views/map.js` so the return link, fallback redirect, and renderless query rewrites preserve actor context; `bb3af4e` added map regressions for actor-preserving fallback/rewrites and clean no-actor URLs. |
 | AC-3 | Align Post Detail map, compose, and delete-return links with the shared route-context rules while preserving current `render: false` actor updates. | 0 | 0 | `5b13874` updated `public/spa/views/post-detail.js` so map, compose, feed, and delete-return hand-offs use shared route-context rules while keeping the existing actor-driven `render: false` post-route update path; `bb3af4e` added post-detail hand-off regressions. |
 | AC-5 | Extend SPA regression fixtures and `AppShellModule` typing so tests can assert arbitrary query params and exercise the comments API directly. | 0 | 0 | `bb3af4e` added `buildHref()`, upgraded fixture `buildMapHref()` / `buildPostHref()` helpers to preserve arbitrary query params such as `actor`, and extended the `AppShellModule` type with `fetchJournalComments()`. |
-| AC-5 | Add deterministic regressions for actor preservation and comment error taxonomy, then run `npm test` for current-branch verification. | 0 | 0 | `bb3af4e` added deterministic regressions for Explore, Map, Post Detail, and comments taxonomy in `tests/spa-regressions.test.ts`; the team leader reported the integrated `npm test` pass on the final branch state with `66 tests, 0 failures`. |
+| AC-5 | Add deterministic regressions for actor preservation and comment error taxonomy, then run `npm test` for current-branch verification. | 1 | 1 | `bb3af4e` added the initial deterministic regressions for Explore destination cards, Map, Post Detail hand-offs, and direct comments taxonomy in `tests/spa-regressions.test.ts`; `e6f0c98` added Round 1 regressions for Explore food/facility actor preservation and Post Detail comments-failure rendering; `npm test` passed on the integrated branch state with `70 tests, 0 failures`. |
 | AC-6 | Audit affected docs and update repository claims only if the implemented behavior changed checked-in documentation. | 0 | 0 | `d708a51` updated `docs/rlcr-concurrency-retrospective-2026-03-20.md` to clarify the retrospective's historical framing so it no longer reads as an open-current-state defect list after the bounded convergence pass; no additional checked-in docs required updates. |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
 | Task | Original AC | Deferred Since | Justification | When to Reconsider |
 |------|-------------|----------------|---------------|-------------------|
-| None. | - | - | No Round 0 scope items were deferred. | Reconsider only if a new post-merge regression appears outside the verified Round 0 scope. |
+| None. | - | - | No scoped items are deferred after the Round 1 verification pass. | Reconsider only if a new post-merge regression appears outside the verified scope. |
 
 ### Open Issues
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| None. | - | - | No open blockers remain after the verified implementation, regression coverage, docs audit, and integrated green test run. |
+| None. | - | - | No open blockers remain after the verified implementation, regression coverage, docs audit, tracker correction, and integrated green test run. |
