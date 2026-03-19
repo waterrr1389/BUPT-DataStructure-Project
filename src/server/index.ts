@@ -108,6 +108,17 @@ function asNumber(value: string | null): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function parseRequiredNumericQuery(name: string, value: string | null): number | undefined {
+  if (value === null || value.trim() === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${name} must be a positive number.`);
+  }
+  return parsed;
+}
+
 function pathParts(pathname: string): string[] {
   return pathname.split("/").filter(Boolean);
 }
@@ -151,7 +162,7 @@ async function handleApi(
       await services.journals.feed({
         cursor: url.searchParams.get("cursor") ?? undefined,
         destinationId: url.searchParams.get("destinationId") ?? undefined,
-        limit: asNumber(url.searchParams.get("limit")),
+        limit: parseRequiredNumericQuery("Limit", url.searchParams.get("limit")),
         userId: url.searchParams.get("userId") ?? undefined,
         viewerUserId: url.searchParams.get("viewerUserId") ?? undefined,
       }),
@@ -323,7 +334,7 @@ async function handleApi(
         await services.journals.listComments({
           journalId,
           cursor: url.searchParams.get("cursor") ?? undefined,
-          limit: asNumber(url.searchParams.get("limit")),
+          limit: parseRequiredNumericQuery("Limit", url.searchParams.get("limit")),
         }),
       );
       return true;

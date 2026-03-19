@@ -577,10 +577,12 @@ function createFeedFixture() {
   const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
 
-  function cardMarkup(item: { id: string; title: string }) {
+  function cardMarkup(item: { id: string; title: string }, actorId = "") {
+    const postHref = actorId ? `/posts/${item.id}?actor=${actorId}` : `/posts/${item.id}`;
     return `
       <article class="result-card" data-journal-id="${item.id}">
         <h3>${item.title}</h3>
+        <a class="inline-link" href="${postHref}" data-nav="true">Open post</a>
         <div class="actions">
           <button type="button" data-action="like">Like</button>
         </div>
@@ -604,8 +606,11 @@ function createFeedFixture() {
           .join("");
       });
     },
-    createJournalCard(item: { id: string; title: string }) {
-      return cardMarkup(item);
+    buildPostHref(journalId: string, params: { actor?: string }) {
+      return params.actor ? `/posts/${journalId}?actor=${params.actor}` : `/posts/${journalId}`;
+    },
+    createJournalCard(item: { id: string; title: string }, options?: { actorId?: string }) {
+      return cardMarkup(item, options?.actorId ?? "");
     },
     async fetchFeed(options: Record<string, unknown>) {
       fetchFeedCalls.push(options);
@@ -616,7 +621,10 @@ function createFeedFixture() {
     },
     async fetchRecommendedJournals(options: Record<string, unknown>) {
       fetchRecommendedCalls.push(options);
-      return [{ id: "journal-rec-1", title: "Recommended feed note" }];
+      return [
+        { id: "journal-rec-1", title: "Recommended feed note", userId: "user-1" },
+        { id: "journal-rec-2", title: "Other author note", userId: "user-2" },
+      ];
     },
     getDestinationBindings() {
       return {
@@ -647,7 +655,7 @@ function createFeedFixture() {
       requestJsonCalls.push(endpoint);
       if (endpoint.startsWith("/api/journal-exchange/search?")) {
         return {
-          items: [{ id: "journal-exchange-1", title: "Exchange note" }],
+          items: [{ id: "journal-exchange-1", title: "Exchange note", userId: "user-1" }],
         };
       }
       throw new Error(`Unexpected request: ${endpoint}`);
@@ -753,6 +761,7 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
         name: "feed",
         params: {
           actor: "user-2",
+          author: "user-1",
           destinationId: "dest-1",
         },
       },
@@ -760,15 +769,43 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
     );
 
     assert.equal(fixture.fetchFeedCalls.length, 1);
+    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-2");
+    assert.equal(
+      requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
+      "/posts/journal-feed-1?actor=user-2",
+    );
+
+    requireElement(root, "#feed-exchange-query").value = "indoor";
+    dispatchDomEvent(requireElement(root, "#feed-exchange-search-form"), "submit");
+    await settleAsync();
+
+    assert.equal(
+      requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
+      "/posts/journal-exchange-1?actor=user-2",
+    );
+
+    const actorSelect = requireElement(root, "#feed-actor");
+    actorSelect.value = "user-1";
+    dispatchDomEvent(actorSelect, "change");
+    await settleAsync();
+
+    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-1");
+    assert.equal(
+      requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
+      "/posts/journal-feed-1?actor=user-1",
+    );
+    assert.equal(
+      requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
+      "/posts/journal-exchange-1?actor=user-1",
+    );
 
     dispatchDomEvent(requireElement(root, "#feed-load-recommended"), "click");
     await settleAsync();
 
     assert.equal(fixture.fetchRecommendedCalls.length, 1);
-
-    requireElement(root, "#feed-exchange-query").value = "indoor";
-    dispatchDomEvent(requireElement(root, "#feed-exchange-search-form"), "submit");
-    await settleAsync();
+    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
+    assert.ok(requireElement(root, "#feed-results").textContent?.includes("Recommended feed note"));
+    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
 
     const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='like']");
     dispatchDomEvent(exchangeButton, "click");
@@ -776,10 +813,13 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/search?query=indoor"]);
     assert.deepEqual(fixture.sendJournalActionCalls, [
-      { action: "like", journalId: "journal-exchange-1", userId: "user-2" },
+      { action: "like", journalId: "journal-exchange-1", userId: "user-1" },
     ]);
     assert.equal(fixture.fetchRecommendedCalls.length, 2);
     assert.equal(fixture.fetchFeedCalls.length, 1);
+    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
+    assert.ok(requireElement(root, "#feed-results").textContent?.includes("Recommended feed note"));
+    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
   } finally {
     restore();
   }

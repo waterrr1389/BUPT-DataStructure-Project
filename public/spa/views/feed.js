@@ -31,6 +31,9 @@ export async function render(app, route, root) {
   const destinationBindings = app.getDestinationBindings();
   const users = safeArray(bootstrap?.users);
   const destinationOptions = app.getDestinationOptions();
+  const actorDefault = users.some((user) => user.id === route.params.actor)
+    ? route.params.actor
+    : users[0]?.id || "";
 
   root.innerHTML = `
     <section class="route-hero route-hero-feed">
@@ -58,7 +61,12 @@ export async function render(app, route, root) {
             <p class="section-tag">Journal stream</p>
             <h2>Quiet travel notes and actions</h2>
           </div>
-          <a class="inline-link" href="/compose" data-nav="true">Write a new note</a>
+          <a
+            class="inline-link"
+            href="${escapeHtml(createUrl("/compose", actorDefault ? { actor: actorDefault } : {}))}"
+            data-nav="true"
+            data-compose-href="true"
+          >Write a new note</a>
         </div>
         <form class="control-grid" id="feed-filter-form">
           <label>
@@ -150,27 +158,64 @@ export async function render(app, route, root) {
   root.querySelector("#feed-exchange-destination").value = destinationOptions[0]?.id || "";
   root.querySelector("#feed-destination-filter").value = route.params.destinationId || "";
   root.querySelector("#feed-author-filter").value = route.params.author || "";
-  root.querySelector("#feed-actor").value = route.params.actor || users[0]?.id || "";
+  root.querySelector("#feed-actor").value = actorDefault;
 
   const feedResults = root.querySelector("#feed-results");
   const feedNotice = root.querySelector("#feed-notice");
   const exchangeResults = root.querySelector("#feed-exchange-results");
+  const actorSelect = root.querySelector("#feed-actor");
+  const authorFilter = root.querySelector("#feed-author-filter");
+  const destinationFilter = root.querySelector("#feed-destination-filter");
 
   let disposed = false;
   let currentFeedMode = "latest";
 
+  function buildComposeHref(actorId) {
+    return createUrl("/compose", actorId ? { actor: actorId } : {});
+  }
+
+  function syncComposeLinks(actorId) {
+    root.querySelectorAll(".feed-stream-card a").forEach((link) => {
+      const href = link.getAttribute("href") || "";
+      if (link.hasAttribute("data-compose-href") || href.startsWith("/compose")) {
+        link.setAttribute("href", buildComposeHref(actorId));
+      }
+    });
+  }
+
+  function syncPostLinks(actorId) {
+    root.querySelectorAll("[data-journal-id]").forEach((card) => {
+      const journalId = card.getAttribute("data-journal-id") || "";
+      if (!journalId) {
+        return;
+      }
+      card.querySelectorAll("a").forEach((link) => {
+        const href = link.getAttribute("href") || "";
+        if (href.startsWith("/posts/")) {
+          link.setAttribute("href", app.buildPostHref(journalId, actorId ? { actor: actorId } : {}));
+        }
+      });
+    });
+  }
+
+  function syncActorContext() {
+    const actorId = actorSelect.value;
+    syncComposeLinks(actorId);
+    syncPostLinks(actorId);
+  }
+
   function renderJournalCard(item, options = {}) {
     return app.createJournalCard(item, {
       ...options,
-      actorId: root.querySelector("#feed-actor").value,
+      actorId: actorSelect.value,
     });
   }
 
   async function loadFeed(mode = "latest") {
     currentFeedMode = mode;
-    const actorId = root.querySelector("#feed-actor").value;
-    const destinationId = root.querySelector("#feed-destination-filter").value;
-    const authorId = root.querySelector("#feed-author-filter").value;
+    const actorId = actorSelect.value;
+    const destinationId = destinationFilter.value;
+    const authorId = authorFilter.value;
     const limit = root.querySelector("#feed-limit").value;
 
     app.navigate(
@@ -185,13 +230,17 @@ export async function render(app, route, root) {
     const result =
       mode === "recommended"
         ? {
-            items: await app.fetchRecommendedJournals({
-              destinationId,
-              userId: actorId,
-              limit,
-            }),
+            items: safeArray(
+              await app.fetchRecommendedJournals({
+                destinationId,
+                userId: actorId,
+                limit,
+              }),
+            ).filter((item) => !authorId || item.userId === authorId),
             notice: actorId
-              ? "Recommended notes are sourced from the legacy journal recommendation helper."
+              ? authorId
+                ? "Recommended notes are sourced from the legacy journal recommendation helper and filtered to the selected author."
+                : "Recommended notes are sourced from the legacy journal recommendation helper."
               : "Select a traveler to load recommendations.",
           }
         : await app.fetchFeed({
@@ -213,9 +262,10 @@ export async function render(app, route, root) {
       : emptyStateMarkup({
           title: "No journals matched this view",
           body: "Shift the destination or author filter, or move back to latest mode.",
-          actionHref: "/compose",
+          actionHref: buildComposeHref(actorId),
           actionLabel: "Write the first note",
         });
+    syncActorContext();
   }
 
   async function refreshExchangeResults(blocks) {
@@ -235,7 +285,7 @@ export async function render(app, route, root) {
 
     const card = button.closest("[data-journal-id]");
     const journalId = card?.dataset.journalId;
-    const actorId = root.querySelector("#feed-actor").value;
+    const actorId = actorSelect.value;
 
     try {
       const result = await app.sendJournalAction(button.dataset.action, journalId, actorId);
@@ -263,6 +313,10 @@ export async function render(app, route, root) {
     } catch (error) {
       app.setStatus(error instanceof Error ? error.message : "Recommendations failed.", "error");
     }
+  });
+
+  actorSelect.addEventListener("change", () => {
+    syncActorContext();
   });
 
   feedResults.addEventListener("click", handleJournalAction);
@@ -399,6 +453,7 @@ export async function render(app, route, root) {
     }
   });
 
+  syncActorContext();
   await loadFeed("latest");
   await refreshExchangeResults([]);
 
