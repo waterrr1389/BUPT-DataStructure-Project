@@ -27,22 +27,14 @@
     )
   }
 
-  function resolveAuthoritativeDestinations(bootstrap) {
-    const featuredDestinations = listOrEmpty(bootstrap?.featured)
-    const allDestinations = listOrEmpty(bootstrap?.destinations)
-
-    return {
-      authoritativeDestinations: allDestinations.length ? allDestinations : featuredDestinations,
-      featuredDestinations,
-    }
-  }
-
   function prepareDestinationSelectorBindings(
     bootstrap,
     createDestinationSelectOptions,
     selectors = ALL_DESTINATION_SELECTORS,
   ) {
-    const { authoritativeDestinations, featuredDestinations } = resolveAuthoritativeDestinations(bootstrap)
+    const featuredDestinations = listOrEmpty(bootstrap?.featured)
+    const allDestinations = listOrEmpty(bootstrap?.destinations)
+    const authoritativeDestinations = allDestinations.length ? allDestinations : featuredDestinations
     const optionFactory =
       typeof createDestinationSelectOptions === "function" ? createDestinationSelectOptions : (items) => items
     const destinationOptions = optionFactory(authoritativeDestinations)
@@ -60,17 +52,15 @@
   }
 
   function prepareJournalExchangeDestinationBindings(bootstrap, createDestinationSelectOptions) {
-    const prepared = prepareDestinationSelectorBindings(
+    const { destinationOptions: journalDestinationOptions, ...prepared } = prepareDestinationSelectorBindings(
       bootstrap,
       createDestinationSelectOptions,
       JOURNAL_EXCHANGE_SELECTORS,
     )
 
     return {
-      destinationById: prepared.destinationById,
-      featuredDestinations: prepared.featuredDestinations,
-      journalDestinationOptions: prepared.destinationOptions,
-      selectorBindings: prepared.selectorBindings,
+      ...prepared,
+      journalDestinationOptions,
     }
   }
 

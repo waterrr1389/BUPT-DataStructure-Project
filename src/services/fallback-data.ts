@@ -132,7 +132,6 @@ interface GraphEdgeSpec {
 }
 
 interface GraphVariant {
-  id: string;
   coordinates: Record<NodeKey, Point>;
   edges: GraphEdgeSpec[];
 }
@@ -157,10 +156,30 @@ function createCoordinates(
   };
 }
 
+function createIndoorEdgeSpecs(hallEntryCongestion: number): GraphEdgeSpec[] {
+  return [
+    { from: "hall-entry", to: "hall-l1", congestion: hallEntryCongestion, link: "indoor" },
+    { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
+    { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
+    { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
+    { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
+  ];
+}
+
+function createGraphVariant(
+  coordinates: Record<NodeKey, Point>,
+  surfaceEdges: GraphEdgeSpec[],
+  hallEntryCongestion: number,
+): GraphVariant {
+  return {
+    coordinates,
+    edges: [...surfaceEdges, ...createIndoorEdgeSpecs(hallEntryCongestion)],
+  };
+}
+
 const SCENIC_GRAPH_VARIANTS: GraphVariant[] = [
-  {
-    id: "scenic-harbor-loop",
-    coordinates: createCoordinates(
+  createGraphVariant(
+    createCoordinates(
       {
         gate: { x: 0, y: 0 },
         plaza: { x: 1.15, y: -0.05 },
@@ -180,7 +199,7 @@ const SCENIC_GRAPH_VARIANTS: GraphVariant[] = [
         studio: { x: 2.02, y: 3.68 },
       },
     ),
-    edges: [
+    [
       { from: "gate", to: "plaza", congestion: 0.2, link: "walkway" },
       { from: "plaza", to: "gallery", congestion: 0.22, link: "walkway" },
       { from: "gate", to: "garden", congestion: 0.18, link: "walkway" },
@@ -195,16 +214,11 @@ const SCENIC_GRAPH_VARIANTS: GraphVariant[] = [
       { from: "hall-entry", to: "deck", congestion: 0.19, link: "mobile" },
       { from: "plaza", to: "garden", congestion: 0.29, link: "walkway" },
       { from: "plaza", to: "market", congestion: 0.35, link: "walkway" },
-      { from: "hall-entry", to: "hall-l1", congestion: 0.12, link: "indoor" },
-      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
-      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
-      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
-      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
     ],
-  },
-  {
-    id: "scenic-ridge-spur",
-    coordinates: createCoordinates(
+    0.12,
+  ),
+  createGraphVariant(
+    createCoordinates(
       {
         gate: { x: 0, y: 0 },
         plaza: { x: 0.95, y: 0.45 },
@@ -224,7 +238,7 @@ const SCENIC_GRAPH_VARIANTS: GraphVariant[] = [
         studio: { x: 2.78, y: 3.74 },
       },
     ),
-    edges: [
+    [
       { from: "gate", to: "plaza", congestion: 0.19, link: "walkway" },
       { from: "plaza", to: "gallery", congestion: 0.24, link: "walkway" },
       { from: "gate", to: "garden", congestion: 0.16, link: "walkway" },
@@ -238,19 +252,14 @@ const SCENIC_GRAPH_VARIANTS: GraphVariant[] = [
       { from: "plaza", to: "lake", congestion: 0.27, link: "walkway" },
       { from: "gallery", to: "lake", congestion: 0.29, link: "walkway" },
       { from: "lake", to: "deck", congestion: 0.31, link: "walkway" },
-      { from: "hall-entry", to: "hall-l1", congestion: 0.11, link: "indoor" },
-      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
-      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
-      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
-      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
     ],
-  },
+    0.11,
+  ),
 ];
 
 const CAMPUS_GRAPH_VARIANTS: GraphVariant[] = [
-  {
-    id: "campus-axis-loop",
-    coordinates: createCoordinates(
+  createGraphVariant(
+    createCoordinates(
       {
         gate: { x: 0, y: 0 },
         plaza: { x: 1.05, y: 0.05 },
@@ -270,7 +279,7 @@ const CAMPUS_GRAPH_VARIANTS: GraphVariant[] = [
         studio: { x: 1.98, y: 3.16 },
       },
     ),
-    edges: [
+    [
       { from: "gate", to: "plaza", congestion: 0.2, link: "walkway" },
       { from: "plaza", to: "gallery", congestion: 0.2, link: "walkway" },
       { from: "gate", to: "garden", congestion: 0.17, link: "walkway" },
@@ -285,16 +294,11 @@ const CAMPUS_GRAPH_VARIANTS: GraphVariant[] = [
       { from: "hall-entry", to: "deck", congestion: 0.16, link: "mobile" },
       { from: "plaza", to: "garden", congestion: 0.27, link: "walkway" },
       { from: "plaza", to: "market", congestion: 0.31, link: "walkway" },
-      { from: "hall-entry", to: "hall-l1", congestion: 0.11, link: "indoor" },
-      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
-      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
-      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
-      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
     ],
-  },
-  {
-    id: "campus-quad-cross",
-    coordinates: createCoordinates(
+    0.11,
+  ),
+  createGraphVariant(
+    createCoordinates(
       {
         gate: { x: 0, y: 0 },
         plaza: { x: 0.85, y: 0.6 },
@@ -314,7 +318,7 @@ const CAMPUS_GRAPH_VARIANTS: GraphVariant[] = [
         studio: { x: 2.42, y: 4.18 },
       },
     ),
-    edges: [
+    [
       { from: "gate", to: "plaza", congestion: 0.18, link: "walkway" },
       { from: "gate", to: "garden", congestion: 0.16, link: "walkway" },
       { from: "plaza", to: "gallery", congestion: 0.22, link: "walkway" },
@@ -328,13 +332,9 @@ const CAMPUS_GRAPH_VARIANTS: GraphVariant[] = [
       { from: "lake", to: "market", congestion: 0.27, link: "walkway" },
       { from: "hub", to: "lake", congestion: 0.22, link: "walkway" },
       { from: "gallery", to: "deck", congestion: 0.29, link: "walkway" },
-      { from: "hall-entry", to: "hall-l1", congestion: 0.11, link: "indoor" },
-      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
-      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
-      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
-      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
     ],
-  },
+    0.11,
+  ),
 ];
 
 function pad(value: number): string {
@@ -367,14 +367,15 @@ function selectGraphVariant(index: number, type: DestinationType): GraphVariant 
 
 function createNodes(destinationId: string, type: DestinationType, variant: GraphVariant): DestinationNode[] {
   const baseBuildingId = `${destinationId}-building-hall`;
+  const { coordinates } = variant;
   return [
     {
       id: `${destinationId}-gate`,
       name: "Main Gate",
       kind: "gate",
       floor: 0,
-      x: variant.coordinates.gate.x,
-      y: variant.coordinates.gate.y,
+      x: coordinates.gate.x,
+      y: coordinates.gate.y,
       keywords: ["entry", "arrival", "gate"],
     },
     {
@@ -382,8 +383,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Sun Plaza" : "Civic Plaza",
       kind: "plaza",
       floor: 0,
-      x: variant.coordinates.plaza.x,
-      y: variant.coordinates.plaza.y,
+      x: coordinates.plaza.x,
+      y: coordinates.plaza.y,
       keywords: ["plaza", "meeting", "landmark"],
     },
     {
@@ -391,8 +392,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Gallery Row" : "Library Court",
       kind: "building",
       floor: 0,
-      x: variant.coordinates.gallery.x,
-      y: variant.coordinates.gallery.y,
+      x: coordinates.gallery.x,
+      y: coordinates.gallery.y,
       buildingId: `${destinationId}-building-gallery`,
       keywords: ["gallery", "library", "culture"],
     },
@@ -401,8 +402,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Garden Walk" : "Research Garden",
       kind: "scenic",
       floor: 0,
-      x: variant.coordinates.garden.x,
-      y: variant.coordinates.garden.y,
+      x: coordinates.garden.x,
+      y: coordinates.garden.y,
       keywords: ["garden", "rest", "green"],
     },
     {
@@ -410,8 +411,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Mirror Lake" : "Innovation Court",
       kind: "scenic",
       floor: 0,
-      x: variant.coordinates.lake.x,
-      y: variant.coordinates.lake.y,
+      x: coordinates.lake.x,
+      y: coordinates.lake.y,
       keywords: ["lake", "center", "festival"],
     },
     {
@@ -419,8 +420,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Night Market" : "Food Street",
       kind: "plaza",
       floor: 0,
-      x: variant.coordinates.market.x,
-      y: variant.coordinates.market.y,
+      x: coordinates.market.x,
+      y: coordinates.market.y,
       keywords: ["food", "market", "music"],
     },
     {
@@ -428,8 +429,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Transit Terrace" : "Mobility Hub",
       kind: "junction",
       floor: 0,
-      x: variant.coordinates.hub.x,
-      y: variant.coordinates.hub.y,
+      x: coordinates.hub.x,
+      y: coordinates.hub.y,
       keywords: ["transit", "hub", "connection"],
     },
     {
@@ -437,8 +438,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Sky Hall Entry" : "Innovation Center Entry",
       kind: "building",
       floor: 0,
-      x: variant.coordinates["hall-entry"].x,
-      y: variant.coordinates["hall-entry"].y,
+      x: coordinates["hall-entry"].x,
+      y: coordinates["hall-entry"].y,
       buildingId: baseBuildingId,
       keywords: ["hall", "entry", "indoor"],
     },
@@ -447,8 +448,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Lookout Deck" : "Studio Square",
       kind: "plaza",
       floor: 0,
-      x: variant.coordinates.deck.x,
-      y: variant.coordinates.deck.y,
+      x: coordinates.deck.x,
+      y: coordinates.deck.y,
       keywords: ["view", "gathering", "event"],
     },
     {
@@ -456,8 +457,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: "Hall Lobby",
       kind: "room",
       floor: 1,
-      x: variant.coordinates["hall-l1"].x,
-      y: variant.coordinates["hall-l1"].y,
+      x: coordinates["hall-l1"].x,
+      y: coordinates["hall-l1"].y,
       buildingId: baseBuildingId,
       keywords: ["lobby", "indoor", "info"],
     },
@@ -466,8 +467,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: "East Elevator L1",
       kind: "elevator",
       floor: 1,
-      x: variant.coordinates["elevator-l1"].x,
-      y: variant.coordinates["elevator-l1"].y,
+      x: coordinates["elevator-l1"].x,
+      y: coordinates["elevator-l1"].y,
       buildingId: baseBuildingId,
       keywords: ["elevator", "vertical", "access"],
     },
@@ -476,8 +477,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: "East Elevator L2",
       kind: "elevator",
       floor: 2,
-      x: variant.coordinates["elevator-l2"].x,
-      y: variant.coordinates["elevator-l2"].y,
+      x: coordinates["elevator-l2"].x,
+      y: coordinates["elevator-l2"].y,
       buildingId: baseBuildingId,
       keywords: ["elevator", "vertical", "access"],
     },
@@ -486,8 +487,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Archive Room" : "Media Lab",
       kind: "room",
       floor: 2,
-      x: variant.coordinates.archive.x,
-      y: variant.coordinates.archive.y,
+      x: coordinates.archive.x,
+      y: coordinates.archive.y,
       buildingId: baseBuildingId,
       keywords: ["archive", "lab", "study"],
     },
@@ -496,8 +497,8 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
       name: type === "scenic" ? "Light Studio" : "Idea Studio",
       kind: "room",
       floor: 2,
-      x: variant.coordinates.studio.x,
-      y: variant.coordinates.studio.y,
+      x: coordinates.studio.x,
+      y: coordinates.studio.y,
       buildingId: baseBuildingId,
       keywords: ["studio", "creative", "demo"],
     },
