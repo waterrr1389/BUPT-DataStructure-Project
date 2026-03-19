@@ -39,11 +39,8 @@ function mimeType(filePath: string): string {
 
 function staticCacheControl(filePath: string): string {
   const extension = path.extname(filePath).toLowerCase();
-  if (extension === ".html" || extension === ".json") {
+  if (extension === ".html" || extension === ".json" || extension === ".js" || extension === ".css") {
     return "no-store";
-  }
-  if (extension === ".js" || extension === ".css" || extension === ".svg") {
-    return "public, max-age=300, must-revalidate";
   }
   return "public, max-age=300, must-revalidate";
 }

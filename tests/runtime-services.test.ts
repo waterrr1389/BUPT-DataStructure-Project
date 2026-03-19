@@ -396,6 +396,42 @@ test("feed cursors stay valid across social-only journal activity", async () => 
   assert.equal(nextFeedPage.items[0]?.id === createdId, false, format(nextFeedPage));
 });
 
+test("feed cursors stay valid when the anchor journal is edited and rated", async () => {
+  const app = await createIsolatedApp("journal-feed-edit-stability");
+  const created = await app.journals.create({
+    body: "Indoor archive notes with an overlook stop before the tea room.",
+    destinationId: "dest-002",
+    tags: ["indoor", "archive"],
+    title: "River Polytechnic edit stability memo",
+    userId: "user-2",
+  });
+  const createdId = created.id;
+  const feedPage = await app.journals.feed({
+    limit: 1,
+    viewerUserId: "user-4",
+  });
+
+  assert.equal(feedPage.items[0]?.id, createdId, format(feedPage));
+  assert.equal(feedPage.nextCursor !== null, true, format(feedPage));
+
+  const updated = await app.journals.update(createdId, {
+    body: "Indoor archive notes with an overlook stop before the tea room and a faster return loop.",
+    tags: ["indoor", "archive", "return"],
+    title: "River Polytechnic edit stability memo revised",
+  });
+  const rated = await app.journals.rate(createdId, "user-4", 5);
+  const nextFeedPage = await app.journals.feed({
+    cursor: feedPage.nextCursor ?? undefined,
+    limit: 1,
+    viewerUserId: "user-4",
+  });
+
+  assert.equal(updated.id, createdId, format(updated));
+  assert.equal(updated.title, "River Polytechnic edit stability memo revised", format(updated));
+  assert.equal(rated.averageRating, 5, format(rated));
+  assert.equal(nextFeedPage.items[0]?.id === createdId, false, format(nextFeedPage));
+});
+
 test("journal likes and comments persist across service reloads and reset clears social state", async () => {
   const runtimeDir = await createRuntimeDir("journal-social-persistence");
   const app = await createAppServices({ runtimeDir });

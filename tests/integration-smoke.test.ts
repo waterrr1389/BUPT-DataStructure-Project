@@ -341,6 +341,8 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     );
     const spaRoute = await requestText("/feed");
     const appAsset = await requestText("/app.js");
+    const spaAsset = await requestText("/spa/app-shell.js");
+    const cssAsset = await requestText("/styles.css");
 
     assert.equal(health.status, 200);
     assert.equal(health.text.includes("\n"), false, health.text);
@@ -399,11 +401,15 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(spaRoute.headers["cache-control"], "no-store");
     expectMatches(spaRoute.text, /<!DOCTYPE html>/i);
     assert.equal(appAsset.status, 200);
-    assert.equal(appAsset.headers["cache-control"], "public, max-age=300, must-revalidate");
+    assert.equal(appAsset.headers["cache-control"], "no-store");
+    assert.equal(spaAsset.status, 200);
+    assert.equal(spaAsset.headers["cache-control"], "no-store");
+    assert.equal(cssAsset.status, 200);
+    assert.equal(cssAsset.headers["cache-control"], "no-store");
   });
 });
 
-test("server keeps feed cursors valid across social activity and rejects malformed journal social suffixes", async () => {
+test("server keeps feed cursors valid across journal edits, ratings, and social activity", async () => {
   await withServer("social-route-regressions", async ({ requestJson }) => {
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
@@ -416,6 +422,7 @@ test("server keeps feed cursors valid across social activity and rejects malform
       method: "POST",
     });
     const createdId = created.body.item.id;
+    const createdDetail = await requestJson<{ item: { updatedAt: string } }>(`/api/journals/${createdId}`);
     const feedPage = await requestJson<{
       items: Array<Record<string, unknown>>;
       nextCursor: string | null;
@@ -440,6 +447,21 @@ test("server keeps feed cursors valid across social activity and rejects malform
     assert.equal(feedPage.body.items[0]?.id, createdId, feedPage.text);
     assert.equal(feedPage.body.nextCursor !== null, true, feedPage.text);
 
+    const patched = await requestJson<{ item: { id: string; title: string; updatedAt: string } }>(`/api/journals/${createdId}`, {
+      body: {
+        title: "River Polytechnic route suffix regression revised",
+        body: "Archive pass-through with a quiet indoor finish and updated return guidance.",
+        tags: ["indoor", "archive", "return"],
+      },
+      method: "PATCH",
+    });
+    const rated = await requestJson<{ item: { averageRating: number; updatedAt: string } }>(
+      `/api/journals/${createdId}/rate`,
+      {
+        body: { userId: "user-4", score: 5 },
+        method: "POST",
+      },
+    );
     await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/likes`, {
       body: { userId: "user-4" },
       method: "POST",
@@ -464,6 +486,12 @@ test("server keeps feed cursors valid across social activity and rejects malform
       totalCount: number;
     }>(`/api/feed?limit=1&viewerUserId=user-4&cursor=${encodeURIComponent(feedPage.body.nextCursor ?? "")}`);
 
+    assert.equal(patched.status, 200, patched.text);
+    assert.equal(patched.body.item.id, createdId, patched.text);
+    assert.equal(patched.body.item.title, "River Polytechnic route suffix regression revised", patched.text);
+    assert.equal(patched.body.item.updatedAt === createdDetail.body.item.updatedAt, false, patched.text);
+    assert.equal(rated.status, 200, rated.text);
+    assert.equal(rated.body.item.averageRating, 5, rated.text);
     assert.equal(nextFeedPage.status, 200, nextFeedPage.text);
     assert.equal(nextFeedPage.body.items[0]?.id === createdId, false, nextFeedPage.text);
 

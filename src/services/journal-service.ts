@@ -60,8 +60,13 @@ function nextCommentId(comments: JournalCommentRecord[]): string {
   return `comment-${maxId + 1}`;
 }
 
-function sortJournals(left: JournalRecord, right: JournalRecord): number {
+function sortJournalsByUpdatedAt(left: JournalRecord, right: JournalRecord): number {
   const timestampOrder = right.updatedAt.localeCompare(left.updatedAt);
+  return timestampOrder !== 0 ? timestampOrder : right.id.localeCompare(left.id);
+}
+
+function sortJournalsByCreatedAt(left: JournalRecord, right: JournalRecord): number {
+  const timestampOrder = right.createdAt.localeCompare(left.createdAt);
   return timestampOrder !== 0 ? timestampOrder : right.id.localeCompare(left.id);
 }
 
@@ -272,7 +277,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       const resolvedViewerUserId = await loadViewerUserId(options.viewerUserId);
       const [journals, maps] = await Promise.all([store.list(), loadSocialMaps()]);
       return filterJournals(journals, options)
-        .sort(sortJournals)
+        .sort(sortJournalsByUpdatedAt)
         .slice(0, limit)
         .map((journal) => buildJournalDetail(runtime, journal, maps, resolvedViewerUserId));
     },
@@ -281,15 +286,15 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       const limit = ensureLimit(options.limit, 12, 40);
       const resolvedViewerUserId = await loadViewerUserId(options.viewerUserId);
       const [journals, maps] = await Promise.all([store.list(), loadSocialMaps()]);
-      const filtered = filterJournals(journals, options).sort(sortJournals);
-      const startIndex = resolveCursorIndex(filtered, options.cursor, FEED_CURSOR_KIND, (journal) => journal.updatedAt);
+      const filtered = filterJournals(journals, options).sort(sortJournalsByCreatedAt);
+      const startIndex = resolveCursorIndex(filtered, options.cursor, FEED_CURSOR_KIND, (journal) => journal.createdAt);
       const items = filtered
         .slice(startIndex, startIndex + limit)
         .map((journal) => buildFeedItem(runtime, journal, maps, resolvedViewerUserId));
 
       return {
         items,
-        nextCursor: nextCursorForPage(filtered, startIndex, limit, FEED_CURSOR_KIND, (journal) => journal.updatedAt),
+        nextCursor: nextCursorForPage(filtered, startIndex, limit, FEED_CURSOR_KIND, (journal) => journal.createdAt),
         totalCount: filtered.length,
       };
     },
