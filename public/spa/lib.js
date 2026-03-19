@@ -180,6 +180,36 @@ export function createUrl(pathname, params = {}) {
   return `${url.pathname}${url.search}`;
 }
 
+export function resolveRouteActor(context) {
+  if (typeof context === "string") {
+    return text(context);
+  }
+  if (!context || typeof context !== "object") {
+    return "";
+  }
+  if ("actor" in context) {
+    return text(context.actor);
+  }
+  return text(context.params?.actor);
+}
+
+export function mergeRouteContextParams(params = {}, context = null) {
+  const nextParams = { ...params };
+  const actor = text(nextParams.actor) || resolveRouteActor(context);
+
+  if (actor) {
+    nextParams.actor = actor;
+  } else {
+    delete nextParams.actor;
+  }
+
+  return nextParams;
+}
+
+export function createRouteContextHref(pathname, params = {}, context = null) {
+  return createUrl(pathname, mergeRouteContextParams(params, context));
+}
+
 export function parseListInput(value) {
   return text(value)
     .split(",")

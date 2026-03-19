@@ -1,5 +1,5 @@
 import {
-  createUrl,
+  createRouteContextHref,
   debounce,
   emptyStateMarkup,
   escapeHtml,
@@ -161,12 +161,16 @@ export function createAppShell(root) {
     };
   }
 
+  function isMissingEndpointResponse(response) {
+    return response.missing || /Unknown API endpoint/i.test(text(response.error));
+  }
+
   function buildMapHref(params = {}) {
-    return createUrl("/map", params);
+    return createRouteContextHref("/map", params);
   }
 
   function buildPostHref(journalId, params = {}) {
-    return createUrl(`/posts/${encodeURIComponent(text(journalId))}`, params);
+    return createRouteContextHref(`/posts/${encodeURIComponent(text(journalId))}`, params);
   }
 
   async function loadBootstrap() {
@@ -297,14 +301,12 @@ export function createAppShell(root) {
   }
 
   function syncShellLinks(route = parseRoute()) {
-    const actor = text(route?.params?.actor);
-    const actorParams = actor ? { actor } : {};
     const shellLinks = [
-      [".site-brand", createUrl("/", actorParams)],
-      ["a[data-route-name='explore']", createUrl("/explore", actorParams)],
-      ["a[data-route-name='map']", createUrl("/map", actorParams)],
-      ["a[data-route-name='feed']", createUrl("/feed", actorParams)],
-      ["a[data-route-name='compose']", createUrl("/compose", actorParams)],
+      [".site-brand", createRouteContextHref("/", {}, route)],
+      ["a[data-route-name='explore']", createRouteContextHref("/explore", {}, route)],
+      ["a[data-route-name='map']", createRouteContextHref("/map", {}, route)],
+      ["a[data-route-name='feed']", createRouteContextHref("/feed", {}, route)],
+      ["a[data-route-name='compose']", createRouteContextHref("/compose", {}, route)],
     ];
 
     shellLinks.forEach(([selector, href]) => {
@@ -424,7 +426,7 @@ export function createAppShell(root) {
       state.socialAvailability.feed = false;
     }
 
-    const fallbackAllowed = social.missing || /Unknown API endpoint/i.test(text(social.error));
+    const fallbackAllowed = isMissingEndpointResponse(social);
     if (!fallbackAllowed) {
       throw new Error(text(social.error, "Feed loading failed."));
     }
@@ -435,10 +437,9 @@ export function createAppShell(root) {
     return {
       items: safeArray(fallback.items),
       nextCursor: "",
-      notice:
-        social.missing || /Unknown API endpoint/i.test(text(social.error))
-          ? "Social feed endpoints are not available in this workspace yet. Showing the journal timeline instead."
-          : text(social.error),
+      notice: fallbackAllowed
+        ? "Social feed endpoints are not available in this workspace yet. Showing the journal timeline instead."
+        : text(social.error),
       source: "journal-list",
     };
   }
@@ -496,7 +497,7 @@ export function createAppShell(root) {
       };
     }
 
-    if (response.missing || /Unknown API endpoint/i.test(text(response.error))) {
+    if (isMissingEndpointResponse(response)) {
       state.socialAvailability.comments = false;
       return {
         available: false,
@@ -507,13 +508,7 @@ export function createAppShell(root) {
       };
     }
 
-    return {
-      available: false,
-      items: [],
-      nextCursor: "",
-      totalCount: 0,
-      notice: text(response.error, "Comments could not be loaded."),
-    };
+    throw new Error(text(response.error, "Comments could not be loaded."));
   }
 
   async function createComment(journalId, userId, body) {
