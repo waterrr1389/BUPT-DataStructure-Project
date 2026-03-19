@@ -96,6 +96,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
 | 0 | Realigned active-task statuses so implemented shared-helper/app-shell and comments-taxonomy work stay active as review-pending items, while Explore, Map, and Post Detail hand-off execution moves to `in_progress`. | The tracker needed to reflect actual execution state without overstating unreviewed implementation as verified completion. | AC-1, AC-2, AC-3, AC-4 |
+| 0 | Synced the tracker to the pre-regression handoff: Explore, Map, and Post Detail implementation moved to `pending-review`, regression coverage/verification moved to `in_progress`, and docs audit remained `pending` as a separate follow-up. | Implementation work for the route hand-offs is complete and awaiting team-leader/test verification, while a test worker is now starting the regression pass and docs should not be marked active yet. | AC-2, AC-3, AC-5, AC-6 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
@@ -103,11 +104,12 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 |------|-----------|--------|-------|
 | Add the shared actor-aware route-context helper and route `buildMapHref()` / `buildPostHref()` through it without introducing DOM or fetch behavior. | AC-1 | pending-review | Implementation is already landed in worker-owned code, but team-leader review has not yet verified the shared helper/app-shell convergence. |
 | Correct `fetchJournalComments()` missing-endpoint classification so only genuine missing capabilities degrade to `{ available: false }`. | AC-4 | pending-review | Implementation is already landed in worker-owned code, but team-leader review has not yet verified the comments taxonomy behavior. |
-| Update Explore destination-card hand-offs for featured, search, and recommendation flows to preserve actor through the shared helper rules. | AC-2 | in_progress | Worker execution is starting now for the Explore hand-off paths that consume the shared helper behavior. |
-| Update Map query rewrites, missing-destination fallback navigation, and the return-to-Explore link to preserve actor on every `render: false` route update. | AC-2 | in_progress | Worker execution is starting now for Map URL/fallback preservation so rewrites stay aligned with the shared helper rules. |
-| Align Post Detail map, compose, and delete-return links with the shared route-context rules while preserving current `render: false` actor updates. | AC-3 | in_progress | Worker execution is starting now for the Post Detail hand-offs while keeping the existing `render: false` actor update flow intact. |
+| Update Explore destination-card hand-offs for featured, search, and recommendation flows to preserve actor through the shared helper rules. | AC-2 | pending-review | Implementation is landed and awaiting team-leader/test verification for the Explore hand-off paths that now consume the shared helper behavior. |
+| Update Map query rewrites, missing-destination fallback navigation, and the return-to-Explore link to preserve actor on every `render: false` route update. | AC-2 | pending-review | Implementation is landed and awaiting team-leader/test verification for Map URL rewrites and fallback preservation. |
+| Align Post Detail map, compose, and delete-return links with the shared route-context rules while preserving current `render: false` actor updates. | AC-3 | pending-review | Implementation is landed and awaiting team-leader/test verification for the Post Detail hand-offs while keeping the existing `render: false` actor update flow intact. |
 | Extend SPA regression fixtures and `AppShellModule` typing so tests can assert arbitrary query params and exercise the comments API directly. | AC-5 | pending | Should land before or alongside the first new regression that needs actor-aware query serialization. |
-| Add deterministic regressions for actor preservation and comment error taxonomy, run `npm test`, and audit affected docs for consistency. | AC-5, AC-6 | pending | Final verification work after implementation paths settle; no doc changes unless touched behavior invalidates checked-in claims. |
+| Add deterministic regressions for actor preservation and comment error taxonomy, then run `npm test` for current-branch verification. | AC-5 | in_progress | A test worker is starting the regression/verification pass now that the implementation hand-offs are ready for coverage. |
+| Audit affected docs and update repository claims only if the implemented behavior changed checked-in documentation. | AC-6 | pending | Leave docs work pending until regression evidence is available or a checked-in claim clearly needs adjustment. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
