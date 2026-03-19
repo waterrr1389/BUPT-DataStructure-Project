@@ -326,8 +326,12 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
       totalCount: number;
     }>(`/api/feed?limit=1&viewerUserId=user-4`);
     const invalidFeedCursor = await requestJson<{ error: string }>("/api/feed?cursor=bogus&viewerUserId=user-4");
+    const overMaxFeedLimit = await requestJson<{ error: string }>("/api/feed?limit=999&viewerUserId=user-4");
     const detail = await requestJson<{ item: Record<string, unknown> }>(
       `/api/journals/${createdId}?viewerUserId=user-4`,
+    );
+    const overMaxCommentLimit = await requestJson<{ error: string }>(
+      `/api/journals/${createdId}/comments?limit=999`,
     );
     const unliked = await requestJson<{ item: { likeCount: number; viewerHasLiked: boolean } }>(
       `/api/journals/${createdId}/likes?userId=user-4`,
@@ -372,12 +376,16 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(feed.body.items[0]?.commentCount, 1, feed.text);
     assert.equal(invalidFeedCursor.status, 400, invalidFeedCursor.text);
     expectMatches(invalidFeedCursor.body.error, /Invalid cursor/);
+    assert.equal(overMaxFeedLimit.status, 400, overMaxFeedLimit.text);
+    expectMatches(overMaxFeedLimit.body.error, /Limit must be at most 40\./);
 
     assert.equal(detail.status, 200, detail.text);
     assert.equal(detail.body.item.likeCount, 1, detail.text);
     assert.equal(detail.body.item.commentCount, 1, detail.text);
     assert.equal(typeof detail.body.item.body, "string", detail.text);
     assert.equal(detail.body.item.destinationLabel, "River Polytechnic");
+    assert.equal(overMaxCommentLimit.status, 400, overMaxCommentLimit.text);
+    expectMatches(overMaxCommentLimit.body.error, /Limit must be at most 50\./);
 
     assert.equal(unliked.status, 200, unliked.text);
     assert.equal(unliked.body.item.likeCount, 0, unliked.text);

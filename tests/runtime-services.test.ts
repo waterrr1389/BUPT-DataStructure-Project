@@ -387,3 +387,24 @@ test("journal likes and comments persist across service reloads and reset clears
   assert.equal(resetDetail.viewerHasLiked, false, format(resetDetail));
   assert.equal(resetComments.totalCount, 0, format(resetComments));
 });
+
+test("journal social pagination rejects over-max feed and comment limits", async () => {
+  const app = await createIsolatedApp("journal-social-limit-validation");
+  const created = await app.journals.create({
+    body: "Indoor archive path with a short tea stop.",
+    destinationId: "dest-002",
+    tags: ["indoor", "tea"],
+    title: "River Polytechnic validation route",
+    userId: "user-2",
+  });
+  const createdId = (created as { id: string }).id;
+
+  await expectRejects(
+    () => app.journals.feed({ limit: 41, viewerUserId: "user-4" }),
+    /Limit must be at most 40\./,
+  );
+  await expectRejects(
+    () => app.journals.listComments({ journalId: createdId, limit: 51 }),
+    /Limit must be at most 50\./,
+  );
+});

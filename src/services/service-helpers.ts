@@ -13,10 +13,17 @@ export function ensureLimit(limit: number | undefined, fallback = 10, max = 50):
   if (limit === undefined) {
     return fallback;
   }
-  if (!Number.isFinite(limit) || limit <= 0) {
+  if (!Number.isFinite(limit)) {
     throw new Error("Limit must be a positive number.");
   }
-  return Math.min(Math.floor(limit), max);
+  const normalized = Math.floor(limit);
+  if (normalized <= 0) {
+    throw new Error("Limit must be a positive number.");
+  }
+  if (normalized > max) {
+    throw new Error(`Limit must be at most ${max}.`);
+  }
+  return normalized;
 }
 
 export function ensureRadius(radius: number | undefined, fallback = 900): number {
