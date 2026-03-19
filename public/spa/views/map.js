@@ -1,8 +1,8 @@
-import { emptyStateMarkup, escapeHtml, fillSelect, parseListInput, safeArray } from "../lib.js";
+import { emptyStateMarkup, fillSelect, parseListInput, safeArray } from "../lib.js";
 import { getDestinationScene, renderRouteResult, renderRouteVisualization } from "../map-rendering.js";
 
-function sanitizeNodeSelection(nodeOptions, preferredValue, fallbackIndex = 0) {
-  const optionIds = nodeOptions.map((option) => option.id);
+function sanitizeOptionSelection(options, preferredValue, fallbackIndex = 0) {
+  const optionIds = safeArray(options).map((option) => option.id);
   if (preferredValue && optionIds.includes(preferredValue)) {
     return preferredValue;
   }
@@ -14,7 +14,18 @@ export async function render(app, route, root) {
 
   await app.loadBootstrap();
   const destinationBindings = app.getDestinationBindings();
-  const defaultDestinationId = route.params.destinationId || app.getDestinationOptions()[0]?.id || "";
+  const destinationOptions = safeArray(app.getDestinationOptions());
+  const requestedDestinationId = route.params.destinationId || "";
+  const defaultDestinationId = sanitizeOptionSelection(destinationOptions, requestedDestinationId, 0);
+  const usedDestinationFallback = Boolean(requestedDestinationId) && requestedDestinationId !== defaultDestinationId;
+
+  // Deep links can outlive the bootstrap destination list. Normalize before fetching map details.
+  if (usedDestinationFallback) {
+    route.params.destinationId = defaultDestinationId;
+    route.params.from = "";
+    route.params.to = "";
+    route.params.waypoints = "";
+  }
 
   root.innerHTML = `
     <section class="route-hero route-hero-map">
@@ -110,7 +121,6 @@ export async function render(app, route, root) {
 
   let disposed = false;
   let currentRoute = null;
-  let currentDestinationId = defaultDestinationId;
   let autoPlanned = false;
 
   destinationSelect.value = defaultDestinationId;
@@ -121,16 +131,41 @@ export async function render(app, route, root) {
     root.querySelector("#map-advanced").open = true;
   }
 
+  function clearNodeOptions() {
+    fillSelect(startSelect, [], { includeBlank: true, blankLabel: "No nodes available" });
+    fillSelect(endSelect, [], { includeBlank: true, blankLabel: "No nodes available" });
+    startSelect.value = "";
+    endSelect.value = "";
+  }
+
+  function renderInlineMapState(title, body) {
+    visualization.innerHTML = emptyStateMarkup({ title, body });
+    routeResult.innerHTML = "";
+  }
+
   async function syncNodeOptions(destinationId) {
-    const details = await app.ensureDestinationDetails(destinationId);
+    if (!destinationId) {
+      clearNodeOptions();
+      return null;
+    }
+
+    let details;
+    try {
+      details = await app.ensureDestinationDetails(destinationId);
+    } catch (error) {
+      clearNodeOptions();
+      app.setStatus(error instanceof Error ? error.message : "Map preview failed.", "error");
+      return null;
+    }
+
     if (disposed || !details) {
       return null;
     }
 
     const scene = getDestinationScene(app.state.mapScenes, destinationId, details);
     const nodeOptions = safeArray(scene?.nodeOptions);
-    const startValue = sanitizeNodeSelection(nodeOptions, route.params.from, 0);
-    const endValue = sanitizeNodeSelection(nodeOptions, route.params.to, 1);
+    const startValue = sanitizeOptionSelection(nodeOptions, route.params.from, 0);
+    const endValue = sanitizeOptionSelection(nodeOptions, route.params.to, 1);
 
     fillSelect(startSelect, nodeOptions, { selectedValue: startValue });
     fillSelect(endSelect, nodeOptions, { selectedValue: endValue });
@@ -156,15 +191,25 @@ export async function render(app, route, root) {
   async function renderMapSurface(activeRoute = currentRoute) {
     const destinationId = destinationSelect.value;
     if (!destinationId) {
-      visualization.innerHTML = emptyStateMarkup({
-        title: "Choose a destination",
-        body: "The map surface loads only after a destination is selected.",
-      });
-      routeResult.innerHTML = "";
+      renderInlineMapState(
+        "Choose a destination",
+        "The map surface loads only after a destination is selected.",
+      );
       return;
     }
 
-    const details = await app.ensureDestinationDetails(destinationId);
+    let details;
+    try {
+      details = await app.ensureDestinationDetails(destinationId);
+    } catch (error) {
+      app.setStatus(error instanceof Error ? error.message : "Map preview failed.", "error");
+      renderInlineMapState(
+        "Map unavailable",
+        "Destination data could not be loaded. Choose another destination to keep routing.",
+      );
+      return;
+    }
+
     if (disposed || !details) {
       return;
     }
@@ -214,7 +259,18 @@ export async function render(app, route, root) {
   await syncNodeOptions(defaultDestinationId);
   await renderMapSurface(null);
 
-  if (route.params.destinationId && route.params.from && route.params.to && !autoPlanned) {
+  if (usedDestinationFallback) {
+    app.setStatus("Requested destination was unavailable. Showing the first available map instead.", "neutral");
+    if (defaultDestinationId) {
+      app.navigate(app.buildMapHref({ destinationId: defaultDestinationId }), {
+        replace: true,
+        preserveScroll: true,
+        render: false,
+      });
+    }
+  }
+
+  if (!usedDestinationFallback && route.params.destinationId && route.params.from && route.params.to && !autoPlanned) {
     autoPlanned = true;
     try {
       await planRoute();
@@ -224,11 +280,10 @@ export async function render(app, route, root) {
   }
 
   destinationSelect.addEventListener("change", async () => {
-    currentDestinationId = destinationSelect.value;
     currentRoute = null;
     route.params.from = "";
     route.params.to = "";
-    await syncNodeOptions(currentDestinationId);
+    await syncNodeOptions(destinationSelect.value);
     await renderMapSurface(null);
     updateRouteQuery(true);
   });

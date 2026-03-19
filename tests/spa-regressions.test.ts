@@ -21,6 +21,10 @@ type ExploreModule = {
   render(app: Record<string, unknown>, route: Record<string, unknown>, root: unknown): Promise<Cleanup>;
 };
 
+type MapModule = {
+  render(app: Record<string, unknown>, route: Record<string, unknown>, root: unknown): Promise<Cleanup>;
+};
+
 type AppShellModule = {
   createAppShell(root: unknown): {
     fetchFeed(filters?: Record<string, unknown>): Promise<unknown>;
@@ -274,6 +278,132 @@ function createExploreFixture() {
   };
 }
 
+function createMapFixture() {
+  const destinationOptions = [
+    { id: "dest-1", name: "Harbor Reach" },
+    { id: "dest-2", name: "Lantern Point" },
+  ];
+  const detailsById = new Map([
+    [
+      "dest-1",
+      {
+        buildings: [],
+        graph: {
+          edges: [{ from: "dest-1-node-a", id: "edge-a-b", roadType: "walkway", to: "dest-1-node-b" }],
+          nodes: [
+            { floor: 0, id: "dest-1-node-a", kind: "gate", name: "Atrium", x: 0, y: 0 },
+            { floor: 0, id: "dest-1-node-b", kind: "plaza", name: "Bridge", x: 40, y: 20 },
+          ],
+        },
+        id: "dest-1",
+        name: "Harbor Reach",
+      },
+    ],
+    [
+      "dest-2",
+      {
+        buildings: [],
+        graph: {
+          edges: [{ from: "dest-2-node-a", id: "edge-c-d", roadType: "walkway", to: "dest-2-node-b" }],
+          nodes: [
+            { floor: 0, id: "dest-2-node-a", kind: "gate", name: "Garden", x: 10, y: 10 },
+            { floor: 0, id: "dest-2-node-b", kind: "plaza", name: "Lookout", x: 60, y: 30 },
+          ],
+        },
+        id: "dest-2",
+        name: "Lantern Point",
+      },
+    ],
+  ]);
+  const ensureDestinationDetailsCalls: string[] = [];
+  const navigateCalls: Array<{ href: string; options: Record<string, unknown> }> = [];
+  const requestJsonCalls: string[] = [];
+  const statuses: Array<{ message: string; tone: string }> = [];
+
+  const app = {
+    applySelectorBindings(
+      root: { querySelector(selector: string): { innerHTML: string } | null },
+      bindings?: Array<{ items: Array<{ id: string; name: string }>; selector: string }>,
+    ) {
+      (bindings ?? []).forEach(({ items, selector }) => {
+        const element = root.querySelector(selector);
+        if (!element) {
+          return;
+        }
+        element.innerHTML = items.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
+      });
+    },
+    buildMapHref(params: Record<string, string>) {
+      const url = new URL("/map", "http://localhost");
+      Object.entries(params).forEach(([key, value]) => {
+        if (value) {
+          url.searchParams.set(key, value);
+        }
+      });
+      return `${url.pathname}${url.search}`;
+    },
+    debounce(callback: () => void) {
+      const wrapped = () => callback();
+      wrapped.cancel = () => {};
+      return wrapped;
+    },
+    async ensureDestinationDetails(destinationId: string) {
+      ensureDestinationDetailsCalls.push(destinationId);
+      const details = detailsById.get(destinationId);
+      if (!details) {
+        throw new Error(`Unknown destination: ${destinationId}`);
+      }
+      return details;
+    },
+    getDestinationBindings() {
+      return {
+        selectorBindings: [
+          {
+            items: destinationOptions,
+            selector: "#map-destination",
+          },
+        ],
+      };
+    },
+    getDestinationOptions() {
+      return destinationOptions;
+    },
+    async loadBootstrap() {
+      return {};
+    },
+    navigate(href: string, options: Record<string, unknown>) {
+      navigateCalls.push({ href, options });
+    },
+    async requestJson(endpoint: string) {
+      requestJsonCalls.push(endpoint);
+      return {
+        item: {
+          destinationId: "dest-1",
+          nodeIds: ["dest-1-node-a", "dest-1-node-b"],
+          reachable: true,
+          steps: [],
+          totalDistance: 40,
+        },
+      };
+    },
+    setDocumentTitle() {},
+    setStatus(message: string, tone = "neutral") {
+      statuses.push({ message, tone });
+    },
+    state: {
+      mapScenes: new Map(),
+    },
+  };
+
+  return {
+    app,
+    ensureDestinationDetailsCalls,
+    navigateCalls,
+    requestJsonCalls,
+    statuses,
+  };
+}
+
 test("post detail keeps the initial comments request bounded and appends older comments on load more", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -460,6 +590,72 @@ test("explore defers destination details until the facility surface is first tou
       cleanup();
     }
   } finally {
+    restore();
+  }
+});
+
+test("map falls back to a valid destination when the query points at a missing destination", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
+  };
+  const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
+
+  try {
+    globals.RouteVisualizationMarkers = require(path.join(
+      process.cwd(),
+      "public",
+      "route-visualization-markers.js",
+    ));
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          destinationId: "dest-missing",
+          from: "ghost-start",
+          mode: "walk",
+          strategy: "distance",
+          to: "ghost-end",
+          waypoints: "ghost-waypoint",
+        },
+      },
+      root,
+    );
+
+    assert.equal(requireElement(root, "#map-destination").value, "dest-1");
+    assert.deepEqual(fixture.ensureDestinationDetailsCalls, ["dest-1", "dest-1"]);
+    assert.deepEqual(fixture.requestJsonCalls, []);
+    assert.deepEqual(fixture.navigateCalls, [
+      {
+        href: "/map?destinationId=dest-1",
+        options: {
+          preserveScroll: true,
+          render: false,
+          replace: true,
+        },
+      },
+    ]);
+    assert.ok(requireElement(root, "#map-visualization").innerHTML.includes("Harbor Reach"));
+    assert.ok(requireElement(root, "#map-route-result").innerHTML.includes("Route summary appears after planning"));
+    assert.deepEqual(fixture.statuses, [
+      {
+        message: "Requested destination was unavailable. Showing the first available map instead.",
+        tone: "neutral",
+      },
+    ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
     restore();
   }
 });
