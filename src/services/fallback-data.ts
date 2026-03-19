@@ -106,6 +106,237 @@ const CAMPUS_SUFFIXES = [
   "University Center",
 ];
 
+type NodeKey =
+  | "gate"
+  | "plaza"
+  | "gallery"
+  | "garden"
+  | "lake"
+  | "market"
+  | "hub"
+  | "hall-entry"
+  | "deck"
+  | "hall-l1"
+  | "elevator-l1"
+  | "elevator-l2"
+  | "archive"
+  | "studio";
+
+type Point = { x: number; y: number };
+
+interface GraphEdgeSpec {
+  from: NodeKey;
+  to: NodeKey;
+  congestion: number;
+  link: "walkway" | "mobile" | "indoor";
+}
+
+interface GraphVariant {
+  id: string;
+  coordinates: Record<NodeKey, Point>;
+  edges: GraphEdgeSpec[];
+}
+
+function createCoordinates(
+  surface: Record<Exclude<NodeKey, "hall-l1" | "elevator-l1" | "elevator-l2" | "archive" | "studio">, Point>,
+  indoor: {
+    hallL1: Point;
+    elevatorL1: Point;
+    elevatorL2: Point;
+    archive: Point;
+    studio: Point;
+  },
+): Record<NodeKey, Point> {
+  return {
+    ...surface,
+    "hall-l1": indoor.hallL1,
+    "elevator-l1": indoor.elevatorL1,
+    "elevator-l2": indoor.elevatorL2,
+    archive: indoor.archive,
+    studio: indoor.studio,
+  };
+}
+
+const SCENIC_GRAPH_VARIANTS: GraphVariant[] = [
+  {
+    id: "scenic-harbor-loop",
+    coordinates: createCoordinates(
+      {
+        gate: { x: 0, y: 0 },
+        plaza: { x: 1.15, y: -0.05 },
+        gallery: { x: 2.35, y: 0.25 },
+        garden: { x: -0.2, y: 1.15 },
+        lake: { x: 1.05, y: 1.25 },
+        market: { x: 2.45, y: 1.35 },
+        hub: { x: 0.15, y: 2.35 },
+        "hall-entry": { x: 1.3, y: 2.5 },
+        deck: { x: 2.65, y: 2.55 },
+      },
+      {
+        hallL1: { x: 1.3, y: 2.82 },
+        elevatorL1: { x: 1.62, y: 2.82 },
+        elevatorL2: { x: 1.62, y: 3.68 },
+        archive: { x: 1.02, y: 3.68 },
+        studio: { x: 2.02, y: 3.68 },
+      },
+    ),
+    edges: [
+      { from: "gate", to: "plaza", congestion: 0.2, link: "walkway" },
+      { from: "plaza", to: "gallery", congestion: 0.22, link: "walkway" },
+      { from: "gate", to: "garden", congestion: 0.18, link: "walkway" },
+      { from: "plaza", to: "lake", congestion: 0.34, link: "walkway" },
+      { from: "gallery", to: "market", congestion: 0.28, link: "walkway" },
+      { from: "garden", to: "lake", congestion: 0.24, link: "walkway" },
+      { from: "lake", to: "market", congestion: 0.32, link: "walkway" },
+      { from: "garden", to: "hub", congestion: 0.21, link: "walkway" },
+      { from: "lake", to: "hall-entry", congestion: 0.36, link: "walkway" },
+      { from: "market", to: "deck", congestion: 0.27, link: "walkway" },
+      { from: "hub", to: "hall-entry", congestion: 0.17, link: "mobile" },
+      { from: "hall-entry", to: "deck", congestion: 0.19, link: "mobile" },
+      { from: "plaza", to: "garden", congestion: 0.29, link: "walkway" },
+      { from: "plaza", to: "market", congestion: 0.35, link: "walkway" },
+      { from: "hall-entry", to: "hall-l1", congestion: 0.12, link: "indoor" },
+      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
+      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
+      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
+      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
+    ],
+  },
+  {
+    id: "scenic-ridge-spur",
+    coordinates: createCoordinates(
+      {
+        gate: { x: 0, y: 0 },
+        plaza: { x: 0.95, y: 0.45 },
+        gallery: { x: 2.2, y: 0.2 },
+        garden: { x: 0.35, y: 1.45 },
+        lake: { x: 1.55, y: 1.6 },
+        market: { x: 2.9, y: 1.2 },
+        hub: { x: 0.8, y: 2.7 },
+        "hall-entry": { x: 2.05, y: 2.55 },
+        deck: { x: 3.2, y: 2.1 },
+      },
+      {
+        hallL1: { x: 2.05, y: 2.9 },
+        elevatorL1: { x: 2.37, y: 2.9 },
+        elevatorL2: { x: 2.37, y: 3.74 },
+        archive: { x: 1.74, y: 3.74 },
+        studio: { x: 2.78, y: 3.74 },
+      },
+    ),
+    edges: [
+      { from: "gate", to: "plaza", congestion: 0.19, link: "walkway" },
+      { from: "plaza", to: "gallery", congestion: 0.24, link: "walkway" },
+      { from: "gate", to: "garden", congestion: 0.16, link: "walkway" },
+      { from: "garden", to: "lake", congestion: 0.23, link: "walkway" },
+      { from: "lake", to: "market", congestion: 0.3, link: "walkway" },
+      { from: "market", to: "deck", congestion: 0.26, link: "walkway" },
+      { from: "garden", to: "hub", congestion: 0.2, link: "walkway" },
+      { from: "hub", to: "hall-entry", congestion: 0.18, link: "mobile" },
+      { from: "lake", to: "hall-entry", congestion: 0.34, link: "walkway" },
+      { from: "hall-entry", to: "deck", congestion: 0.17, link: "mobile" },
+      { from: "plaza", to: "lake", congestion: 0.27, link: "walkway" },
+      { from: "gallery", to: "lake", congestion: 0.29, link: "walkway" },
+      { from: "lake", to: "deck", congestion: 0.31, link: "walkway" },
+      { from: "hall-entry", to: "hall-l1", congestion: 0.11, link: "indoor" },
+      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
+      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
+      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
+      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
+    ],
+  },
+];
+
+const CAMPUS_GRAPH_VARIANTS: GraphVariant[] = [
+  {
+    id: "campus-axis-loop",
+    coordinates: createCoordinates(
+      {
+        gate: { x: 0, y: 0 },
+        plaza: { x: 1.05, y: 0.05 },
+        gallery: { x: 2.3, y: 0.1 },
+        garden: { x: 0, y: 1 },
+        lake: { x: 1.15, y: 1.05 },
+        market: { x: 2.45, y: 1.15 },
+        hub: { x: 0, y: 2 },
+        "hall-entry": { x: 1, y: 2 },
+        deck: { x: 2.55, y: 2.2 },
+      },
+      {
+        hallL1: { x: 1, y: 2.32 },
+        elevatorL1: { x: 1.32, y: 2.32 },
+        elevatorL2: { x: 1.32, y: 3.16 },
+        archive: { x: 0.98, y: 3.16 },
+        studio: { x: 1.98, y: 3.16 },
+      },
+    ),
+    edges: [
+      { from: "gate", to: "plaza", congestion: 0.2, link: "walkway" },
+      { from: "plaza", to: "gallery", congestion: 0.2, link: "walkway" },
+      { from: "gate", to: "garden", congestion: 0.17, link: "walkway" },
+      { from: "plaza", to: "lake", congestion: 0.3, link: "walkway" },
+      { from: "gallery", to: "market", congestion: 0.25, link: "walkway" },
+      { from: "garden", to: "lake", congestion: 0.22, link: "walkway" },
+      { from: "lake", to: "market", congestion: 0.3, link: "walkway" },
+      { from: "garden", to: "hub", congestion: 0.19, link: "walkway" },
+      { from: "lake", to: "hall-entry", congestion: 0.33, link: "walkway" },
+      { from: "market", to: "deck", congestion: 0.24, link: "walkway" },
+      { from: "hub", to: "hall-entry", congestion: 0.14, link: "mobile" },
+      { from: "hall-entry", to: "deck", congestion: 0.16, link: "mobile" },
+      { from: "plaza", to: "garden", congestion: 0.27, link: "walkway" },
+      { from: "plaza", to: "market", congestion: 0.31, link: "walkway" },
+      { from: "hall-entry", to: "hall-l1", congestion: 0.11, link: "indoor" },
+      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
+      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
+      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
+      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
+    ],
+  },
+  {
+    id: "campus-quad-cross",
+    coordinates: createCoordinates(
+      {
+        gate: { x: 0, y: 0 },
+        plaza: { x: 0.85, y: 0.6 },
+        gallery: { x: 2.1, y: 0.5 },
+        garden: { x: -0.1, y: 1.55 },
+        lake: { x: 1.2, y: 1.85 },
+        market: { x: 2.55, y: 1.65 },
+        hub: { x: 0.35, y: 2.85 },
+        "hall-entry": { x: 1.7, y: 3 },
+        deck: { x: 3.05, y: 2.75 },
+      },
+      {
+        hallL1: { x: 1.7, y: 3.34 },
+        elevatorL1: { x: 2.02, y: 3.34 },
+        elevatorL2: { x: 2.02, y: 4.18 },
+        archive: { x: 1.38, y: 4.18 },
+        studio: { x: 2.42, y: 4.18 },
+      },
+    ),
+    edges: [
+      { from: "gate", to: "plaza", congestion: 0.18, link: "walkway" },
+      { from: "gate", to: "garden", congestion: 0.16, link: "walkway" },
+      { from: "plaza", to: "gallery", congestion: 0.22, link: "walkway" },
+      { from: "plaza", to: "lake", congestion: 0.28, link: "walkway" },
+      { from: "gallery", to: "market", congestion: 0.24, link: "walkway" },
+      { from: "garden", to: "hub", congestion: 0.2, link: "walkway" },
+      { from: "hub", to: "hall-entry", congestion: 0.15, link: "mobile" },
+      { from: "lake", to: "hall-entry", congestion: 0.31, link: "walkway" },
+      { from: "market", to: "deck", congestion: 0.23, link: "walkway" },
+      { from: "hall-entry", to: "deck", congestion: 0.16, link: "mobile" },
+      { from: "lake", to: "market", congestion: 0.27, link: "walkway" },
+      { from: "hub", to: "lake", congestion: 0.22, link: "walkway" },
+      { from: "gallery", to: "deck", congestion: 0.29, link: "walkway" },
+      { from: "hall-entry", to: "hall-l1", congestion: 0.11, link: "indoor" },
+      { from: "hall-l1", to: "elevator-l1", congestion: 0.1, link: "indoor" },
+      { from: "elevator-l1", to: "elevator-l2", congestion: 0.08, link: "indoor" },
+      { from: "elevator-l2", to: "archive", congestion: 0.06, link: "indoor" },
+      { from: "elevator-l2", to: "studio", congestion: 0.05, link: "indoor" },
+    ],
+  },
+];
+
 function pad(value: number): string {
   return value.toString().padStart(3, "0");
 }
@@ -129,7 +360,12 @@ function createDestinationName(index: number, type: DestinationType): string {
   return `${prefix} ${suffix}`;
 }
 
-function createNodes(destinationId: string, type: DestinationType): DestinationNode[] {
+function selectGraphVariant(index: number, type: DestinationType): GraphVariant {
+  const variants = type === "scenic" ? SCENIC_GRAPH_VARIANTS : CAMPUS_GRAPH_VARIANTS;
+  return variants[Math.floor(index / 2) % variants.length];
+}
+
+function createNodes(destinationId: string, type: DestinationType, variant: GraphVariant): DestinationNode[] {
   const baseBuildingId = `${destinationId}-building-hall`;
   return [
     {
@@ -137,8 +373,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: "Main Gate",
       kind: "gate",
       floor: 0,
-      x: 0,
-      y: 0,
+      x: variant.coordinates.gate.x,
+      y: variant.coordinates.gate.y,
       keywords: ["entry", "arrival", "gate"],
     },
     {
@@ -146,8 +382,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Sun Plaza" : "Civic Plaza",
       kind: "plaza",
       floor: 0,
-      x: 1,
-      y: 0,
+      x: variant.coordinates.plaza.x,
+      y: variant.coordinates.plaza.y,
       keywords: ["plaza", "meeting", "landmark"],
     },
     {
@@ -155,8 +391,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Gallery Row" : "Library Court",
       kind: "building",
       floor: 0,
-      x: 2,
-      y: 0,
+      x: variant.coordinates.gallery.x,
+      y: variant.coordinates.gallery.y,
       buildingId: `${destinationId}-building-gallery`,
       keywords: ["gallery", "library", "culture"],
     },
@@ -165,8 +401,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Garden Walk" : "Research Garden",
       kind: "scenic",
       floor: 0,
-      x: 0,
-      y: 1,
+      x: variant.coordinates.garden.x,
+      y: variant.coordinates.garden.y,
       keywords: ["garden", "rest", "green"],
     },
     {
@@ -174,8 +410,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Mirror Lake" : "Innovation Court",
       kind: "scenic",
       floor: 0,
-      x: 1,
-      y: 1,
+      x: variant.coordinates.lake.x,
+      y: variant.coordinates.lake.y,
       keywords: ["lake", "center", "festival"],
     },
     {
@@ -183,8 +419,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Night Market" : "Food Street",
       kind: "plaza",
       floor: 0,
-      x: 2,
-      y: 1,
+      x: variant.coordinates.market.x,
+      y: variant.coordinates.market.y,
       keywords: ["food", "market", "music"],
     },
     {
@@ -192,8 +428,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Transit Terrace" : "Mobility Hub",
       kind: "junction",
       floor: 0,
-      x: 0,
-      y: 2,
+      x: variant.coordinates.hub.x,
+      y: variant.coordinates.hub.y,
       keywords: ["transit", "hub", "connection"],
     },
     {
@@ -201,8 +437,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Sky Hall Entry" : "Innovation Center Entry",
       kind: "building",
       floor: 0,
-      x: 1,
-      y: 2,
+      x: variant.coordinates["hall-entry"].x,
+      y: variant.coordinates["hall-entry"].y,
       buildingId: baseBuildingId,
       keywords: ["hall", "entry", "indoor"],
     },
@@ -211,8 +447,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Lookout Deck" : "Studio Square",
       kind: "plaza",
       floor: 0,
-      x: 2,
-      y: 2,
+      x: variant.coordinates.deck.x,
+      y: variant.coordinates.deck.y,
       keywords: ["view", "gathering", "event"],
     },
     {
@@ -220,8 +456,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: "Hall Lobby",
       kind: "room",
       floor: 1,
-      x: 1,
-      y: 2.3,
+      x: variant.coordinates["hall-l1"].x,
+      y: variant.coordinates["hall-l1"].y,
       buildingId: baseBuildingId,
       keywords: ["lobby", "indoor", "info"],
     },
@@ -230,8 +466,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: "East Elevator L1",
       kind: "elevator",
       floor: 1,
-      x: 1.3,
-      y: 2.3,
+      x: variant.coordinates["elevator-l1"].x,
+      y: variant.coordinates["elevator-l1"].y,
       buildingId: baseBuildingId,
       keywords: ["elevator", "vertical", "access"],
     },
@@ -240,8 +476,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: "East Elevator L2",
       kind: "elevator",
       floor: 2,
-      x: 1.3,
-      y: 3.15,
+      x: variant.coordinates["elevator-l2"].x,
+      y: variant.coordinates["elevator-l2"].y,
       buildingId: baseBuildingId,
       keywords: ["elevator", "vertical", "access"],
     },
@@ -250,8 +486,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Archive Room" : "Media Lab",
       kind: "room",
       floor: 2,
-      x: 0.95,
-      y: 3.15,
+      x: variant.coordinates.archive.x,
+      y: variant.coordinates.archive.y,
       buildingId: baseBuildingId,
       keywords: ["archive", "lab", "study"],
     },
@@ -260,8 +496,8 @@ function createNodes(destinationId: string, type: DestinationType): DestinationN
       name: type === "scenic" ? "Light Studio" : "Idea Studio",
       kind: "room",
       floor: 2,
-      x: 1.7,
-      y: 3.15,
+      x: variant.coordinates.studio.x,
+      y: variant.coordinates.studio.y,
       buildingId: baseBuildingId,
       keywords: ["studio", "creative", "demo"],
     },
@@ -292,30 +528,25 @@ function createEdge(
   };
 }
 
-function createEdges(destinationId: string, type: DestinationType, nodes: DestinationNode[]): DestinationEdge[] {
+function createEdges(
+  destinationId: string,
+  type: DestinationType,
+  nodes: DestinationNode[],
+  variant: GraphVariant,
+): DestinationEdge[] {
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
   const mobileModes: TravelMode[] = type === "campus" ? ["walk", "bike"] : ["walk", "shuttle"];
-  return [
-    createEdge(destinationId, nodesById, "gate", "plaza", "walkway", ["walk"], 0.2),
-    createEdge(destinationId, nodesById, "plaza", "gallery", "walkway", ["walk"], 0.22),
-    createEdge(destinationId, nodesById, "gate", "garden", "walkway", ["walk"], 0.18),
-    createEdge(destinationId, nodesById, "plaza", "lake", "walkway", ["walk"], 0.34),
-    createEdge(destinationId, nodesById, "gallery", "market", "walkway", ["walk"], 0.28),
-    createEdge(destinationId, nodesById, "garden", "lake", "walkway", ["walk"], 0.24),
-    createEdge(destinationId, nodesById, "lake", "market", "walkway", ["walk"], 0.32),
-    createEdge(destinationId, nodesById, "garden", "hub", "walkway", ["walk"], 0.21),
-    createEdge(destinationId, nodesById, "lake", "hall-entry", "walkway", ["walk"], 0.36),
-    createEdge(destinationId, nodesById, "market", "deck", "walkway", ["walk"], 0.27),
-    createEdge(destinationId, nodesById, "hub", "hall-entry", type === "campus" ? "bike-lane" : "shuttle-lane", mobileModes, 0.17),
-    createEdge(destinationId, nodesById, "hall-entry", "deck", type === "campus" ? "bike-lane" : "shuttle-lane", mobileModes, 0.19),
-    createEdge(destinationId, nodesById, "plaza", "garden", "walkway", ["walk"], 0.29),
-    createEdge(destinationId, nodesById, "plaza", "market", "walkway", ["walk"], 0.35),
-    createEdge(destinationId, nodesById, "hall-entry", "hall-l1", "indoor", ["walk"], 0.12),
-    createEdge(destinationId, nodesById, "hall-l1", "elevator-l1", "indoor", ["walk"], 0.1),
-    createEdge(destinationId, nodesById, "elevator-l1", "elevator-l2", "indoor", ["walk"], 0.08),
-    createEdge(destinationId, nodesById, "elevator-l2", "archive", "indoor", ["walk"], 0.06),
-    createEdge(destinationId, nodesById, "elevator-l2", "studio", "indoor", ["walk"], 0.05),
-  ];
+  return variant.edges.map((edge) =>
+    createEdge(
+      destinationId,
+      nodesById,
+      edge.from,
+      edge.to,
+      edge.link === "mobile" ? (type === "campus" ? "bike-lane" : "shuttle-lane") : edge.link,
+      edge.link === "mobile" ? mobileModes : ["walk"],
+      edge.congestion,
+    ),
+  );
 }
 
 function createBuildings(destinationId: string, type: DestinationType): BuildingRecord[] {
@@ -399,7 +630,8 @@ function createDestination(index: number): DestinationRecord {
   const type: DestinationType = index % 2 === 0 ? "scenic" : "campus";
   const id = `dest-${pad(index + 1)}`;
   const name = createDestinationName(index, type);
-  const nodes = createNodes(id, type);
+  const variant = selectGraphVariant(index, type);
+  const nodes = createNodes(id, type, variant);
   const tagSet = DESTINATION_TAGS[index % DESTINATION_TAGS.length];
   return {
     id,
@@ -417,7 +649,7 @@ function createDestination(index: number): DestinationRecord {
     featured: index < 6,
     graph: {
       nodes,
-      edges: createEdges(id, type, nodes),
+      edges: createEdges(id, type, nodes, variant),
     },
     buildings: createBuildings(id, type),
     facilities: createFacilities(id, index),
