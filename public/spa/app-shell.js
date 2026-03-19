@@ -253,12 +253,13 @@ export function createAppShell(root) {
     }
 
     return journalConsumers.journalCard(item, metadata, tagsMarkup, {
-      mapHref: buildMapHref({ destinationId: item.destinationId }),
+      mapHref: buildMapHref(options.actorId ? { destinationId: item.destinationId, actor: options.actorId } : { destinationId: item.destinationId }),
       postHref: buildPostHref(item.id, postParams),
       summarizeBody: journalPresentation.summarizeText,
       summaryLength: options.summaryLength || 220,
       hideDelete: options.hideDelete === true,
       hideSocialAction: options.hideSocialAction === true,
+      hideSocialMeta: options.hideSocialMeta === true,
     });
   }
 

@@ -74,6 +74,7 @@ type JournalConsumersModule = {
     options?: {
       hideDelete?: boolean;
       hideSocialAction?: boolean;
+      hideSocialMeta?: boolean;
       mapHref?: string;
       postHref?: string;
       summarizeBody?: (body: string, maxLength?: number) => string;
@@ -352,6 +353,7 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
     renderTagsMarkup,
     {
       hideDelete: true,
+      hideSocialMeta: true,
       hideSocialAction: true,
     },
   );
@@ -362,6 +364,8 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
   assert.ok(/dest-034 \/ user-12/.test(fallbackMarkup), fallbackMarkup);
   assert.equal(/data-action="delete"/.test(fallbackMarkup), false, fallbackMarkup);
   assert.equal(/data-action="like"/.test(fallbackMarkup), false, fallbackMarkup);
+  assert.equal(/3 likes/.test(fallbackMarkup), false, fallbackMarkup);
+  assert.equal(/4 comments/.test(fallbackMarkup), false, fallbackMarkup);
   assert.deepEqual(fallbackViewRequest, {
     path: "/api/journals/journal-12/view",
     options: {

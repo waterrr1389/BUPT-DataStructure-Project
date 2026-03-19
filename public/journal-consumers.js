@@ -109,6 +109,7 @@
     const postHref = text(options?.postHref)
     const hideDelete = options?.hideDelete === true
     const hideSocialAction = options?.hideSocialAction === true
+    const hideSocialMeta = options?.hideSocialMeta === true
     const summaryLength = Number.isFinite(Number(options?.summaryLength))
       ? Number(options.summaryLength)
       : 220
@@ -129,8 +130,8 @@
       `views ${numberOr(item?.views)}`,
       `rating ${numberOr(item?.averageRating).toFixed(1)}`,
       ratings ? `${ratings.length} scores` : "",
-      `${likeCount} likes`,
-      `${commentCount} comments`,
+      hideSocialMeta ? "" : `${likeCount} likes`,
+      hideSocialMeta ? "" : `${commentCount} comments`,
     ]
       .filter(Boolean)
       .map((value) => `<span>${escapeHtml(value)}</span>`)

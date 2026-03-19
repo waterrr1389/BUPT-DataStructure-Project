@@ -341,7 +341,11 @@ export async function render(app, route, root) {
         blocks.push(
           exchangeBlock(
             "Exact title",
-            payload.item ? renderJournalCard(payload.item, { hideDelete: true }) : emptyStateMarkup(),
+            payload.item ? renderJournalCard(payload.item, {
+              hideDelete: true,
+              hideSocialAction: true,
+              hideSocialMeta: true,
+            }) : emptyStateMarkup(),
           ),
         );
       }
@@ -355,7 +359,11 @@ export async function render(app, route, root) {
             "Text search",
             safeArray(payload.items).length
               ? safeArray(payload.items)
-                  .map((item) => renderJournalCard(item, { hideDelete: true }))
+                  .map((item) => renderJournalCard(item, {
+                    hideDelete: true,
+                    hideSocialAction: true,
+                    hideSocialMeta: true,
+                  }))
                   .join("")
               : emptyStateMarkup(),
           ),
@@ -379,7 +387,11 @@ export async function render(app, route, root) {
           "Destination feed",
           safeArray(payload.items).length
             ? safeArray(payload.items)
-                .map((item) => renderJournalCard(item, { hideDelete: true }))
+                .map((item) => renderJournalCard(item, {
+                  hideDelete: true,
+                  hideSocialAction: true,
+                  hideSocialMeta: true,
+                }))
                 .join("")
             : emptyStateMarkup(),
         ),

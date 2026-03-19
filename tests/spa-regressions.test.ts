@@ -638,14 +638,21 @@ function createFeedFixture() {
   const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
 
-  function cardMarkup(item: { id: string; title: string }, actorId = "") {
+  function cardMarkup(
+    item: { id: string; title: string },
+    actorId = "",
+    options: { hideSocialAction?: boolean; hideSocialMeta?: boolean } = {},
+  ) {
     const postHref = actorId ? `/posts/${item.id}?actor=${actorId}` : `/posts/${item.id}`;
     return `
       <article class="result-card" data-journal-id="${item.id}">
         <h3>${item.title}</h3>
+        ${options.hideSocialMeta ? "" : `<div class="result-meta"><span>0 likes</span><span>0 comments</span></div>`}
         <a class="inline-link" href="${postHref}" data-nav="true">Open post</a>
         <div class="actions">
-          <button type="button" data-action="like">Like</button>
+          <button type="button" data-action="view">Add view</button>
+          <button type="button" data-action="rate">Rate 5</button>
+          ${options.hideSocialAction ? "" : `<button type="button" data-action="like">Like</button>`}
         </div>
       </article>
     `;
@@ -670,8 +677,11 @@ function createFeedFixture() {
     buildPostHref(journalId: string, params: { actor?: string }) {
       return params.actor ? `/posts/${journalId}?actor=${params.actor}` : `/posts/${journalId}`;
     },
-    createJournalCard(item: { id: string; title: string }, options?: { actorId?: string }) {
-      return cardMarkup(item, options?.actorId ?? "");
+    createJournalCard(
+      item: { id: string; title: string },
+      options?: { actorId?: string; hideSocialAction?: boolean; hideSocialMeta?: boolean },
+    ) {
+      return cardMarkup(item, options?.actorId ?? "", options);
     },
     async fetchFeed(options: Record<string, unknown>) {
       fetchFeedCalls.push(options);
@@ -844,6 +854,9 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
       requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
       "/posts/journal-exchange-1?actor=user-2",
     );
+    assert.equal(root.querySelector("#feed-exchange-results button[data-action='like']"), null);
+    assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 likes"), false);
+    assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 comments"), false);
 
     const actorSelect = requireElement(root, "#feed-actor");
     actorSelect.value = "user-1";
@@ -870,13 +883,13 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
     assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
     assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
 
-    const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='like']");
+    const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='view']");
     dispatchDomEvent(exchangeButton, "click");
     await settleAsync();
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/search?query=indoor"]);
     assert.deepEqual(fixture.sendJournalActionCalls, [
-      { action: "like", journalId: "journal-exchange-1", userId: "user-1" },
+      { action: "view", journalId: "journal-exchange-1", userId: "user-1" },
     ]);
     assert.equal(fixture.fetchRecommendedCalls.length, 2);
     assert.equal(fixture.fetchFeedCalls.length, 2);
@@ -1586,7 +1599,19 @@ test("shell nav links preserve actor context after non-rendering navigation", as
         });
       }
       if (url.startsWith("/api/feed")) {
-        return createJsonResponse(200, { items: [], nextCursor: null });
+        return createJsonResponse(200, {
+          items: [
+            {
+              destinationId: "dest-1",
+              id: "journal-1",
+              summaryBody: "Quiet route note.",
+              tags: [],
+              title: "Bridge Notes",
+              userId: "user-1",
+            },
+          ],
+          nextCursor: null,
+        });
       }
       throw new Error(`Unexpected fetch: ${url}`);
     }) as typeof fetch;
@@ -1596,6 +1621,11 @@ test("shell nav links preserve actor context after non-rendering navigation", as
     const app = module.createAppShell(root);
 
     await app.start();
+    const mapLink = Array.from(root.querySelectorAll("#feed-results a")).find((link) =>
+      (link.getAttribute("href") || "").startsWith("/map?"),
+    );
+    assert.equal((mapLink?.getAttribute("href") || "").includes("destinationId=dest-1"), true);
+    assert.equal((mapLink?.getAttribute("href") || "").includes("actor=user-1"), true);
     app.navigate("/feed?actor=user-2", { replace: true, render: false });
     await settleAsync();
 
