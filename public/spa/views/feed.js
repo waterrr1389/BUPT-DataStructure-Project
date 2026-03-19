@@ -315,8 +315,13 @@ export async function render(app, route, root) {
     }
   });
 
-  actorSelect.addEventListener("change", () => {
+  actorSelect.addEventListener("change", async () => {
     syncActorContext();
+    try {
+      await loadFeed(currentFeedMode);
+    } catch (error) {
+      app.setStatus(error instanceof Error ? error.message : "Feed loading failed.", "error");
+    }
   });
 
   feedResults.addEventListener("click", handleJournalAction);

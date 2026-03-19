@@ -301,7 +301,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
     },
 
     async feed(options: JournalFeedQuery = {}): Promise<CursorPage<JournalFeedItem>> {
-      const limit = ensureLimit(options.limit, 12, 40);
+      const limit = ensureLimit(options.limit, 12, 40, { strictMax: true });
       const resolvedViewerUserId = await loadViewerUserId(options.viewerUserId);
       const [journals, maps] = await Promise.all([store.list(), loadSocialMaps()]);
       const filtered = filterJournals(journals, options).sort(sortJournalsByCreatedAt);
@@ -417,7 +417,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
 
     async listComments(query: JournalCommentListQuery): Promise<CursorPage<JournalCommentView>> {
       await loadJournal(query.journalId);
-      const limit = ensureLimit(query.limit, 20, 50);
+      const limit = ensureLimit(query.limit, 20, 50, { strictMax: true });
       const comments = (await store.listComments(query.journalId)).sort(sortComments);
       const startIndex = resolveCursorIndex(comments, query.cursor, COMMENT_CURSOR_KIND, (comment) => comment.createdAt);
       const items = comments

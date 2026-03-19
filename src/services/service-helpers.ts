@@ -9,7 +9,12 @@ export function assertNonEmpty(value: string | undefined, message: string): stri
   return normalized;
 }
 
-export function ensureLimit(limit: number | undefined, fallback = 10, max = 50): number {
+export function ensureLimit(
+  limit: number | undefined,
+  fallback = 10,
+  max = 50,
+  options: { strictMax?: boolean } = {},
+): number {
   if (limit === undefined) {
     return fallback;
   }
@@ -21,7 +26,10 @@ export function ensureLimit(limit: number | undefined, fallback = 10, max = 50):
     throw new Error("Limit must be a positive number.");
   }
   if (normalized > max) {
-    throw new Error(`Limit must be at most ${max}.`);
+    if (options.strictMax) {
+      throw new Error(`Limit must be at most ${max}.`);
+    }
+    return max;
   }
   return normalized;
 }

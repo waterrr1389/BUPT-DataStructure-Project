@@ -839,6 +839,8 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
     dispatchDomEvent(actorSelect, "change");
     await settleAsync();
 
+    assert.equal(fixture.fetchFeedCalls.length, 2);
+    assert.equal(fixture.fetchFeedCalls[1]?.viewerUserId, "user-1");
     assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-1");
     assert.equal(
       requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
@@ -866,7 +868,7 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
       { action: "like", journalId: "journal-exchange-1", userId: "user-1" },
     ]);
     assert.equal(fixture.fetchRecommendedCalls.length, 2);
-    assert.equal(fixture.fetchFeedCalls.length, 1);
+    assert.equal(fixture.fetchFeedCalls.length, 2);
     assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
     assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
     assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);

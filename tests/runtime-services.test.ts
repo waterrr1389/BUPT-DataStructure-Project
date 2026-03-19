@@ -147,6 +147,22 @@ test("food search tolerates typo queries on the real dataset", async () => {
   assert.ok((noodleLab.matches?.length ?? 0) > 0, format(noodleLab));
 });
 
+test("legacy destination, food, and exchange queries clamp over-max limits", async () => {
+  const app = await createIsolatedApp("legacy-limit-clamping");
+
+  const catalog = app.destinations.listCatalog(999);
+  const foods = app.foods.search({
+    destinationId: "dest-002",
+    cuisine: "tea",
+    limit: 99,
+  });
+  const exchangeResults = await app.exchange.searchText("field note", 99);
+
+  assert.equal(catalog.length, 60, format(catalog));
+  assert.equal(Array.isArray(foods), true, format(foods));
+  assert.equal(Array.isArray(exchangeResults), true, format(exchangeResults));
+});
+
 test("journal exchange keeps exact-title lookup separate from full-text search", async () => {
   const app = await createIsolatedApp("journal-search");
   const exact = await app.exchange.exactTitle("Amber Bay field note 1");
