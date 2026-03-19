@@ -3,6 +3,8 @@
 日期：2026-03-20  
 范围：`.humanize/rlcr/2026-03-19_19-29-46` 的 Round 0 到 Round 14 review 记录、对应 summary，以及 `main` 上已落地的修复提交
 
+> 注：本文按 2026-03-20 当时的 review 轨迹做历史复盘。文中提到的 `actor` 路由传播、Explore/Map/Post Detail hand-off、comments 错误分类退化和相关回归覆盖缺口，后续已经由 bounded SPA convergence pass 与当前为绿的 deterministic regression suite 收口；下面的“问题/缺口”应理解为当时观察到的阶段性状态，而不是当前 `main` 的未修复现状。
+
 ## 结论摘要
 
 这次 RLCR 看起来像是“很多轮都卡在并发问题”，但更准确的说法是：
