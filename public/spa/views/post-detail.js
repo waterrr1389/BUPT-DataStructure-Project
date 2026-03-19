@@ -322,6 +322,7 @@ export async function render(app, route, root) {
   root.querySelector("#post-view").addEventListener("click", async () => {
     try {
       await app.sendJournalAction("view", route.journalId, actorSelect.value);
+      await refreshJournalDetail();
       app.setStatus("View recorded.", "success");
     } catch (error) {
       app.setStatus(error instanceof Error ? error.message : "View action failed.", "error");
@@ -331,6 +332,7 @@ export async function render(app, route, root) {
   root.querySelector("#post-rate").addEventListener("click", async () => {
     try {
       await app.sendJournalAction("rate", route.journalId, actorSelect.value);
+      await refreshJournalDetail();
       app.setStatus("Rating recorded.", "success");
     } catch (error) {
       app.setStatus(error instanceof Error ? error.message : "Rate action failed.", "error");

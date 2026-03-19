@@ -77,7 +77,14 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
   ];
   let commentPageIndex = 0;
   const createCommentCalls: Array<{ body: string; journalId: string; userId: string }> = [];
+  const actionCalls: Array<{ action: string; journalId: string; userId: string }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
+  let views = 14;
+  let ratings = [{ userId: "user-1", score: 4 }];
+
+  function averageRating() {
+    return ratings.reduce((total, entry) => total + entry.score, 0) / ratings.length;
+  }
 
   const app = {
     state: {
@@ -119,7 +126,7 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
         viewerUserId: options.viewerUserId ?? "",
       });
       return {
-        averageRating: 4.5,
+        averageRating: averageRating(),
         body: "Quiet bridge walk.\n\nSecond paragraph.",
         commentCount: commentPageIndex >= 3 ? 24 : 23,
         createdAt: "2026-03-01T10:00:00.000Z",
@@ -127,13 +134,13 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
         id: journalId,
         likeCount: 2,
         media: [],
-        ratings: [{ userId: "user-1", score: 5 }],
+        ratings,
         tags: ["bridge", "tea"],
         title: "Bridge Notes",
         updatedAt: "2026-03-02T11:00:00.000Z",
         userId: "user-1",
         viewerHasLiked: false,
-        views: 14,
+        views,
       };
     },
     fillSelect() {
@@ -152,7 +159,14 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
       return bootstrap;
     },
     navigate() {},
-    async sendJournalAction() {
+    async sendJournalAction(action: string, journalId: string, userId: string) {
+      actionCalls.push({ action, journalId, userId });
+      if (action === "view") {
+        views += 1;
+      }
+      if (action === "rate") {
+        ratings = ratings.concat({ userId, score: 5 });
+      }
       return { available: true, notice: "", payload: null };
     },
     setDocumentTitle() {},
@@ -166,6 +180,7 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
 
   return {
     app,
+    actionCalls,
     createCommentCalls,
     detailCalls,
     commentCalls,
@@ -350,6 +365,61 @@ test("posting a comment resets post detail comments back to the first page", asy
       { journalId: "journal-1", viewerUserId: "user-2" },
       { journalId: "journal-1", viewerUserId: "user-2" },
     ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("post detail refreshes visible state after view and rate actions", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const heroMeta = requireElement(root, "#post-hero-meta");
+    assert.ok(heroMeta.innerHTML.includes("views 14"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("rating 4"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("1 scores"), heroMeta.innerHTML);
+
+    dispatchDomEvent(requireElement(root, "#post-view"), "click");
+    await settleAsync();
+
+    assert.deepEqual(fixture.actionCalls[0], {
+      action: "view",
+      journalId: "journal-1",
+      userId: "user-2",
+    });
+    assert.equal(fixture.detailCalls.length, 2);
+    assert.ok(heroMeta.innerHTML.includes("views 15"), heroMeta.innerHTML);
+
+    dispatchDomEvent(requireElement(root, "#post-rate"), "click");
+    await settleAsync();
+
+    assert.deepEqual(fixture.actionCalls[1], {
+      action: "rate",
+      journalId: "journal-1",
+      userId: "user-2",
+    });
+    assert.equal(fixture.detailCalls.length, 3);
+    assert.ok(heroMeta.innerHTML.includes("rating 4.5"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("2 scores"), heroMeta.innerHTML);
 
     if (typeof cleanup === "function") {
       cleanup();

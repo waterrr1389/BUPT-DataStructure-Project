@@ -37,17 +37,18 @@ type PreparedDestinationBindings = {
 
 type JournalEntry = {
   averageRating?: number;
-  body: string;
+  body?: string;
   commentCount?: number;
   destinationId: string;
   id: string;
   likeCount?: number;
-  ratings: number[];
+  ratings?: number[];
+  summaryBody?: string;
   tags: string[];
   title: string;
   userId: string;
   viewerHasLiked?: boolean;
-  views: number;
+  views?: number;
 };
 
 type JournalPresentationModule = {
@@ -300,6 +301,7 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
 
   assert.equal(readableJournalId, "journal-12");
   assert.ok(/Summit Polytechnic \/ Rory Pike/.test(readableMarkup), readableMarkup);
+  assert.ok(/3 scores/.test(readableMarkup), readableMarkup);
   assert.ok(/data-action="unlike"/.test(readableMarkup), readableMarkup);
   assert.ok(/href="\/posts\/journal-12"/.test(readableMarkup), readableMarkup);
   assert.ok(/href="\/map\?destinationId=dest-034"/.test(readableMarkup), readableMarkup);
@@ -367,4 +369,41 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
       body: "{}",
     },
   });
+});
+
+test("journal cards use compact feed summaries without inventing missing score counts", () => {
+  const item: JournalEntry = {
+    averageRating: 4.2,
+    commentCount: 7,
+    destinationId: "dest-002",
+    id: "journal-feed-2",
+    likeCount: 5,
+    summaryBody: "Compact social feed summaries should render even when full journal bodies are omitted.",
+    tags: ["tea", "bridge"],
+    title: "Harbor summary card",
+    userId: "user-2",
+    viewerHasLiked: false,
+    views: 19,
+  };
+
+  const markup = journalCard(
+    item,
+    formatJournalMetadata(item, {
+      destinationById: new Map([["dest-002", { id: "dest-002", name: "River Polytechnic" }]]),
+      userById: new Map([["user-2", { id: "user-2", name: "Avery Vale" }]]),
+    }),
+    renderTagsMarkup,
+    {
+      postHref: "/posts/journal-feed-2",
+      summaryLength: 120,
+    },
+  );
+
+  assert.ok(/Compact social feed summaries should render/.test(markup), markup);
+  assert.ok(/views 19/.test(markup), markup);
+  assert.ok(/rating 4.2/.test(markup), markup);
+  assert.ok(/5 likes/.test(markup), markup);
+  assert.ok(/7 comments/.test(markup), markup);
+  assert.equal(/scores/.test(markup), false, markup);
+  assert.equal(/<span><\/span>/.test(markup), false, markup);
 });

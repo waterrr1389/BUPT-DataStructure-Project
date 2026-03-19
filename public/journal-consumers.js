@@ -103,7 +103,7 @@
 
   function journalCard(item, metadata, renderTagsMarkup, options = {}) {
     const attribution = text(metadata?.attribution)
-    const ratings = Array.isArray(item?.ratings) ? item.ratings : []
+    const ratings = Array.isArray(item?.ratings) ? item.ratings : null
     const tags = Array.isArray(item?.tags) ? item.tags : []
     const mapHref = text(options?.mapHref)
     const postHref = text(options?.postHref)
@@ -118,25 +118,29 @@
         : summarizeBody
     const journalId = text(item?.id)
     const title = text(item?.title)
-    const body = text(item?.body)
+    const summarySource = text(item?.summaryBody, text(item?.body))
     const likeCount = numberOr(item?.likeCount)
     const commentCount = numberOr(item?.commentCount)
     const tagsMarkup = typeof renderTagsMarkup === "function" ? renderTagsMarkup(tags) : ""
     const likeAction = item?.viewerHasLiked ? "unlike" : "like"
     const likeLabel = likeAction === "like" ? "Like" : "Unlike"
-    const summary = text(summarize(body, summaryLength), summarizeBody(body, summaryLength))
+    const summary = text(summarize(summarySource, summaryLength), summarizeBody(summarySource, summaryLength))
+    const metadataItems = [
+      `views ${numberOr(item?.views)}`,
+      `rating ${numberOr(item?.averageRating).toFixed(1)}`,
+      ratings ? `${ratings.length} scores` : "",
+      `${likeCount} likes`,
+      `${commentCount} comments`,
+    ]
+      .filter(Boolean)
+      .map((value) => `<span>${escapeHtml(value)}</span>`)
+      .join("")
 
     return `
       <article class="result-card" data-journal-id="${escapeHtml(journalId)}">
         <p class="muted">${escapeHtml(attribution)}</p>
         <h3>${escapeHtml(title)}</h3>
-        <div class="result-meta">
-          <span>views ${numberOr(item?.views)}</span>
-          <span>rating ${numberOr(item?.averageRating).toFixed(1)}</span>
-          <span>${ratings.length} scores</span>
-          <span>${likeCount} likes</span>
-          <span>${commentCount} comments</span>
-        </div>
+        <div class="result-meta">${metadataItems}</div>
         <p>${escapeHtml(summary)}</p>
         ${tagsMarkup}
         <div class="story-card-actions">
