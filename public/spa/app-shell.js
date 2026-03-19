@@ -165,8 +165,8 @@ export function createAppShell(root) {
     return createUrl("/map", params);
   }
 
-  function buildPostHref(journalId) {
-    return `/posts/${encodeURIComponent(text(journalId))}`;
+  function buildPostHref(journalId, params = {}) {
+    return createUrl(`/posts/${encodeURIComponent(text(journalId))}`, params);
   }
 
   async function loadBootstrap() {
@@ -247,10 +247,14 @@ export function createAppShell(root) {
       destinationById: state.destinationById,
       userById: state.userById,
     });
+    const postParams = {};
+    if (options.actorId) {
+      postParams.actor = options.actorId;
+    }
 
     return journalConsumers.journalCard(item, metadata, tagsMarkup, {
       mapHref: buildMapHref({ destinationId: item.destinationId }),
-      postHref: buildPostHref(item.id),
+      postHref: buildPostHref(item.id, postParams),
       summarizeBody: journalPresentation.summarizeText,
       summaryLength: options.summaryLength || 220,
       hideDelete: options.hideDelete === true,
@@ -342,17 +346,25 @@ export function createAppShell(root) {
 
   async function fetchFeed(filters = {}) {
     const params = new URLSearchParams();
+    const fallbackParams = new URLSearchParams();
     if (filters.destinationId) {
       params.set("destinationId", filters.destinationId);
+      fallbackParams.set("destinationId", filters.destinationId);
     }
     if (filters.userId) {
       params.set("userId", filters.userId);
+      fallbackParams.set("userId", filters.userId);
+    }
+    if (filters.viewerUserId) {
+      params.set("viewerUserId", filters.viewerUserId);
     }
     if (filters.limit) {
       params.set("limit", String(filters.limit));
+      fallbackParams.set("limit", String(filters.limit));
     }
     if (filters.cursor) {
       params.set("cursor", filters.cursor);
+      fallbackParams.set("cursor", filters.cursor);
     }
 
     const social = await requestJsonMaybe(`/api/feed${params.toString() ? `?${params.toString()}` : ""}`);
@@ -371,7 +383,7 @@ export function createAppShell(root) {
     }
 
     const fallback = await requestJson(
-      `/api/journals${params.toString() ? `?${params.toString()}` : ""}`,
+      `/api/journals${fallbackParams.toString() ? `?${fallbackParams.toString()}` : ""}`,
     );
     return {
       items: safeArray(fallback.items),
@@ -402,18 +414,37 @@ export function createAppShell(root) {
     return safeArray(payload.items);
   }
 
-  async function fetchJournalDetail(journalId) {
-    const payload = await requestJson(`/api/journals/${encodeURIComponent(journalId)}`);
+  async function fetchJournalDetail(journalId, options = {}) {
+    const params = new URLSearchParams();
+    if (options.viewerUserId) {
+      params.set("viewerUserId", options.viewerUserId);
+    }
+    const payload = await requestJson(
+      `/api/journals/${encodeURIComponent(journalId)}${params.toString() ? `?${params.toString()}` : ""}`,
+    );
     return payload.item;
   }
 
-  async function fetchJournalComments(journalId) {
-    const response = await requestJsonMaybe(`/api/journals/${encodeURIComponent(journalId)}/comments`);
+  async function fetchJournalComments(journalId, options = {}) {
+    const params = new URLSearchParams();
+    if (options.cursor) {
+      params.set("cursor", options.cursor);
+    }
+    if (options.limit) {
+      params.set("limit", String(options.limit));
+    }
+
+    const response = await requestJsonMaybe(
+      `/api/journals/${encodeURIComponent(journalId)}/comments${params.toString() ? `?${params.toString()}` : ""}`,
+    );
     if (response.ok) {
       state.socialAvailability.comments = true;
       return {
         available: true,
         items: safeArray(response.payload?.items),
+        nextCursor:
+          typeof response.payload?.nextCursor === "string" ? response.payload.nextCursor : "",
+        totalCount: Number(response.payload?.totalCount) || 0,
         notice: "",
       };
     }
@@ -423,6 +454,8 @@ export function createAppShell(root) {
       return {
         available: false,
         items: [],
+        nextCursor: "",
+        totalCount: 0,
         notice: "Comments have not been wired in this workspace yet.",
       };
     }
@@ -430,6 +463,8 @@ export function createAppShell(root) {
     return {
       available: false,
       items: [],
+      nextCursor: "",
+      totalCount: 0,
       notice: text(response.error, "Comments could not be loaded."),
     };
   }

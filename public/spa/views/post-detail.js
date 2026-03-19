@@ -1,4 +1,5 @@
 import {
+  createUrl,
   emptyStateMarkup,
   escapeHtml,
   fillSelect,
@@ -7,9 +8,10 @@ import {
   resultMetaMarkup,
   safeArray,
   splitLines,
-  text,
 } from "../lib.js";
 import { getDestinationScene, renderRouteVisualization } from "../map-rendering.js";
+
+const COMMENTS_PAGE_SIZE = 5;
 
 function commentMarkup(app, item) {
   const userLabel = app.getUserName(item?.userId);
@@ -28,10 +30,17 @@ export async function render(app, route, root) {
   app.setDocumentTitle("Post Detail");
 
   await app.loadBootstrap();
+  const users = safeArray(app.getBootstrap()?.users);
+  const actorDefault = users.some((user) => user.id === route.params.actor)
+    ? route.params.actor
+    : users[0]?.id || "";
+  const feedHref = createUrl("/feed", actorDefault ? { actor: actorDefault } : {});
 
   let journal;
   try {
-    journal = await app.fetchJournalDetail(route.journalId);
+    journal = await app.fetchJournalDetail(route.journalId, {
+      viewerUserId: actorDefault,
+    });
   } catch (error) {
     root.innerHTML = `
       <section class="route-hero route-hero-feed">
@@ -42,7 +51,7 @@ export async function render(app, route, root) {
             error instanceof Error ? error.message : "Unknown journal.",
           )}</p>
           <div class="hero-actions">
-            <a class="primary-link" href="/feed" data-nav="true">Back to feed</a>
+            <a class="primary-link" href="${escapeHtml(feedHref)}" data-nav="true">Back to feed</a>
             <a class="secondary-link" href="/compose" data-nav="true">Compose a new note</a>
           </div>
         </div>
@@ -51,7 +60,6 @@ export async function render(app, route, root) {
     return null;
   }
 
-  const actorDefault = app.getBootstrap()?.users?.[0]?.id || "";
   const articleParagraphs = splitLines(journal.body);
   const destinationName = app.getDestinationName(journal.destinationId);
   const authorName = app.getUserName(journal.userId);
@@ -60,17 +68,19 @@ export async function render(app, route, root) {
     <section class="route-hero route-hero-feed">
       <div class="route-hero-copy">
         <p class="eyebrow">Post detail</p>
-        <h1>${escapeHtml(journal.title)}</h1>
-        <p class="route-lede">
+        <h1 id="post-hero-title">${escapeHtml(journal.title)}</h1>
+        <p class="route-lede" id="post-hero-attribution">
           ${escapeHtml(destinationName)} / ${escapeHtml(authorName)}
         </p>
-        ${resultMetaMarkup([
-          `views ${journal.views || 0}`,
-          `rating ${journal.averageRating || 0}`,
-          `${safeArray(journal.ratings).length} scores`,
-          journal.likeCount != null ? `${journal.likeCount} likes` : "",
-          journal.commentCount != null ? `${journal.commentCount} comments` : "",
-        ])}
+        <div id="post-hero-meta">
+          ${resultMetaMarkup([
+            `views ${journal.views || 0}`,
+            `rating ${journal.averageRating || 0}`,
+            `${safeArray(journal.ratings).length} scores`,
+            journal.likeCount != null ? `${journal.likeCount} likes` : "",
+            journal.commentCount != null ? `${journal.commentCount} comments` : "",
+          ])}
+        </div>
       </div>
       <div class="route-hero-panel">
         <p class="section-tag">Supporting context</p>
@@ -87,9 +97,9 @@ export async function render(app, route, root) {
         <div class="section-head">
           <div>
             <p class="section-tag">Field note</p>
-            <h2>${escapeHtml(journal.title)}</h2>
+            <h2 id="post-story-title">${escapeHtml(journal.title)}</h2>
           </div>
-          <a class="inline-link" href="/feed" data-nav="true">Back to feed</a>
+          <a class="inline-link" href="${escapeHtml(feedHref)}" data-nav="true" data-feed-href="true">Back to feed</a>
         </div>
         <div class="reading-flow">
           ${articleParagraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
@@ -177,41 +187,137 @@ export async function render(app, route, root) {
           body: "The detail view checks for social endpoints here and degrades intentionally if they are absent.",
         })}
       </div>
+      <div id="post-comments-footer"></div>
     </section>
   `;
 
-  fillSelect(root.querySelector("#post-actor"), safeArray(app.getBootstrap()?.users), {
+  fillSelect(root.querySelector("#post-actor"), users, {
     selectedValue: actorDefault,
   });
 
   const commentNotice = root.querySelector("#post-comment-notice");
   const commentsContainer = root.querySelector("#post-comments");
+  const commentsFooter = root.querySelector("#post-comments-footer");
   const actorSelect = root.querySelector("#post-actor");
   const likeButton = root.querySelector("#post-like");
-  let currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
-  likeButton.textContent = currentLikeAction === "like" ? "Like" : "Unlike";
+  const heroMeta = root.querySelector("#post-hero-meta");
+  let currentLikeAction = "like";
+  let commentItems = [];
+  let commentsNextCursor = "";
+  let commentsTotalCount = 0;
+  let commentsAvailable = false;
+  let commentsLoading = false;
+  let journalRequestToken = 0;
   let disposed = false;
 
-  async function refreshComments() {
-    const response = await app.fetchJournalComments(route.journalId);
+  function buildFeedHref(actorId) {
+    return createUrl("/feed", actorId ? { actor: actorId } : {});
+  }
+
+  function syncFeedLinks(actorId) {
+    root.querySelectorAll("[data-feed-href]").forEach((link) => {
+      link.setAttribute("href", buildFeedHref(actorId));
+    });
+  }
+
+  function renderHeroMeta(item) {
+    heroMeta.innerHTML = resultMetaMarkup([
+      `views ${item.views || 0}`,
+      `rating ${item.averageRating || 0}`,
+      `${safeArray(item.ratings).length} scores`,
+      item.likeCount != null ? `${item.likeCount} likes` : "",
+      item.commentCount != null ? `${item.commentCount} comments` : "",
+    ]);
+  }
+
+  function renderJournalState(item) {
+    journal = item;
+    renderHeroMeta(journal);
+    currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
+    likeButton.textContent = currentLikeAction === "like" ? "Like" : "Unlike";
+    syncFeedLinks(actorSelect.value);
+  }
+
+  function renderComments() {
+    commentsContainer.innerHTML = commentsLoading && !commentItems.length
+      ? emptyStateMarkup({
+          title: "Comments are loading",
+          body: "Loading the current comment page for this note.",
+        })
+      : commentItems.length
+      ? commentItems.map((item) => commentMarkup(app, item)).join("")
+      : emptyStateMarkup({
+          title: commentsAvailable ? "No comments yet" : "Comments unavailable",
+          body: commentsAvailable
+            ? "Start a calm conversation on this note."
+            : "The backend comments endpoint is not available in this workspace yet.",
+        });
+
+    if (!commentsAvailable) {
+      commentsFooter.innerHTML = "";
+      return;
+    }
+
+    const footerParts = [];
+    if (commentsTotalCount > 0) {
+      footerParts.push(
+        resultMetaMarkup([
+          commentsNextCursor
+            ? `${commentItems.length} of ${commentsTotalCount} comments`
+            : `${commentsTotalCount} comments`,
+        ]),
+      );
+    }
+    if (commentsNextCursor) {
+      footerParts.push(`
+        <div class="button-row">
+          <button type="button" id="post-comments-more" class="ghost"${commentsLoading ? " disabled" : ""}>${commentsLoading ? "Loading…" : "Load more comments"}</button>
+        </div>
+      `);
+    }
+    commentsFooter.innerHTML = footerParts.join("");
+  }
+
+  async function refreshJournalDetail() {
+    const token = journalRequestToken + 1;
+    journalRequestToken = token;
+    const detail = await app.fetchJournalDetail(route.journalId, {
+      viewerUserId: actorSelect.value,
+    });
+    if (disposed || token !== journalRequestToken) {
+      return;
+    }
+    renderJournalState(detail);
+  }
+
+  async function refreshComments(options = {}) {
+    const reset = options.reset !== false;
+    const cursor = reset ? "" : commentsNextCursor;
+    commentsLoading = true;
+    renderComments();
+
+    const response = await app.fetchJournalComments(route.journalId, {
+      cursor,
+      limit: COMMENTS_PAGE_SIZE,
+    });
     if (disposed) {
       return;
     }
     commentNotice.innerHTML = response.notice
       ? noticeMarkup(response.available ? "note" : "quiet", "Comment status", response.notice)
       : "";
-    commentsContainer.innerHTML = response.items.length
-      ? response.items.map((item) => commentMarkup(app, item)).join("")
-      : emptyStateMarkup({
-          title: response.available ? "No comments yet" : "Comments unavailable",
-          body: response.available
-            ? "Start a calm conversation on this note."
-            : "The backend comments endpoint is not available in this workspace yet.",
-        });
+    commentsAvailable = response.available;
+    commentsTotalCount = response.totalCount;
+    commentsNextCursor = response.nextCursor;
+    commentItems = reset ? response.items : commentItems.concat(response.items);
+    commentsLoading = false;
+    renderComments();
 
     root.querySelector("#post-comment-body").disabled = !response.available;
     root.querySelector("#post-comment-form button[type='submit']").disabled = !response.available;
   }
+
+  renderJournalState(journal);
 
   root.querySelector("#post-view").addEventListener("click", async () => {
     try {
@@ -247,11 +353,26 @@ export async function render(app, route, root) {
         app.setStatus(result.notice, "note");
         return;
       }
-      currentLikeAction = currentLikeAction === "like" ? "unlike" : "like";
-      likeButton.textContent = currentLikeAction === "like" ? "Like" : "Unlike";
+      await refreshJournalDetail();
       app.setStatus("Like state updated.", "success");
     } catch (error) {
       app.setStatus(error instanceof Error ? error.message : "Like action failed.", "error");
+    }
+  });
+
+  actorSelect.addEventListener("change", async () => {
+    app.navigate(app.buildPostHref(route.journalId, actorSelect.value ? { actor: actorSelect.value } : {}), {
+      replace: true,
+      preserveScroll: true,
+      render: false,
+    });
+    try {
+      await refreshJournalDetail();
+    } catch (error) {
+      app.setStatus(
+        error instanceof Error ? error.message : "Post detail refresh failed.",
+        "error",
+      );
     }
   });
 
@@ -270,7 +391,8 @@ export async function render(app, route, root) {
         return;
       }
       root.querySelector("#post-comment-body").value = "";
-      await refreshComments();
+      await refreshJournalDetail();
+      await refreshComments({ reset: true });
       app.setStatus("Comment posted.", "success");
     } catch (error) {
       app.setStatus(error instanceof Error ? error.message : "Comment creation failed.", "error");
@@ -300,7 +422,21 @@ export async function render(app, route, root) {
     }
   });
 
-  await refreshComments();
+  commentsFooter.addEventListener("click", async (event) => {
+    const button = event.target.closest("#post-comments-more");
+    if (!button || commentsLoading || !commentsNextCursor) {
+      return;
+    }
+    try {
+      await refreshComments({ reset: false });
+    } catch (error) {
+      commentsLoading = false;
+      renderComments();
+      app.setStatus(error instanceof Error ? error.message : "Comments could not be loaded.", "error");
+    }
+  });
+
+  await refreshComments({ reset: true });
 
   return () => {
     disposed = true;

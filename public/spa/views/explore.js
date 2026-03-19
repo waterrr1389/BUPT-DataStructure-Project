@@ -241,6 +241,7 @@ export async function render(app, route, root) {
   const destinationResults = root.querySelector("#explore-destination-results");
   const facilityResults = root.querySelector("#explore-facility-results");
   const foodResults = root.querySelector("#explore-food-results");
+  const facilityForm = root.querySelector("#explore-facility-form");
   const queryInput = root.querySelector("#explore-query");
   const categorySelect = root.querySelector("#explore-category");
   const userSelect = root.querySelector("#explore-user-filter");
@@ -255,16 +256,47 @@ export async function render(app, route, root) {
   let disposed = false;
   let destinationRequestToken = 0;
   let foodRequestToken = 0;
+  let facilityNodesLoadedFor = "";
+  let facilitySurfaceTouched = false;
 
-  async function syncFacilityNodes(destinationId) {
+  function setFacilityNodePlaceholder(label) {
+    fillSelect(facilityNodeSelect, [], {
+      includeBlank: true,
+      blankLabel: label,
+      selectedValue: "",
+    });
+  }
+
+  async function syncFacilityNodes(destinationId, options = {}) {
+    if (!destinationId) {
+      facilityNodesLoadedFor = "";
+      setFacilityNodePlaceholder("Select a destination to load nodes");
+      return;
+    }
+    if (!options.force && facilityNodesLoadedFor === destinationId) {
+      return;
+    }
+
+    setFacilityNodePlaceholder("Loading nodes...");
     const details = await app.ensureDestinationDetails(destinationId);
     if (disposed || !details) {
       return;
     }
-    fillSelect(facilityNodeSelect, safeArray(details.graph?.nodes).map((node) => ({
+    const nodes = safeArray(details.graph?.nodes).map((node) => ({
       id: node.id,
       name: `${node.name} (${node.id.split("-").slice(-1)[0]})`,
-    })));
+    }));
+    facilityNodesLoadedFor = destinationId;
+    if (!nodes.length) {
+      setFacilityNodePlaceholder("No nodes available for this destination");
+      return;
+    }
+    fillSelect(facilityNodeSelect, nodes);
+  }
+
+  async function primeFacilityNodes() {
+    facilitySurfaceTouched = true;
+    await syncFacilityNodes(facilityDestinationSelect.value);
   }
 
   async function runDestinationSearch(mode) {
@@ -391,8 +423,25 @@ export async function render(app, route, root) {
 
   queryInput.addEventListener("input", debouncedDestinationSearch);
   categorySelect.addEventListener("change", debouncedDestinationSearch);
+  facilityForm.addEventListener("focusin", () => {
+    if (facilitySurfaceTouched) {
+      return;
+    }
+    void primeFacilityNodes().catch((error) =>
+      app.setStatus(error instanceof Error ? error.message : "Node sync failed.", "error"),
+    );
+  });
+  facilityForm.addEventListener("pointerdown", () => {
+    if (facilitySurfaceTouched) {
+      return;
+    }
+    void primeFacilityNodes().catch((error) =>
+      app.setStatus(error instanceof Error ? error.message : "Node sync failed.", "error"),
+    );
+  });
   facilityDestinationSelect.addEventListener("change", () => {
-    void syncFacilityNodes(facilityDestinationSelect.value).catch((error) =>
+    facilitySurfaceTouched = true;
+    void syncFacilityNodes(facilityDestinationSelect.value, { force: true }).catch((error) =>
       app.setStatus(error instanceof Error ? error.message : "Node sync failed.", "error"),
     );
   });
@@ -400,6 +449,10 @@ export async function render(app, route, root) {
   root.querySelector("#explore-facility-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
+      if (!facilitySurfaceTouched || facilityNodesLoadedFor !== facilityDestinationSelect.value) {
+        facilitySurfaceTouched = true;
+        await syncFacilityNodes(facilityDestinationSelect.value, { force: true });
+      }
       const params = new URLSearchParams({
         destinationId: facilityDestinationSelect.value,
         fromNodeId: facilityNodeSelect.value,
@@ -445,7 +498,7 @@ export async function render(app, route, root) {
   foodQueryInput.addEventListener("input", debouncedFoodSearch);
   foodCuisineSelect.addEventListener("change", debouncedFoodSearch);
 
-  await syncFacilityNodes(defaultDestinationId);
+  setFacilityNodePlaceholder("Select a destination to load nodes");
   try {
     await runFoodLookup("recommend");
   } catch (error) {

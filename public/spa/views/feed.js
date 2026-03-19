@@ -158,6 +158,13 @@ export async function render(app, route, root) {
 
   let disposed = false;
 
+  function renderJournalCard(item, options = {}) {
+    return app.createJournalCard(item, {
+      ...options,
+      actorId: root.querySelector("#feed-actor").value,
+    });
+  }
+
   async function loadFeed(mode = "latest") {
     const actorId = root.querySelector("#feed-actor").value;
     const destinationId = root.querySelector("#feed-destination-filter").value;
@@ -188,6 +195,7 @@ export async function render(app, route, root) {
         : await app.fetchFeed({
             destinationId,
             userId: authorId,
+            viewerUserId: actorId,
             limit,
           });
 
@@ -199,7 +207,7 @@ export async function render(app, route, root) {
       ? noticeMarkup("note", mode === "recommended" ? "Recommendation mode" : "Feed mode", result.notice)
       : "";
     feedResults.innerHTML = safeArray(result.items).length
-      ? safeArray(result.items).map((item) => app.createJournalCard(item, { hideDelete: false })).join("")
+      ? safeArray(result.items).map((item) => renderJournalCard(item, { hideDelete: false })).join("")
       : emptyStateMarkup({
           title: "No journals matched this view",
           body: "Shift the destination or author filter, or move back to latest mode.",
@@ -269,7 +277,7 @@ export async function render(app, route, root) {
         blocks.push(
           exchangeBlock(
             "Exact title",
-            payload.item ? app.createJournalCard(payload.item, { hideDelete: true }) : emptyStateMarkup(),
+            payload.item ? renderJournalCard(payload.item, { hideDelete: true }) : emptyStateMarkup(),
           ),
         );
       }
@@ -283,7 +291,7 @@ export async function render(app, route, root) {
             "Text search",
             safeArray(payload.items).length
               ? safeArray(payload.items)
-                  .map((item) => app.createJournalCard(item, { hideDelete: true }))
+                  .map((item) => renderJournalCard(item, { hideDelete: true }))
                   .join("")
               : emptyStateMarkup(),
           ),
@@ -307,7 +315,7 @@ export async function render(app, route, root) {
           "Destination feed",
           safeArray(payload.items).length
             ? safeArray(payload.items)
-                .map((item) => app.createJournalCard(item, { hideDelete: true }))
+                .map((item) => renderJournalCard(item, { hideDelete: true }))
                 .join("")
             : emptyStateMarkup(),
         ),
