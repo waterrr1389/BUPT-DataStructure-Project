@@ -35,6 +35,7 @@ export async function render(app, route, root) {
     ? route.params.actor
     : users[0]?.id || "";
   const feedHref = createUrl("/feed", actorDefault ? { actor: actorDefault } : {});
+  const composeHref = createUrl("/compose", actorDefault ? { actor: actorDefault } : {});
 
   let journal;
   try {
@@ -52,7 +53,7 @@ export async function render(app, route, root) {
           )}</p>
           <div class="hero-actions">
             <a class="primary-link" href="${escapeHtml(feedHref)}" data-nav="true">Back to feed</a>
-            <a class="secondary-link" href="/compose" data-nav="true">Compose a new note</a>
+            <a class="secondary-link" href="${escapeHtml(composeHref)}" data-nav="true">Compose a new note</a>
           </div>
         </div>
       </section>
@@ -144,7 +145,13 @@ export async function render(app, route, root) {
           ])}
           <div class="story-card-actions">
             <a class="inline-link" href="${app.buildMapHref({ destinationId: journal.destinationId })}" data-nav="true">Open destination in map</a>
-            <a class="inline-link" href="/compose?destinationId=${encodeURIComponent(journal.destinationId)}" data-nav="true">Write a nearby note</a>
+            <a
+              class="inline-link"
+              href="${escapeHtml(buildComposeHref(actorDefault, journal.destinationId))}"
+              data-nav="true"
+              data-compose-href="true"
+              data-compose-destination="${escapeHtml(journal.destinationId)}"
+            >Write a nearby note</a>
           </div>
         </article>
 
@@ -214,9 +221,22 @@ export async function render(app, route, root) {
     return createUrl("/feed", actorId ? { actor: actorId } : {});
   }
 
+  function buildComposeHref(actorId, destinationId) {
+    return createUrl("/compose", {
+      actor: actorId,
+      destinationId,
+    });
+  }
+
   function syncFeedLinks(actorId) {
     root.querySelectorAll("[data-feed-href]").forEach((link) => {
       link.setAttribute("href", buildFeedHref(actorId));
+    });
+  }
+
+  function syncComposeLinks(actorId) {
+    root.querySelectorAll("[data-compose-href]").forEach((link) => {
+      link.setAttribute("href", buildComposeHref(actorId, link.getAttribute("data-compose-destination") || ""));
     });
   }
 
@@ -236,6 +256,7 @@ export async function render(app, route, root) {
     currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
     likeButton.textContent = currentLikeAction === "like" ? "Like" : "Unlike";
     syncFeedLinks(actorSelect.value);
+    syncComposeLinks(actorSelect.value);
   }
 
   function renderComments() {

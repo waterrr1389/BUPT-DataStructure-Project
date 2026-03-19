@@ -432,6 +432,109 @@ test("feed cursors stay valid when the anchor journal is edited and rated", asyn
   assert.equal(nextFeedPage.items[0]?.id === createdId, false, format(nextFeedPage));
 });
 
+test("journal and comment ordering break timestamp ties by numeric id", async () => {
+  const app = await createIsolatedApp("journal-id-tiebreakers");
+  const tiedStamp = "2026-04-01T12:00:00.000Z";
+
+  await app.journalStore.saveAll([
+    {
+      id: "journal-8",
+      userId: "user-2",
+      destinationId: "dest-002",
+      title: "Tie case eight",
+      body: "Tie case eight body.",
+      tags: ["tie"],
+      media: [],
+      createdAt: tiedStamp,
+      updatedAt: tiedStamp,
+      views: 0,
+      ratings: [],
+      recommendedFor: [],
+    },
+    {
+      id: "journal-9",
+      userId: "user-2",
+      destinationId: "dest-002",
+      title: "Tie case nine",
+      body: "Tie case nine body.",
+      tags: ["tie"],
+      media: [],
+      createdAt: tiedStamp,
+      updatedAt: tiedStamp,
+      views: 0,
+      ratings: [],
+      recommendedFor: [],
+    },
+    {
+      id: "journal-10",
+      userId: "user-2",
+      destinationId: "dest-002",
+      title: "Tie case ten",
+      body: "Tie case ten body.",
+      tags: ["tie"],
+      media: [],
+      createdAt: tiedStamp,
+      updatedAt: tiedStamp,
+      views: 0,
+      ratings: [],
+      recommendedFor: [],
+    },
+  ]);
+
+  const listed = await app.journals.list({ limit: 3 });
+  const feedPage = await app.journals.feed({ limit: 1 });
+  const feedNextPage = await app.journals.feed({
+    cursor: feedPage.nextCursor ?? undefined,
+    limit: 1,
+  });
+
+  assert.deepEqual(
+    listed.map((journal) => journal.id),
+    ["journal-10", "journal-9", "journal-8"],
+    format(listed),
+  );
+  assert.equal(feedPage.items[0]?.id, "journal-10", format(feedPage));
+  assert.equal(feedNextPage.items[0]?.id, "journal-9", format(feedNextPage));
+
+  await app.journalStore.upsertComment({
+    id: "comment-8",
+    journalId: "journal-10",
+    userId: "user-2",
+    body: "Comment eight",
+    createdAt: tiedStamp,
+    updatedAt: tiedStamp,
+  });
+  await app.journalStore.upsertComment({
+    id: "comment-9",
+    journalId: "journal-10",
+    userId: "user-2",
+    body: "Comment nine",
+    createdAt: tiedStamp,
+    updatedAt: tiedStamp,
+  });
+  await app.journalStore.upsertComment({
+    id: "comment-10",
+    journalId: "journal-10",
+    userId: "user-2",
+    body: "Comment ten",
+    createdAt: tiedStamp,
+    updatedAt: tiedStamp,
+  });
+
+  const commentsPage = await app.journals.listComments({
+    journalId: "journal-10",
+    limit: 1,
+  });
+  const commentsNextPage = await app.journals.listComments({
+    journalId: "journal-10",
+    cursor: commentsPage.nextCursor ?? undefined,
+    limit: 1,
+  });
+
+  assert.equal(commentsPage.items[0]?.id, "comment-10", format(commentsPage));
+  assert.equal(commentsNextPage.items[0]?.id, "comment-9", format(commentsNextPage));
+});
+
 test("journal likes and comments persist across service reloads and reset clears social state", async () => {
   const runtimeDir = await createRuntimeDir("journal-social-persistence");
   const app = await createAppServices({ runtimeDir });

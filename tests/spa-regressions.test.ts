@@ -95,6 +95,7 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
   let commentPageIndex = 0;
   const createCommentCalls: Array<{ body: string; journalId: string; userId: string }> = [];
   const actionCalls: Array<{ action: string; journalId: string; userId: string }> = [];
+  const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
   let views = 14;
   let ratings = [{ userId: "user-1", score: 4 }];
@@ -175,7 +176,9 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     async loadBootstrap() {
       return bootstrap;
     },
-    navigate() {},
+    navigate(href: string, options?: Record<string, unknown>) {
+      navigateCalls.push({ href, options });
+    },
     async sendJournalAction(action: string, journalId: string, userId: string) {
       actionCalls.push({ action, journalId, userId });
       if (action === "view") {
@@ -201,6 +204,7 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     createCommentCalls,
     detailCalls,
     commentCalls,
+    navigateCalls,
     statuses,
   };
 }
@@ -690,6 +694,52 @@ test("post detail refreshes visible state after view and rate actions", async ()
     assert.equal(fixture.detailCalls.length, 3);
     assert.ok(heroMeta.innerHTML.includes("rating 4.5"), heroMeta.innerHTML);
     assert.ok(heroMeta.innerHTML.includes("2 scores"), heroMeta.innerHTML);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("post detail preserves the current actor on compose links", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const composeLink = root.querySelector("[data-compose-href='true']");
+    assert.ok(composeLink);
+    assert.equal(composeLink?.getAttribute("href"), "/compose?actor=user-2&destinationId=dest-1");
+
+    const actorSelect = requireElement(root, "#post-actor");
+    actorSelect.value = "user-1";
+    dispatchDomEvent(actorSelect, "change");
+    await settleAsync();
+
+    assert.equal(composeLink?.getAttribute("href"), "/compose?actor=user-1&destinationId=dest-1");
+    assert.deepEqual(fixture.navigateCalls[0], {
+      href: "/posts/journal-1?actor=user-1",
+      options: {
+        preserveScroll: true,
+        render: false,
+        replace: true,
+      },
+    });
 
     if (typeof cleanup === "function") {
       cleanup();

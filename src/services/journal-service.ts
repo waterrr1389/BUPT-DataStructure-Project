@@ -60,19 +60,28 @@ function nextCommentId(comments: JournalCommentRecord[]): string {
   return `comment-${maxId + 1}`;
 }
 
+function compareDescendingIds(leftId: string, rightId: string): number {
+  const leftNumber = Number.parseInt(leftId.match(/(\d+)$/)?.[1] ?? "", 10);
+  const rightNumber = Number.parseInt(rightId.match(/(\d+)$/)?.[1] ?? "", 10);
+  if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber) && leftNumber !== rightNumber) {
+    return rightNumber - leftNumber;
+  }
+  return rightId.localeCompare(leftId);
+}
+
 function sortJournalsByUpdatedAt(left: JournalRecord, right: JournalRecord): number {
   const timestampOrder = right.updatedAt.localeCompare(left.updatedAt);
-  return timestampOrder !== 0 ? timestampOrder : right.id.localeCompare(left.id);
+  return timestampOrder !== 0 ? timestampOrder : compareDescendingIds(left.id, right.id);
 }
 
 function sortJournalsByCreatedAt(left: JournalRecord, right: JournalRecord): number {
   const timestampOrder = right.createdAt.localeCompare(left.createdAt);
-  return timestampOrder !== 0 ? timestampOrder : right.id.localeCompare(left.id);
+  return timestampOrder !== 0 ? timestampOrder : compareDescendingIds(left.id, right.id);
 }
 
 function sortComments(left: JournalCommentRecord, right: JournalCommentRecord): number {
   const timestampOrder = right.createdAt.localeCompare(left.createdAt);
-  return timestampOrder !== 0 ? timestampOrder : right.id.localeCompare(left.id);
+  return timestampOrder !== 0 ? timestampOrder : compareDescendingIds(left.id, right.id);
 }
 
 function encodeCursor(kind: string, stamp: string, id: string): string {
