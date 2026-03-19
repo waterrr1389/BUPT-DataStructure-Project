@@ -42,7 +42,7 @@ if (!journalConsumers) {
 const { createDestinationSelectOptions, formatJournalMetadata } = journalPresentation;
 const {
   journalCard: renderJournalCardMarkup,
-  prepareJournalExchangeDestinationBindings,
+  prepareDestinationSelectorBindings,
   resolveJournalActionRequest,
 } = journalConsumers;
 
@@ -652,9 +652,10 @@ async function loadBootstrap() {
   const users = bootstrap.users;
   const {
     destinationById,
+    destinationOptions,
     featuredDestinations,
     selectorBindings,
-  } = prepareJournalExchangeDestinationBindings(bootstrap, createDestinationSelectOptions);
+  } = prepareDestinationSelectorBindings(bootstrap, createDestinationSelectOptions);
   const categories = bootstrap.categories.map((category) => ({ id: category, name: category }));
   const cuisines = bootstrap.cuisines.map((cuisine) => ({ id: cuisine, name: cuisine }));
 
@@ -667,15 +668,12 @@ async function loadBootstrap() {
   fillSelect("#destination-category", categories, { value: "id", label: "name", includeAny: true });
   fillSelect("#food-cuisine", cuisines, { value: "id", label: "name", includeAny: true });
 
-  ["#route-destination", "#facility-destination", "#food-destination"].forEach((selector) =>
-    fillSelect(selector, featuredDestinations),
-  );
   selectorBindings.forEach(({ selector, items, config }) => fillSelect(selector, items, config));
 
   renderDestinations(featuredDestinations);
   setStatus(`Runtime data: ${bootstrap.source.data}. Algorithms: ${bootstrap.source.algorithms}.`);
 
-  const firstDestinationId = featuredDestinations[0]?.id;
+  const firstDestinationId = document.querySelector("#route-destination").value || destinationOptions[0]?.id;
   if (firstDestinationId) {
     await syncNodeSelects(firstDestinationId, ["#route-start", "#route-end", "#facility-node"]);
     await refreshRouteVisualization(firstDestinationId);

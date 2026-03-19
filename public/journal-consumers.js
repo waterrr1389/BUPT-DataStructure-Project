@@ -5,30 +5,72 @@
   }
   root.JournalConsumers = api
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
+  const ALL_DESTINATION_SELECTORS = [
+    "#route-destination",
+    "#facility-destination",
+    "#food-destination",
+    "#journal-destination",
+    "#exchange-destination",
+  ]
+  const JOURNAL_EXCHANGE_SELECTORS = ["#journal-destination", "#exchange-destination"]
+  const DESTINATION_SELECTOR_CONFIG = { label: "label" }
+
   function listOrEmpty(items) {
     return Array.isArray(items) ? items : []
   }
 
-  function prepareJournalExchangeDestinationBindings(bootstrap, createDestinationSelectOptions) {
+  function createDestinationByIdLookup(destinations) {
+    return new Map(
+      listOrEmpty(destinations)
+        .filter((destination) => destination && destination.id)
+        .map((destination) => [destination.id, destination]),
+    )
+  }
+
+  function resolveAuthoritativeDestinations(bootstrap) {
     const featuredDestinations = listOrEmpty(bootstrap?.featured)
     const allDestinations = listOrEmpty(bootstrap?.destinations)
-    const journalDestinations = allDestinations.length ? allDestinations : featuredDestinations
-    const optionFactory =
-      typeof createDestinationSelectOptions === "function" ? createDestinationSelectOptions : (items) => items
-    const journalDestinationOptions = optionFactory(journalDestinations)
-    const allKnownDestinations = [...featuredDestinations, ...journalDestinations]
-    const selectorConfig = { label: "label" }
-    const selectors = ["#journal-destination", "#exchange-destination"]
 
     return {
-      destinationById: new Map(allKnownDestinations.map((destination) => [destination.id, destination])),
+      authoritativeDestinations: allDestinations.length ? allDestinations : featuredDestinations,
       featuredDestinations,
-      journalDestinationOptions,
-      selectorBindings: selectors.map((selector) => ({
+    }
+  }
+
+  function prepareDestinationSelectorBindings(
+    bootstrap,
+    createDestinationSelectOptions,
+    selectors = ALL_DESTINATION_SELECTORS,
+  ) {
+    const { authoritativeDestinations, featuredDestinations } = resolveAuthoritativeDestinations(bootstrap)
+    const optionFactory =
+      typeof createDestinationSelectOptions === "function" ? createDestinationSelectOptions : (items) => items
+    const destinationOptions = optionFactory(authoritativeDestinations)
+
+    return {
+      destinationById: createDestinationByIdLookup([...featuredDestinations, ...authoritativeDestinations]),
+      destinationOptions,
+      featuredDestinations,
+      selectorBindings: listOrEmpty(selectors).map((selector) => ({
         selector,
-        items: journalDestinationOptions,
-        config: selectorConfig,
+        items: destinationOptions,
+        config: DESTINATION_SELECTOR_CONFIG,
       })),
+    }
+  }
+
+  function prepareJournalExchangeDestinationBindings(bootstrap, createDestinationSelectOptions) {
+    const prepared = prepareDestinationSelectorBindings(
+      bootstrap,
+      createDestinationSelectOptions,
+      JOURNAL_EXCHANGE_SELECTORS,
+    )
+
+    return {
+      destinationById: prepared.destinationById,
+      featuredDestinations: prepared.featuredDestinations,
+      journalDestinationOptions: prepared.destinationOptions,
+      selectorBindings: prepared.selectorBindings,
     }
   }
 
@@ -94,6 +136,7 @@
 
   return {
     journalCard,
+    prepareDestinationSelectorBindings,
     prepareJournalExchangeDestinationBindings,
     resolveJournalActionRequest,
   }

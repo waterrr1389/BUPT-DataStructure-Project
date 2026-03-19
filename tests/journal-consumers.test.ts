@@ -28,6 +28,13 @@ type SelectorBinding = {
   selector: string;
 };
 
+type PreparedDestinationBindings = {
+  destinationById: Map<string, Destination>;
+  destinationOptions: DestinationOption[];
+  featuredDestinations: Destination[];
+  selectorBindings: SelectorBinding[];
+};
+
 type JournalEntry = {
   averageRating?: number;
   body: string;
@@ -61,6 +68,10 @@ type JournalConsumersModule = {
     metadata: { attribution: string },
     renderTagsMarkup: (tags: string[]) => string,
   ): string;
+  prepareDestinationSelectorBindings(
+    bootstrap: BootstrapPayload,
+    createDestinationSelectOptions: (destinations: Destination[]) => DestinationOption[],
+  ): PreparedDestinationBindings;
   prepareJournalExchangeDestinationBindings(
     bootstrap: BootstrapPayload,
     createDestinationSelectOptions: (destinations: Destination[]) => DestinationOption[],
@@ -83,6 +94,14 @@ type JournalConsumersModule = {
   } | null;
 };
 
+const ALL_DESTINATION_SELECTORS = [
+  "#route-destination",
+  "#facility-destination",
+  "#food-destination",
+  "#journal-destination",
+  "#exchange-destination",
+] as const;
+
 const SEEDED_JOURNAL_DESTINATION_IDS = [
   "dest-001",
   "dest-004",
@@ -104,11 +123,12 @@ const { createDestinationSelectOptions, formatJournalMetadata } = require(path.j
   "journal-presentation.js",
 )) as JournalPresentationModule;
 
-const { journalCard, prepareJournalExchangeDestinationBindings, resolveJournalActionRequest } = require(path.join(
-  process.cwd(),
-  "public",
-  "journal-consumers.js",
-)) as JournalConsumersModule;
+const {
+  journalCard,
+  prepareDestinationSelectorBindings,
+  prepareJournalExchangeDestinationBindings,
+  resolveJournalActionRequest,
+} = require(path.join(process.cwd(), "public", "journal-consumers.js")) as JournalConsumersModule;
 
 async function createIsolatedApp(name: string): Promise<AppServices> {
   const runtimeDir = path.join("/tmp", `ds-ts-journal-consumers-${name}`);
@@ -137,33 +157,96 @@ function readJournalId(markup: string): string {
   return match[1];
 }
 
-test("journal and exchange destination selectors consume bootstrap.destinations with seeded ids preserved", async () => {
+test("all destination selectors consume one authoritative bootstrap catalog with seeded ids preserved", async () => {
   const app = await createIsolatedApp("selectors");
   const bootstrap = (await app.bootstrap()) as unknown as BootstrapPayload;
-  const prepared = prepareJournalExchangeDestinationBindings(bootstrap, createDestinationSelectOptions);
+  const prepared = prepareDestinationSelectorBindings(bootstrap, createDestinationSelectOptions);
 
   assert.deepEqual(
     prepared.selectorBindings.map((binding) => binding.selector),
-    ["#journal-destination", "#exchange-destination"],
+    ALL_DESTINATION_SELECTORS,
   );
   assert.equal(prepared.featuredDestinations.length, 12);
-  assert.equal(prepared.journalDestinationOptions.length, bootstrap.destinations?.length);
+  assert.equal(prepared.destinationOptions.length, bootstrap.destinations?.length);
   assert.equal(prepared.featuredDestinations.some((destination) => destination.id === "dest-013"), false);
   assert.equal(prepared.destinationById.get("dest-034")?.id, "dest-034");
 
   for (const binding of prepared.selectorBindings) {
-    assert.deepEqual(binding.items, prepared.journalDestinationOptions);
+    assert.deepEqual(binding.items, prepared.destinationOptions);
     assert.deepEqual(binding.config, { label: "label" });
   }
 
   for (const destinationId of SEEDED_JOURNAL_DESTINATION_IDS) {
     assert.ok(
-      prepared.journalDestinationOptions.some((option) => option.id === destinationId),
+      prepared.destinationOptions.some((option) => option.id === destinationId),
       format({
         destinationId,
-        optionIds: prepared.journalDestinationOptions.map((option) => option.id),
+        optionIds: prepared.destinationOptions.map((option) => option.id),
       }),
     );
+  }
+});
+
+test("shared destination selector bindings apply the same disambiguated labels across every module", () => {
+  const bootstrap: BootstrapPayload = {
+    featured: [{ id: "dest-001", name: "Amber Bay", region: "north belt" }],
+    destinations: [
+      { id: "dest-001", name: "Amber Bay", region: "north belt" },
+      { id: "dest-011", name: "Amber Bay", region: "east loop" },
+      { id: "dest-021", name: "Amber Bay", region: "east loop" },
+      { id: "dest-002", name: "River Polytechnic", region: "river arc" },
+    ],
+  };
+
+  const prepared = prepareDestinationSelectorBindings(bootstrap, createDestinationSelectOptions);
+  const expectedOptions = [
+    { id: "dest-001", label: "Amber Bay (north belt · dest-001)" },
+    { id: "dest-011", label: "Amber Bay (east loop · dest-011)" },
+    { id: "dest-021", label: "Amber Bay (east loop · dest-021)" },
+    { id: "dest-002", label: "River Polytechnic" },
+  ];
+
+  assert.deepEqual(
+    prepared.destinationOptions.map((option) => ({ id: option.id, label: option.label })),
+    expectedOptions,
+  );
+  assert.deepEqual(
+    prepared.selectorBindings.map((binding) => binding.selector),
+    ALL_DESTINATION_SELECTORS,
+  );
+
+  for (const binding of prepared.selectorBindings) {
+    assert.deepEqual(
+      binding.items.map((option) => ({ id: option.id, label: option.label })),
+      expectedOptions,
+    );
+    assert.deepEqual(binding.config, { label: "label" });
+  }
+});
+
+test("journal and exchange bindings stay aligned with the shared destination selector helper", () => {
+  const bootstrap: BootstrapPayload = {
+    featured: [{ id: "dest-001", name: "Amber Bay", region: "north belt" }],
+    destinations: [
+      { id: "dest-001", name: "Amber Bay", region: "north belt" },
+      { id: "dest-011", name: "Amber Bay", region: "east loop" },
+      { id: "dest-002", name: "River Polytechnic", region: "river arc" },
+    ],
+  };
+
+  const sharedPrepared = prepareDestinationSelectorBindings(bootstrap, createDestinationSelectOptions);
+  const journalPrepared = prepareJournalExchangeDestinationBindings(bootstrap, createDestinationSelectOptions);
+
+  assert.deepEqual(journalPrepared.destinationById, sharedPrepared.destinationById);
+  assert.deepEqual(journalPrepared.featuredDestinations, sharedPrepared.featuredDestinations);
+  assert.deepEqual(journalPrepared.journalDestinationOptions, sharedPrepared.destinationOptions);
+  assert.deepEqual(
+    journalPrepared.selectorBindings.map((binding) => binding.selector),
+    ["#journal-destination", "#exchange-destination"],
+  );
+  for (const binding of journalPrepared.selectorBindings) {
+    assert.deepEqual(binding.items, sharedPrepared.destinationOptions);
+    assert.deepEqual(binding.config, { label: "label" });
   }
 });
 
