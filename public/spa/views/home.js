@@ -1,5 +1,9 @@
 import { escapeHtml, noticeMarkup, resultMetaMarkup, safeArray, text } from "../lib.js";
 
+function withoutJournalActions(markup) {
+  return text(markup).replace(/\s*<div class="actions">[\s\S]*?<\/div>\s*/u, "");
+}
+
 export async function render(app, route, root) {
   app.setDocumentTitle("Trail Atlas");
 
@@ -90,7 +94,7 @@ export async function render(app, route, root) {
         ${
           feedPreview.length
             ? `<div class="story-grid">${feedPreview
-                .map((item) => app.createJournalCard(item, { hideDelete: true }))
+                .map((item) => withoutJournalActions(app.createJournalCard(item, { hideDelete: true })))
                 .join("")}</div>`
             : noticeMarkup(
                 "quiet",

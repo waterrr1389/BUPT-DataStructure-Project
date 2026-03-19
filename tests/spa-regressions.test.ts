@@ -29,6 +29,14 @@ type ComposeModule = {
   render(app: Record<string, unknown>, route: Record<string, unknown>, root: unknown): Promise<Cleanup>;
 };
 
+type HomeModule = {
+  render(app: Record<string, unknown>, route: Record<string, unknown>, root: unknown): Promise<Cleanup>;
+};
+
+type FeedModule = {
+  render(app: Record<string, unknown>, route: Record<string, unknown>, root: unknown): Promise<Cleanup>;
+};
+
 type AppShellModule = {
   createAppShell(root: unknown): {
     dom: {
@@ -501,6 +509,171 @@ function createMapFixture() {
   };
 }
 
+function createHomeFixture() {
+  const bootstrap = {
+    destinations: [{ id: "dest-1" }],
+    featured: [{ id: "dest-1" }],
+    users: [{ id: "user-1", name: "Avery Vale" }],
+  };
+  const fetchFeedCalls: Array<Record<string, unknown>> = [];
+  const featuredDestinations = [
+    {
+      description: "Dockside reading rooms.",
+      heat: 88,
+      id: "dest-1",
+      name: "Harbor Reach",
+      nodeCount: 12,
+      rating: 4.8,
+      region: "North Wharf",
+      type: "campus",
+    },
+  ];
+  const app = {
+    createJournalCard(item: { id: string; title: string }) {
+      return `
+        <article class="result-card" data-journal-id="${item.id}">
+          <h3>${item.title}</h3>
+          <div class="actions">
+            <button type="button" data-action="view">Add view</button>
+            <button type="button" data-action="rate">Rate 5</button>
+          </div>
+        </article>
+      `;
+    },
+    async fetchFeed(options: Record<string, unknown>) {
+      fetchFeedCalls.push(options);
+      return {
+        items: [{ id: "journal-1", title: "Bridge Notes" }],
+        notice: "",
+      };
+    },
+    getFeaturedDestinations() {
+      return featuredDestinations;
+    },
+    async loadBootstrap() {
+      return bootstrap;
+    },
+    setDocumentTitle() {},
+  };
+
+  return {
+    app,
+    fetchFeedCalls,
+  };
+}
+
+function createFeedFixture() {
+  const bootstrap = {
+    users: [
+      { id: "user-1", name: "Avery Vale" },
+      { id: "user-2", name: "Mina Hart" },
+    ],
+  };
+  const destinationOptions = [{ id: "dest-1", name: "Harbor Reach", label: "Harbor Reach" }];
+  const fetchFeedCalls: Array<Record<string, unknown>> = [];
+  const fetchRecommendedCalls: Array<Record<string, unknown>> = [];
+  const requestJsonCalls: string[] = [];
+  const sendJournalActionCalls: Array<{ action: string; journalId: string; userId: string }> = [];
+  const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
+  const statuses: Array<{ message: string; tone: string }> = [];
+
+  function cardMarkup(item: { id: string; title: string }) {
+    return `
+      <article class="result-card" data-journal-id="${item.id}">
+        <h3>${item.title}</h3>
+        <div class="actions">
+          <button type="button" data-action="like">Like</button>
+        </div>
+      </article>
+    `;
+  }
+
+  const app = {
+    applySelectorBindings(
+      root: { querySelector(selector: string): { innerHTML: string } | null },
+      bindings?: Array<{ config?: { label?: string }; items: Array<Record<string, string>>; selector: string }>,
+    ) {
+      (bindings ?? []).forEach(({ config, items, selector }) => {
+        const element = root.querySelector(selector);
+        if (!element) {
+          return;
+        }
+        const labelKey = config?.label ?? "name";
+        element.innerHTML = [`<option value=""></option>`]
+          .concat(items.map((item) => `<option value="${item.id}">${item[labelKey] ?? item.name ?? item.id}</option>`))
+          .join("");
+      });
+    },
+    createJournalCard(item: { id: string; title: string }) {
+      return cardMarkup(item);
+    },
+    async fetchFeed(options: Record<string, unknown>) {
+      fetchFeedCalls.push(options);
+      return {
+        items: [{ id: "journal-feed-1", title: "Latest feed note" }],
+        notice: "",
+      };
+    },
+    async fetchRecommendedJournals(options: Record<string, unknown>) {
+      fetchRecommendedCalls.push(options);
+      return [{ id: "journal-rec-1", title: "Recommended feed note" }];
+    },
+    getDestinationBindings() {
+      return {
+        selectorBindings: [
+          {
+            config: { label: "label" },
+            items: destinationOptions,
+            selector: "#feed-destination-filter",
+          },
+          {
+            config: { label: "label" },
+            items: destinationOptions,
+            selector: "#feed-exchange-destination",
+          },
+        ],
+      };
+    },
+    getDestinationOptions() {
+      return destinationOptions;
+    },
+    async loadBootstrap() {
+      return bootstrap;
+    },
+    navigate(href: string, options?: Record<string, unknown>) {
+      navigateCalls.push({ href, options });
+    },
+    async requestJson(endpoint: string) {
+      requestJsonCalls.push(endpoint);
+      if (endpoint.startsWith("/api/journal-exchange/search?")) {
+        return {
+          items: [{ id: "journal-exchange-1", title: "Exchange note" }],
+        };
+      }
+      throw new Error(`Unexpected request: ${endpoint}`);
+    },
+    async sendJournalAction(action: string, journalId: string, userId: string) {
+      sendJournalActionCalls.push({ action, journalId, userId });
+      return { notice: "" };
+    },
+    setDocumentTitle() {},
+    setStatus(message: string, tone = "neutral") {
+      statuses.push({ message, tone });
+    },
+    state: {},
+  };
+
+  return {
+    app,
+    fetchFeedCalls,
+    fetchRecommendedCalls,
+    navigateCalls,
+    requestJsonCalls,
+    sendJournalActionCalls,
+    statuses,
+  };
+}
+
 test("compose respects the actor route param and preserves it on publish", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -543,6 +716,70 @@ test("compose respects the actor route param and preserves it on publish", async
       },
     ]);
     assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9?actor=user-2"]);
+  } finally {
+    restore();
+  }
+});
+
+test("home preview strips dead journal action buttons", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<HomeModule>("views/home.js");
+    const fixture = createHomeFixture();
+
+    await module.render(fixture.app, { name: "home", params: {} }, root);
+
+    assert.equal(root.querySelectorAll("[data-journal-id]").length, 1);
+    assert.equal(root.querySelectorAll("button[data-action]").length, 0);
+    assert.deepEqual(fixture.fetchFeedCalls, [{ limit: 3 }]);
+  } finally {
+    restore();
+  }
+});
+
+test("feed actions handle exchange cards and preserve recommendation mode", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<FeedModule>("views/feed.js");
+    const fixture = createFeedFixture();
+
+    await module.render(
+      fixture.app,
+      {
+        name: "feed",
+        params: {
+          actor: "user-2",
+          destinationId: "dest-1",
+        },
+      },
+      root,
+    );
+
+    assert.equal(fixture.fetchFeedCalls.length, 1);
+
+    dispatchDomEvent(requireElement(root, "#feed-load-recommended"), "click");
+    await settleAsync();
+
+    assert.equal(fixture.fetchRecommendedCalls.length, 1);
+
+    requireElement(root, "#feed-exchange-query").value = "indoor";
+    dispatchDomEvent(requireElement(root, "#feed-exchange-search-form"), "submit");
+    await settleAsync();
+
+    const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='like']");
+    dispatchDomEvent(exchangeButton, "click");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/search?query=indoor"]);
+    assert.deepEqual(fixture.sendJournalActionCalls, [
+      { action: "like", journalId: "journal-exchange-1", userId: "user-2" },
+    ]);
+    assert.equal(fixture.fetchRecommendedCalls.length, 2);
+    assert.equal(fixture.fetchFeedCalls.length, 1);
   } finally {
     restore();
   }

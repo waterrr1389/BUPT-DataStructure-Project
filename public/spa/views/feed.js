@@ -157,6 +157,7 @@ export async function render(app, route, root) {
   const exchangeResults = root.querySelector("#feed-exchange-results");
 
   let disposed = false;
+  let currentFeedMode = "latest";
 
   function renderJournalCard(item, options = {}) {
     return app.createJournalCard(item, {
@@ -166,6 +167,7 @@ export async function render(app, route, root) {
   }
 
   async function loadFeed(mode = "latest") {
+    currentFeedMode = mode;
     const actorId = root.querySelector("#feed-actor").value;
     const destinationId = root.querySelector("#feed-destination-filter").value;
     const authorId = root.querySelector("#feed-author-filter").value;
@@ -225,6 +227,27 @@ export async function render(app, route, root) {
         });
   }
 
+  async function handleJournalAction(event) {
+    const button = event.target.closest("button[data-action]");
+    if (!button) {
+      return;
+    }
+
+    const card = button.closest("[data-journal-id]");
+    const journalId = card?.dataset.journalId;
+    const actorId = root.querySelector("#feed-actor").value;
+
+    try {
+      const result = await app.sendJournalAction(button.dataset.action, journalId, actorId);
+      if (result.notice) {
+        app.setStatus(result.notice, "note");
+      }
+      await loadFeed(currentFeedMode);
+    } catch (error) {
+      app.setStatus(error instanceof Error ? error.message : "Journal action failed.", "error");
+    }
+  }
+
   root.querySelector("#feed-filter-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
@@ -242,26 +265,8 @@ export async function render(app, route, root) {
     }
   });
 
-  feedResults.addEventListener("click", async (event) => {
-    const button = event.target.closest("button[data-action]");
-    if (!button) {
-      return;
-    }
-
-    const card = button.closest("[data-journal-id]");
-    const journalId = card?.dataset.journalId;
-    const actorId = root.querySelector("#feed-actor").value;
-
-    try {
-      const result = await app.sendJournalAction(button.dataset.action, journalId, actorId);
-      if (result.notice) {
-        app.setStatus(result.notice, "note");
-      }
-      await loadFeed("latest");
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Journal action failed.", "error");
-    }
-  });
+  feedResults.addEventListener("click", handleJournalAction);
+  exchangeResults.addEventListener("click", handleJournalAction);
 
   root.querySelector("#feed-exchange-search-form").addEventListener("submit", async (event) => {
     event.preventDefault();
