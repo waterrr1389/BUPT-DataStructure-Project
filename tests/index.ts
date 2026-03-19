@@ -7,3 +7,4 @@ import "./journal-consumers.test";
 import "./journal-presentation.test";
 import "./route-visualization-markers.test";
 import "./runtime-services.test";
+import "./spa-regressions.test";

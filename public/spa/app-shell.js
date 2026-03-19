@@ -357,6 +357,7 @@ export function createAppShell(root) {
     }
     if (filters.viewerUserId) {
       params.set("viewerUserId", filters.viewerUserId);
+      fallbackParams.set("viewerUserId", filters.viewerUserId);
     }
     if (filters.limit) {
       params.set("limit", String(filters.limit));
