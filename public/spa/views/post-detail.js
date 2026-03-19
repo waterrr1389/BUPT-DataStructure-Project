@@ -219,6 +219,7 @@ export async function render(app, route, root) {
   let commentsNextCursor = "";
   let commentsTotalCount = 0;
   let commentsAvailable = false;
+  let commentsError = "";
   let commentsLoading = false;
   let journalRequestToken = 0;
   let disposed = false;
@@ -279,6 +280,11 @@ export async function render(app, route, root) {
           title: "Comments are loading",
           body: "Loading the current comment page for this note.",
         })
+      : commentsError && !commentItems.length
+      ? emptyStateMarkup({
+          title: "Comments failed to load",
+          body: commentsError,
+        })
       : commentItems.length
       ? commentItems.map((item) => commentMarkup(app, item)).join("")
       : emptyStateMarkup({
@@ -328,28 +334,40 @@ export async function render(app, route, root) {
   async function refreshComments(options = {}) {
     const reset = options.reset !== false;
     const cursor = reset ? "" : commentsNextCursor;
+    commentsError = "";
     commentsLoading = true;
     renderComments();
 
-    const response = await app.fetchJournalComments(route.journalId, {
-      cursor,
-      limit: COMMENTS_PAGE_SIZE,
-    });
-    if (disposed) {
-      return;
-    }
-    commentNotice.innerHTML = response.notice
-      ? noticeMarkup(response.available ? "note" : "quiet", "Comment status", response.notice)
-      : "";
-    commentsAvailable = response.available;
-    commentsTotalCount = response.totalCount;
-    commentsNextCursor = response.nextCursor;
-    commentItems = reset ? response.items : commentItems.concat(response.items);
-    commentsLoading = false;
-    renderComments();
+    try {
+      const response = await app.fetchJournalComments(route.journalId, {
+        cursor,
+        limit: COMMENTS_PAGE_SIZE,
+      });
+      if (disposed) {
+        return;
+      }
+      commentNotice.innerHTML = response.notice
+        ? noticeMarkup(response.available ? "note" : "quiet", "Comment status", response.notice)
+        : "";
+      commentsAvailable = response.available;
+      commentsTotalCount = response.totalCount;
+      commentsNextCursor = response.nextCursor;
+      commentItems = reset ? response.items : commentItems.concat(response.items);
+      commentsLoading = false;
+      renderComments();
 
-    root.querySelector("#post-comment-body").disabled = !response.available;
-    root.querySelector("#post-comment-form button[type='submit']").disabled = !response.available;
+      root.querySelector("#post-comment-body").disabled = !response.available;
+      root.querySelector("#post-comment-form button[type='submit']").disabled = !response.available;
+    } catch (error) {
+      if (disposed) {
+        return;
+      }
+      commentsLoading = false;
+      commentsError = error instanceof Error ? error.message : "Comments could not be loaded.";
+      commentNotice.innerHTML = noticeMarkup("error", "Comments failed to load", commentsError);
+      renderComments();
+      throw error;
+    }
   }
 
   renderJournalState(journal);
@@ -473,7 +491,11 @@ export async function render(app, route, root) {
     }
   });
 
-  await refreshComments({ reset: true });
+  try {
+    await refreshComments({ reset: true });
+  } catch (error) {
+    app.setStatus(error instanceof Error ? error.message : "Comments could not be loaded.", "error");
+  }
 
   return () => {
     disposed = true;
