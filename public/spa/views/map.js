@@ -122,6 +122,7 @@ export async function render(app, route, root) {
   let disposed = false;
   let currentRoute = null;
   let autoPlanned = false;
+  let nodeOptionsRequestToken = 0;
 
   destinationSelect.value = defaultDestinationId;
   waypointsInput.value = route.params.waypoints;
@@ -144,6 +145,9 @@ export async function render(app, route, root) {
   }
 
   async function syncNodeOptions(destinationId) {
+    const token = nodeOptionsRequestToken + 1;
+    nodeOptionsRequestToken = token;
+
     if (!destinationId) {
       clearNodeOptions();
       return null;
@@ -158,7 +162,7 @@ export async function render(app, route, root) {
       return null;
     }
 
-    if (disposed || !details) {
+    if (disposed || token !== nodeOptionsRequestToken || destinationSelect.value !== destinationId || !details) {
       return null;
     }
 

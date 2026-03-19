@@ -67,6 +67,16 @@ type CommentResponse = {
   totalCount: number;
 };
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 function createComment(index: number): JournalComment {
   return {
     body: `Comment ${index}`,
@@ -297,17 +307,35 @@ function createComposeFixture() {
   };
 }
 
-function createExploreFixture() {
+function createExploreFixture(overrides: {
+  destinationOptions?: Array<{ id: string; label?: string; name: string }>;
+  ensureDestinationDetailsImpl?: (destinationId: string) => Promise<Record<string, unknown>>;
+  requestJsonImpl?: (endpoint: string) => Promise<Record<string, unknown>>;
+} = {}) {
   const bootstrap = {
     users: [{ id: "user-1", name: "Avery Vale" }],
   };
-  const destinationOptions = [{ id: "dest-1", name: "Harbor Reach" }];
+  const destinationOptions = overrides.destinationOptions ?? [{ id: "dest-1", label: "Harbor Reach", name: "Harbor Reach" }];
   const ensureDestinationDetailsCalls: string[] = [];
   const requestJsonCalls: string[] = [];
   const statuses: Array<{ message: string; tone: string }> = [];
 
   const app = {
-    applySelectorBindings() {},
+    applySelectorBindings(
+      root: { querySelector(selector: string): { innerHTML: string } | null },
+      bindings?: Array<{ config?: { label?: string }; items: Array<Record<string, string>>; selector: string }>,
+    ) {
+      (bindings ?? []).forEach(({ config, items, selector }) => {
+        const element = root.querySelector(selector);
+        if (!element) {
+          return;
+        }
+        const labelKey = config?.label ?? "name";
+        element.innerHTML = items
+          .map((item) => `<option value="${item.id}">${item[labelKey] ?? item.name ?? item.id}</option>`)
+          .join("");
+      });
+    },
     buildMapHref(params: Record<string, string>) {
       return `/map?destinationId=${params.destinationId}`;
     },
@@ -318,6 +346,9 @@ function createExploreFixture() {
     },
     async ensureDestinationDetails(destinationId: string) {
       ensureDestinationDetailsCalls.push(destinationId);
+      if (overrides.ensureDestinationDetailsImpl) {
+        return overrides.ensureDestinationDetailsImpl(destinationId);
+      }
       return {
         graph: {
           nodes: [
@@ -335,7 +366,18 @@ function createExploreFixture() {
     },
     getDestinationBindings() {
       return {
-        selectorBindings: [],
+        selectorBindings: [
+          {
+            config: { label: "label" },
+            items: destinationOptions,
+            selector: "#explore-facility-destination",
+          },
+          {
+            config: { label: "label" },
+            items: destinationOptions,
+            selector: "#explore-food-destination",
+          },
+        ],
       };
     },
     getDestinationOptions() {
@@ -361,6 +403,9 @@ function createExploreFixture() {
     },
     async requestJson(endpoint: string) {
       requestJsonCalls.push(endpoint);
+      if (overrides.requestJsonImpl) {
+        return overrides.requestJsonImpl(endpoint);
+      }
       if (endpoint.startsWith("/api/foods/recommendations?")) {
         return { items: [] };
       }
@@ -383,7 +428,9 @@ function createExploreFixture() {
   };
 }
 
-function createMapFixture() {
+function createMapFixture(overrides: {
+  ensureDestinationDetailsImpl?: (destinationId: string) => Promise<Record<string, unknown>>;
+} = {}) {
   const destinationOptions = [
     { id: "dest-1", name: "Harbor Reach" },
     { id: "dest-2", name: "Lantern Point" },
@@ -454,6 +501,9 @@ function createMapFixture() {
     },
     async ensureDestinationDetails(destinationId: string) {
       ensureDestinationDetailsCalls.push(destinationId);
+      if (overrides.ensureDestinationDetailsImpl) {
+        return overrides.ensureDestinationDetailsImpl(destinationId);
+      }
       const details = detailsById.get(destinationId);
       if (!details) {
         throw new Error(`Unknown destination: ${destinationId}`);
@@ -804,7 +854,7 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
 
     assert.equal(fixture.fetchRecommendedCalls.length, 1);
     assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
-    assert.ok(requireElement(root, "#feed-results").textContent?.includes("Recommended feed note"));
+    assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
     assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
 
     const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='like']");
@@ -818,7 +868,7 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
     assert.equal(fixture.fetchRecommendedCalls.length, 2);
     assert.equal(fixture.fetchFeedCalls.length, 1);
     assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
-    assert.ok(requireElement(root, "#feed-results").textContent?.includes("Recommended feed note"));
+    assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
     assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
   } finally {
     restore();
@@ -1061,6 +1111,157 @@ test("explore defers destination details until the facility surface is first tou
   }
 });
 
+test("explore ignores stale facility node loads after destination changes", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const detailsById = new Map([
+    [
+      "dest-1",
+      {
+        graph: {
+          nodes: [
+            { id: "dest-1-node-a", name: "Atrium" },
+            { id: "dest-1-node-b", name: "Bridge" },
+          ],
+        },
+      },
+    ],
+    [
+      "dest-2",
+      {
+        graph: {
+          nodes: [
+            { id: "dest-2-node-a", name: "Garden" },
+            { id: "dest-2-node-b", name: "Lookout" },
+          ],
+        },
+      },
+    ],
+  ]);
+  const staleDest1Details = createDeferred<Record<string, unknown>>();
+  let delayDest1 = false;
+
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ExploreModule>("views/explore.js");
+    const fixture = createExploreFixture({
+      destinationOptions: [
+        { id: "dest-1", label: "Harbor Reach", name: "Harbor Reach" },
+        { id: "dest-2", label: "Lantern Point", name: "Lantern Point" },
+      ],
+      ensureDestinationDetailsImpl: async (destinationId: string) => {
+        if (delayDest1 && destinationId === "dest-1") {
+          return staleDest1Details.promise;
+        }
+        const details = detailsById.get(destinationId);
+        if (!details) {
+          throw new Error(`Unknown destination: ${destinationId}`);
+        }
+        return details;
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "explore",
+        params: {},
+      },
+      root,
+    );
+
+    delayDest1 = true;
+    dispatchDomEvent(requireElement(root, "#explore-facility-form"), "focusin");
+    const facilityDestinationSelect = requireElement(root, "#explore-facility-destination");
+    facilityDestinationSelect.value = "dest-2";
+    dispatchDomEvent(facilityDestinationSelect, "change");
+    await settleAsync();
+
+    const facilityNodeSelect = requireElement(root, "#explore-facility-node");
+    assert.equal(facilityNodeSelect.value, "dest-2-node-a");
+
+    staleDest1Details.resolve(detailsById.get("dest-1") as Record<string, unknown>);
+    await settleAsync();
+
+    assert.equal(facilityDestinationSelect.value, "dest-2");
+    assert.equal(facilityNodeSelect.value, "dest-2-node-a");
+    assert.equal(facilityNodeSelect.innerHTML.includes("dest-1-node-a"), false);
+    assert.equal(facilityNodeSelect.innerHTML.includes("dest-2-node-a"), true);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("explore food cards keep the destination used for the request", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const searchResponse = createDeferred<Record<string, unknown>>();
+
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ExploreModule>("views/explore.js");
+    const fixture = createExploreFixture({
+      destinationOptions: [
+        { id: "dest-1", label: "Harbor Reach", name: "Harbor Reach" },
+        { id: "dest-2", label: "Lantern Point", name: "Lantern Point" },
+      ],
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint.startsWith("/api/foods/recommendations?")) {
+          return { items: [] };
+        }
+        if (endpoint === "/api/foods/search?destinationId=dest-1&query=noodles") {
+          return searchResponse.promise;
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "explore",
+        params: {},
+      },
+      root,
+    );
+
+    requireElement(root, "#explore-food-query").value = "noodles";
+    dispatchDomEvent(requireElement(root, "#explore-food-form"), "submit");
+    requireElement(root, "#explore-food-destination").value = "dest-2";
+
+    searchResponse.resolve({
+      items: [
+        {
+          avgPrice: 2,
+          cuisine: "tea",
+          heat: 88,
+          keywords: ["quiet", "noodles"],
+          name: "Noodle Stop",
+          rating: 4.7,
+          venue: "Atrium Hall",
+        },
+      ],
+    });
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      "/api/foods/recommendations?destinationId=dest-1",
+      "/api/foods/search?destinationId=dest-1&query=noodles",
+    ]);
+    assert.equal(requireElement(root, "#explore-food-results a").getAttribute("href"), "/map?destinationId=dest-1");
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
 test("map falls back to a valid destination when the query points at a missing destination", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -1117,6 +1318,106 @@ test("map falls back to a valid destination when the query points at a missing d
         tone: "neutral",
       },
     ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    restore();
+  }
+});
+
+test("map ignores stale node loads after destination changes", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
+  };
+  const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
+  const detailsById = new Map([
+    [
+      "dest-1",
+      {
+        buildings: [],
+        graph: {
+          edges: [{ from: "dest-1-node-a", id: "edge-a-b", roadType: "walkway", to: "dest-1-node-b" }],
+          nodes: [
+            { floor: 0, id: "dest-1-node-a", kind: "gate", name: "Atrium", x: 0, y: 0 },
+            { floor: 0, id: "dest-1-node-b", kind: "plaza", name: "Bridge", x: 40, y: 20 },
+          ],
+        },
+        id: "dest-1",
+        name: "Harbor Reach",
+      },
+    ],
+    [
+      "dest-2",
+      {
+        buildings: [],
+        graph: {
+          edges: [{ from: "dest-2-node-a", id: "edge-c-d", roadType: "walkway", to: "dest-2-node-b" }],
+          nodes: [
+            { floor: 0, id: "dest-2-node-a", kind: "gate", name: "Garden", x: 10, y: 10 },
+            { floor: 0, id: "dest-2-node-b", kind: "plaza", name: "Lookout", x: 60, y: 30 },
+          ],
+        },
+        id: "dest-2",
+        name: "Lantern Point",
+      },
+    ],
+  ]);
+  const staleDest2Details = createDeferred<Record<string, unknown>>();
+  let delayDest2 = false;
+
+  try {
+    globals.RouteVisualizationMarkers = require(path.join(
+      process.cwd(),
+      "public",
+      "route-visualization-markers.js",
+    ));
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      ensureDestinationDetailsImpl: async (destinationId: string) => {
+        if (delayDest2 && destinationId === "dest-2") {
+          return staleDest2Details.promise;
+        }
+        const details = detailsById.get(destinationId);
+        if (!details) {
+          throw new Error(`Unknown destination: ${destinationId}`);
+        }
+        return details;
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {},
+      },
+      root,
+    );
+
+    delayDest2 = true;
+    const destinationSelect = requireElement(root, "#map-destination");
+    destinationSelect.value = "dest-2";
+    dispatchDomEvent(destinationSelect, "change");
+    destinationSelect.value = "dest-1";
+    dispatchDomEvent(destinationSelect, "change");
+    await settleAsync();
+
+    assert.equal(requireElement(root, "#map-start").value, "dest-1-node-a");
+    assert.equal(requireElement(root, "#map-end").value, "dest-1-node-b");
+
+    staleDest2Details.resolve(detailsById.get("dest-2") as Record<string, unknown>);
+    await settleAsync();
+
+    assert.equal(destinationSelect.value, "dest-1");
+    assert.equal(requireElement(root, "#map-start").value, "dest-1-node-a");
+    assert.equal(requireElement(root, "#map-end").value, "dest-1-node-b");
 
     if (typeof cleanup === "function") {
       cleanup();

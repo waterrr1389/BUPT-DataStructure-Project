@@ -256,6 +256,7 @@ export async function render(app, route, root) {
   let disposed = false;
   let destinationRequestToken = 0;
   let foodRequestToken = 0;
+  let facilityNodeRequestToken = 0;
   let facilityNodesLoadedFor = "";
   let facilitySurfaceTouched = false;
 
@@ -268,6 +269,9 @@ export async function render(app, route, root) {
   }
 
   async function syncFacilityNodes(destinationId, options = {}) {
+    const token = facilityNodeRequestToken + 1;
+    facilityNodeRequestToken = token;
+
     if (!destinationId) {
       facilityNodesLoadedFor = "";
       setFacilityNodePlaceholder("Select a destination to load nodes");
@@ -279,7 +283,12 @@ export async function render(app, route, root) {
 
     setFacilityNodePlaceholder("Loading nodes...");
     const details = await app.ensureDestinationDetails(destinationId);
-    if (disposed || !details) {
+    if (
+      disposed ||
+      token !== facilityNodeRequestToken ||
+      facilityDestinationSelect.value !== destinationId ||
+      !details
+    ) {
       return;
     }
     const nodes = safeArray(details.graph?.nodes).map((node) => ({
@@ -343,9 +352,10 @@ export async function render(app, route, root) {
   async function runFoodLookup(mode) {
     const token = foodRequestToken + 1;
     foodRequestToken = token;
+    const requestedDestinationId = foodDestinationSelect.value;
 
     const params = new URLSearchParams({
-      destinationId: foodDestinationSelect.value,
+      destinationId: requestedDestinationId,
     });
     const cuisine = foodCuisineSelect.value;
     const query = foodQueryInput.value.trim();
@@ -371,7 +381,7 @@ export async function render(app, route, root) {
     }
     const items = safeArray(payload.items);
     foodResults.innerHTML = items.length
-      ? `<div class="story-grid">${items.map((item) => foodCardMarkup(app, item, foodDestinationSelect.value)).join("")}</div>`
+      ? `<div class="story-grid">${items.map((item) => foodCardMarkup(app, item, requestedDestinationId)).join("")}</div>`
       : emptyStateMarkup({
           title: "No food results yet",
           body: "Adjust cuisine, traveler context, or text to reveal another nearby option.",
