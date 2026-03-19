@@ -1179,6 +1179,61 @@ test("post detail preserves actor-aware map and feed hand-offs, including delete
   }
 });
 
+test("post detail keeps the journal surface mounted when the initial comments load fails", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+
+    fixture.app.fetchJournalComments = async (journalId: string, options: { cursor?: string; limit?: number }) => {
+      fixture.commentCalls.push({
+        cursor: options.cursor ?? "",
+        journalId,
+        limit: Number(options.limit) || 0,
+      });
+      throw new Error("Comments service timed out.");
+    };
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    assert.deepEqual(fixture.commentCalls, [
+      { cursor: "", journalId: "journal-1", limit: 5 },
+    ]);
+    assert.ok(root.innerHTML.includes('id="post-hero-title"'));
+    assert.ok(root.innerHTML.includes('id="post-story-title"'));
+    assert.ok(root.innerHTML.includes("Bridge Notes"));
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("Comments failed to load"));
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("Comments service timed out."));
+
+    const commentsContainer = requireElement(root, "#post-comments");
+    assert.ok(commentsContainer.innerHTML.includes("Comments failed to load"));
+    assert.ok(commentsContainer.innerHTML.includes("Comments service timed out."));
+    assert.equal(commentsContainer.innerHTML.includes("Comments unavailable"), false);
+    assert.equal(
+      commentsContainer.innerHTML.includes("The backend comments endpoint is not available in this workspace yet."),
+      false,
+    );
+    assert.equal(root.innerHTML.includes("This note could not be found."), false);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
 test("explore defers destination details until the facility surface is first touched", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -1471,7 +1526,7 @@ test("explore ignores stale facility node loads after destination changes", asyn
   }
 });
 
-test("explore food cards keep the destination used for the request", async () => {
+test("explore food recommendation and search map links preserve actor context", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
   const searchResponse = createDeferred<Record<string, unknown>>();
@@ -1485,8 +1540,20 @@ test("explore food cards keep the destination used for the request", async () =>
         { id: "dest-2", label: "Lantern Point", name: "Lantern Point" },
       ],
       requestJsonImpl: async (endpoint: string) => {
-        if (endpoint.startsWith("/api/foods/recommendations?")) {
-          return { items: [] };
+        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
+          return {
+            items: [
+              {
+                avgPrice: 3,
+                cuisine: "tea",
+                heat: 91,
+                keywords: ["late", "quiet"],
+                name: "Lantern Tea Room",
+                rating: 4.8,
+                venue: "Wharf Arcade",
+              },
+            ],
+          };
         }
         if (endpoint === "/api/foods/search?destinationId=dest-1&query=noodles") {
           return searchResponse.promise;
@@ -1499,9 +1566,16 @@ test("explore food cards keep the destination used for the request", async () =>
       fixture.app,
       {
         name: "explore",
-        params: {},
+        params: {
+          actor: "user-2",
+        },
       },
       root,
+    );
+
+    assert.equal(
+      requireElement(root, "#explore-food-results a").getAttribute("href"),
+      "/map?destinationId=dest-1&actor=user-2",
     );
 
     requireElement(root, "#explore-food-query").value = "noodles";
@@ -1527,7 +1601,220 @@ test("explore food cards keep the destination used for the request", async () =>
       "/api/foods/recommendations?destinationId=dest-1",
       "/api/foods/search?destinationId=dest-1&query=noodles",
     ]);
+    assert.equal(
+      requireElement(root, "#explore-food-results a").getAttribute("href"),
+      "/map?destinationId=dest-1&actor=user-2",
+    );
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("explore food recommendation and search map links stay clean without actor context", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const searchResponse = createDeferred<Record<string, unknown>>();
+
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ExploreModule>("views/explore.js");
+    const fixture = createExploreFixture({
+      destinationOptions: [
+        { id: "dest-1", label: "Harbor Reach", name: "Harbor Reach" },
+        { id: "dest-2", label: "Lantern Point", name: "Lantern Point" },
+      ],
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
+          return {
+            items: [
+              {
+                avgPrice: 3,
+                cuisine: "tea",
+                heat: 91,
+                keywords: ["late", "quiet"],
+                name: "Lantern Tea Room",
+                rating: 4.8,
+                venue: "Wharf Arcade",
+              },
+            ],
+          };
+        }
+        if (endpoint === "/api/foods/search?destinationId=dest-1&query=noodles") {
+          return searchResponse.promise;
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "explore",
+        params: {},
+      },
+      root,
+    );
+
     assert.equal(requireElement(root, "#explore-food-results a").getAttribute("href"), "/map?destinationId=dest-1");
+
+    requireElement(root, "#explore-food-query").value = "noodles";
+    dispatchDomEvent(requireElement(root, "#explore-food-form"), "submit");
+    requireElement(root, "#explore-food-destination").value = "dest-2";
+
+    searchResponse.resolve({
+      items: [
+        {
+          avgPrice: 2,
+          cuisine: "tea",
+          heat: 88,
+          keywords: ["quiet", "noodles"],
+          name: "Noodle Stop",
+          rating: 4.7,
+          venue: "Atrium Hall",
+        },
+      ],
+    });
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      "/api/foods/recommendations?destinationId=dest-1",
+      "/api/foods/search?destinationId=dest-1&query=noodles",
+    ]);
+    assert.equal(requireElement(root, "#explore-food-results a").getAttribute("href"), "/map?destinationId=dest-1");
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("explore facility result map links preserve actor context", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ExploreModule>("views/explore.js");
+    const fixture = createExploreFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
+          return { items: [] };
+        }
+        if (
+          endpoint === "/api/facilities/nearby?destinationId=dest-1&fromNodeId=dest-1-node-a&category=all&radius=900"
+        ) {
+          return {
+            item: {
+              destinationId: "dest-1",
+              fromNodeId: "dest-1-node-a",
+              items: [
+                {
+                  category: "museum",
+                  distance: 140,
+                  name: "North Gallery Desk",
+                  nodeId: "dest-1-node-c",
+                  nodePath: ["dest-1-node-a", "dest-1-node-c"],
+                  openHours: "08:00-18:00",
+                },
+              ],
+            },
+          };
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "explore",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    dispatchDomEvent(requireElement(root, "#explore-facility-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      "/api/foods/recommendations?destinationId=dest-1",
+      "/api/facilities/nearby?destinationId=dest-1&fromNodeId=dest-1-node-a&category=all&radius=900",
+    ]);
+    assert.equal(
+      requireElement(root, "#explore-facility-results a").getAttribute("href"),
+      "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-c&actor=user-2",
+    );
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("explore facility result map links stay clean without actor context", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ExploreModule>("views/explore.js");
+    const fixture = createExploreFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
+          return { items: [] };
+        }
+        if (
+          endpoint === "/api/facilities/nearby?destinationId=dest-1&fromNodeId=dest-1-node-a&category=all&radius=900"
+        ) {
+          return {
+            item: {
+              destinationId: "dest-1",
+              fromNodeId: "dest-1-node-a",
+              items: [
+                {
+                  category: "museum",
+                  distance: 140,
+                  name: "North Gallery Desk",
+                  nodeId: "dest-1-node-c",
+                  nodePath: ["dest-1-node-a", "dest-1-node-c"],
+                  openHours: "08:00-18:00",
+                },
+              ],
+            },
+          };
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "explore",
+        params: {},
+      },
+      root,
+    );
+
+    dispatchDomEvent(requireElement(root, "#explore-facility-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      "/api/foods/recommendations?destinationId=dest-1",
+      "/api/facilities/nearby?destinationId=dest-1&fromNodeId=dest-1-node-a&category=all&radius=900",
+    ]);
+    assert.equal(
+      requireElement(root, "#explore-facility-results a").getAttribute("href"),
+      "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-c",
+    );
 
     if (typeof cleanup === "function") {
       cleanup();
