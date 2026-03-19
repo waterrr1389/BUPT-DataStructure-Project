@@ -49,7 +49,7 @@ Source plan: plan.md
 | Refactor browser bindings in `public/app.js` and journal/exchange consumers to consume the same authoritative destination source | AC-1, AC-2 | in_progress | browser binding alignment |
 | Replace single fallback graph template with deterministic variant generation keyed by destination/type/region and preserve graph integrity constraints | AC-3 | in_progress | deterministic graph variants |
 | Add/adjust regression tests for duplicate-label disambiguation, cross-module selector parity, and representative routing/facility behavior across graph variants | AC-1, AC-2, AC-3, AC-4 | in_progress | regression tests |
-| Run full verification (`npm run build`, `npm test`, `npm run validate:data`) and update impacted docs if behavior descriptions changed | AC-4 | pending | docs/verification |
+| Run full verification (`npm run build`, `npm test`, `npm run validate:data`) and update impacted docs if behavior descriptions changed | AC-4 | in_progress | docs/verification |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
