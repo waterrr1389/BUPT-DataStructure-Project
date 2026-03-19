@@ -28,7 +28,9 @@ export async function render(app, route, root) {
   const journalBindings = app.getJournalBindings();
   const users = safeArray(bootstrap?.users);
   const defaultDestinationId = route.params.destinationId || app.getDestinationOptions()[0]?.id || "";
-  const defaultUserId = users[0]?.id || "";
+  const defaultUserId = users.some((user) => user.id === route.params.actor)
+    ? route.params.actor
+    : users[0]?.id || "";
 
   root.innerHTML = `
     <section class="route-hero route-hero-compose">
@@ -184,7 +186,7 @@ export async function render(app, route, root) {
       );
       const createdId = payload.item?.id;
       if (createdId) {
-        app.navigate(app.buildPostHref(createdId));
+        app.navigate(app.buildPostHref(createdId, authorSelect.value ? { actor: authorSelect.value } : {}));
       } else {
         app.navigate("/feed");
       }

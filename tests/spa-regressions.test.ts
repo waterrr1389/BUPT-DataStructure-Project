@@ -25,9 +25,22 @@ type MapModule = {
   render(app: Record<string, unknown>, route: Record<string, unknown>, root: unknown): Promise<Cleanup>;
 };
 
+type ComposeModule = {
+  render(app: Record<string, unknown>, route: Record<string, unknown>, root: unknown): Promise<Cleanup>;
+};
+
 type AppShellModule = {
   createAppShell(root: unknown): {
+    dom: {
+      viewRoot: unknown;
+    };
     fetchFeed(filters?: Record<string, unknown>): Promise<unknown>;
+    navigate(href: string, options?: Record<string, unknown>): void;
+    start(): Promise<void>;
+    state: {
+      bootstrap: unknown;
+      bootstrapPromise: Promise<unknown> | null;
+    };
   };
 };
 
@@ -189,6 +202,86 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     detailCalls,
     commentCalls,
     statuses,
+  };
+}
+
+function createComposeFixture() {
+  const bootstrap = {
+    users: [
+      { id: "user-1", name: "Avery Vale" },
+      { id: "user-2", name: "Mina Hart" },
+    ],
+  };
+  const destinationOptions = [
+    { id: "dest-1", label: "Harbor Reach" },
+    { id: "dest-2", label: "Amber Bay" },
+  ];
+  const navigateCalls: string[] = [];
+  const requestJsonCalls: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
+
+  const app = {
+    applySelectorBindings(
+      root: { querySelector(selector: string): { innerHTML: string } | null },
+      bindings?: Array<{ config?: { label?: string }; items: Array<Record<string, string>>; selector: string }>,
+    ) {
+      (bindings ?? []).forEach(({ config, items, selector }) => {
+        const element = root.querySelector(selector);
+        if (!element) {
+          return;
+        }
+        const labelKey = config?.label ?? "name";
+        element.innerHTML = items
+          .map((item) => `<option value="${item.id}">${item[labelKey] ?? item.name ?? item.id}</option>`)
+          .join("");
+      });
+    },
+    buildPostHref(journalId: string, params: { actor?: string }) {
+      return params.actor ? `/posts/${journalId}?actor=${params.actor}` : `/posts/${journalId}`;
+    },
+    getDestinationName(destinationId: string) {
+      return destinationOptions.find((destination) => destination.id === destinationId)?.label ?? destinationId;
+    },
+    getDestinationOptions() {
+      return destinationOptions;
+    },
+    getJournalBindings() {
+      return {
+        selectorBindings: [
+          {
+            config: { label: "label" },
+            items: destinationOptions,
+            selector: "#compose-destination",
+          },
+        ],
+      };
+    },
+    getUserName(userId: string) {
+      return bootstrap.users.find((user) => user.id === userId)?.name ?? userId;
+    },
+    async loadBootstrap() {
+      return bootstrap;
+    },
+    navigate(href: string) {
+      navigateCalls.push(href);
+    },
+    async requestJson(endpoint: string, options: { body?: string }) {
+      requestJsonCalls.push({
+        endpoint,
+        payload: JSON.parse(options.body ?? "{}"),
+      });
+      return {
+        item: {
+          id: "journal-9",
+        },
+      };
+    },
+    setDocumentTitle() {},
+  };
+
+  return {
+    app,
+    navigateCalls,
+    requestJsonCalls,
   };
 }
 
@@ -403,6 +496,53 @@ function createMapFixture() {
     statuses,
   };
 }
+
+test("compose respects the actor route param and preserves it on publish", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ComposeModule>("views/compose.js");
+    const fixture = createComposeFixture();
+
+    await module.render(
+      fixture.app,
+      {
+        name: "compose",
+        params: {
+          actor: "user-2",
+          destinationId: "dest-2",
+        },
+      },
+      root,
+    );
+
+    assert.equal(requireElement(root, "#compose-user").value, "user-2");
+    assert.equal(requireElement(root, "#compose-destination").value, "dest-2");
+
+    requireElement(root, "#compose-title").value = "Harbor dusk";
+    requireElement(root, "#compose-body").value = "Watched the lights come on above the pier.";
+    dispatchDomEvent(requireElement(root, "#compose-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      {
+        endpoint: "/api/journals",
+        payload: {
+          body: "Watched the lights come on above the pier.",
+          destinationId: "dest-2",
+          media: [],
+          tags: [],
+          title: "Harbor dusk",
+          userId: "user-2",
+        },
+      },
+    ]);
+    assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9?actor=user-2"]);
+  } finally {
+    restore();
+  }
+});
 
 test("post detail keeps the initial comments request bounded and appends older comments on load more", async () => {
   const env = createSpaDomEnvironment();
@@ -704,6 +844,79 @@ test("feed fallback preserves viewer context when the social feed endpoint is un
       requests[1],
       "/api/journals?destinationId=dest-1&viewerUserId=user-2&limit=3&cursor=cursor-1",
     );
+  } finally {
+    globalThis.fetch = previousFetch;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("shell navigation surfaces route-load failures instead of leaving the loading notice behind", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
+    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+
+    env.window.history.replaceState({}, "", "/compose");
+
+    let bootstrapCalls = 0;
+    globalThis.fetch = (async (input: string | URL) => {
+      const url = String(input);
+      if (url === "/api/bootstrap") {
+        bootstrapCalls += 1;
+        if (bootstrapCalls === 1) {
+          return createJsonResponse(200, {
+            categories: [],
+            cuisines: [],
+            destinations: [
+              {
+                id: "dest-1",
+                name: "Harbor Reach",
+                region: "North Wharf",
+                type: "campus",
+              },
+            ],
+            featured: [],
+            source: {
+              algorithms: "fallback",
+              data: "seeded",
+            },
+            users: [{ id: "user-1", name: "Avery Vale" }],
+          });
+        }
+        return createJsonResponse(500, { error: "bootstrap reload failed" });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<AppShellModule>("app-shell.js");
+    const app = module.createAppShell(root);
+
+    await app.start();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 60);
+    });
+
+    app.state.bootstrap = null;
+    app.state.bootstrapPromise = null;
+    app.navigate("/map");
+    await settleAsync();
+
+    const viewRoot = requireElement(root, "#view-root");
+    assert.ok(viewRoot.innerHTML.includes("Map failed to load"), viewRoot.innerHTML);
+    assert.ok(viewRoot.innerHTML.includes("bootstrap reload failed"), viewRoot.innerHTML);
+    assert.ok(!viewRoot.innerHTML.includes("Opening Map"), viewRoot.innerHTML);
   } finally {
     globalThis.fetch = previousFetch;
     globals.JournalConsumers = previousJournalConsumers;

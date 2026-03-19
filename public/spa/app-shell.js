@@ -314,6 +314,26 @@ export function createAppShell(root) {
     dom.viewRoot.innerHTML = noticeMarkup("loading", title, body);
   }
 
+  function setRouteErrorState(route, error) {
+    if (!dom.viewRoot) {
+      return;
+    }
+    const titleByRoute = {
+      home: "Trail Atlas",
+      explore: "Explore",
+      map: "Map",
+      feed: "Feed",
+      compose: "Compose",
+      post: "Post Detail",
+      notFound: "Not Found",
+    };
+    const routeLabel = titleByRoute[route?.name] || "View";
+    const message = error instanceof Error ? error.message : "The requested route could not be loaded.";
+
+    dom.viewRoot.innerHTML = noticeMarkup("error", `${routeLabel} failed to load`, message);
+    setStatus(message, "error");
+  }
+
   function closeNav() {
     if (!dom.shell || !dom.navToggle) {
       return;
@@ -609,23 +629,31 @@ export function createAppShell(root) {
       "Loading only the current surface to keep the shell responsive.",
     );
 
-    const module = await viewLoaders[route.name]();
-    if (token !== state.renderToken) {
-      return;
-    }
-
-    const cleanup = await module.render(app, route, dom.viewRoot);
-    if (token !== state.renderToken) {
-      if (typeof cleanup === "function") {
-        cleanup();
+    try {
+      const module = await viewLoaders[route.name]();
+      if (token !== state.renderToken) {
+        return;
       }
-      return;
-    }
 
-    state.currentCleanup = typeof cleanup === "function" ? cleanup : null;
+      const cleanup = await module.render(app, route, dom.viewRoot);
+      if (token !== state.renderToken) {
+        if (typeof cleanup === "function") {
+          cleanup();
+        }
+        return;
+      }
 
-    if (!options.preserveScroll) {
-      window.scrollTo({ top: 0, left: 0 });
+      state.currentCleanup = typeof cleanup === "function" ? cleanup : null;
+
+      if (!options.preserveScroll) {
+        window.scrollTo({ top: 0, left: 0 });
+      }
+    } catch (error) {
+      if (token !== state.renderToken) {
+        return;
+      }
+      state.currentCleanup = null;
+      setRouteErrorState(route, error);
     }
   }
 
