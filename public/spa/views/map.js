@@ -1,4 +1,11 @@
-import { emptyStateMarkup, fillSelect, parseListInput, safeArray } from "../lib.js";
+import {
+  createRouteContextHref,
+  emptyStateMarkup,
+  fillSelect,
+  parseListInput,
+  resolveRouteActor,
+  safeArray,
+} from "../lib.js";
 import { getDestinationScene, renderRouteResult, renderRouteVisualization } from "../map-rendering.js";
 
 function sanitizeOptionSelection(options, preferredValue, fallbackIndex = 0) {
@@ -18,6 +25,8 @@ export async function render(app, route, root) {
   const requestedDestinationId = route.params.destinationId || "";
   const defaultDestinationId = sanitizeOptionSelection(destinationOptions, requestedDestinationId, 0);
   const usedDestinationFallback = Boolean(requestedDestinationId) && requestedDestinationId !== defaultDestinationId;
+  const routeActor = resolveRouteActor(route);
+  const returnToExploreHref = createRouteContextHref("/explore", {}, route);
 
   // Deep links can outlive the bootstrap destination list. Normalize before fetching map details.
   if (usedDestinationFallback) {
@@ -53,7 +62,7 @@ export async function render(app, route, root) {
             <p class="section-tag">Route planning</p>
             <h2>Choose the spatial context first</h2>
           </div>
-          <a class="inline-link" href="/explore" data-nav="true">Return to Explore</a>
+          <a class="inline-link" href="${returnToExploreHref}" data-nav="true">Return to Explore</a>
         </div>
         <form class="control-grid" id="map-route-form">
           <label>
@@ -179,17 +188,23 @@ export async function render(app, route, root) {
   }
 
   function updateRouteQuery(replace = true) {
+    const params = {
+      destinationId: destinationSelect.value,
+      from: startSelect.value,
+      to: endSelect.value,
+      waypoints: waypointsInput.value.trim(),
+      strategy: strategySelect.value,
+      mode: modeSelect.value,
+    };
+
     app.navigate(
-      app.buildMapHref({
-        destinationId: destinationSelect.value,
-        from: startSelect.value,
-        to: endSelect.value,
-        waypoints: waypointsInput.value.trim(),
-        strategy: strategySelect.value,
-        mode: modeSelect.value,
-      }),
+      buildContextualMapHref(params),
       { replace, preserveScroll: true, render: false },
     );
+  }
+
+  function buildContextualMapHref(params = {}) {
+    return app.buildMapHref(routeActor ? { ...params, actor: routeActor } : params);
   }
 
   async function renderMapSurface(activeRoute = currentRoute) {
@@ -266,7 +281,7 @@ export async function render(app, route, root) {
   if (usedDestinationFallback) {
     app.setStatus("Requested destination was unavailable. Showing the first available map instead.", "neutral");
     if (defaultDestinationId) {
-      app.navigate(app.buildMapHref({ destinationId: defaultDestinationId }), {
+      app.navigate(buildContextualMapHref({ destinationId: defaultDestinationId }), {
         replace: true,
         preserveScroll: true,
         render: false,

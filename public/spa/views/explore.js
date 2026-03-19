@@ -1,15 +1,21 @@
 import {
+  createRouteContextHref,
   emptyStateMarkup,
   escapeHtml,
   fillSelect,
   noticeMarkup,
   parseListInput,
   resultMetaMarkup,
+  resolveRouteActor,
   safeArray,
   text,
 } from "../lib.js";
 
-function destinationCardMarkup(app, item) {
+function destinationCardMarkup(app, item, context = null) {
+  const actor = resolveRouteActor(context);
+  const mapHref = app.buildMapHref(actor ? { destinationId: item.id, actor } : { destinationId: item.id });
+  const composeHref = createRouteContextHref("/compose", { destinationId: item.id }, context);
+
   return `
     <article class="story-card destination-card">
       <p class="muted">${escapeHtml(item.type)} · ${escapeHtml(item.region)}</p>
@@ -18,8 +24,8 @@ function destinationCardMarkup(app, item) {
       <p>${escapeHtml(item.description)}</p>
       ${app.tagsMarkup(item.categories)}
       <div class="story-card-actions">
-        <a class="inline-link" href="/map?destinationId=${encodeURIComponent(item.id)}" data-nav="true">Open in map</a>
-        <a class="inline-link" href="/compose?destinationId=${encodeURIComponent(item.id)}" data-nav="true">Write a note</a>
+        <a class="inline-link" href="${mapHref}" data-nav="true">Open in map</a>
+        <a class="inline-link" href="${composeHref}" data-nav="true">Write a note</a>
       </div>
     </article>
   `;
@@ -125,7 +131,7 @@ export async function render(app, route, root) {
           </div>
         </form>
         <div id="explore-destination-results" class="story-grid">
-          ${featuredDestinations.map((item) => destinationCardMarkup(app, item)).join("")}
+          ${featuredDestinations.map((item) => destinationCardMarkup(app, item, route)).join("")}
         </div>
       </article>
 
@@ -342,7 +348,7 @@ export async function render(app, route, root) {
 
     const items = safeArray(payload.items);
     destinationResults.innerHTML = items.length
-      ? items.map((item) => destinationCardMarkup(app, item)).join("")
+      ? items.map((item) => destinationCardMarkup(app, item, route)).join("")
       : emptyStateMarkup({
           title: "No destinations matched",
           body: "Try a broader query or swap to recommendations for a calmer starting point.",
@@ -424,7 +430,7 @@ export async function render(app, route, root) {
 
   root.querySelector("#explore-refresh-destinations").addEventListener("click", () => {
     destinationResults.innerHTML = featuredDestinations.length
-      ? featuredDestinations.map((item) => destinationCardMarkup(app, item)).join("")
+      ? featuredDestinations.map((item) => destinationCardMarkup(app, item, route)).join("")
       : emptyStateMarkup({
           title: "Featured destinations unavailable",
           body: "Bootstrap did not return any featured places.",
