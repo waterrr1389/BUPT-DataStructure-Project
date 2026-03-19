@@ -505,3 +505,92 @@ test("server keeps feed cursors valid across journal edits, ratings, and social 
     assert.equal(malformedDeleteLike.body.error, "Unknown API endpoint.", malformedDeleteLike.text);
   });
 });
+
+test("server keeps feed and comment cursors valid when the anchor item is deleted", async () => {
+  await withServer("social-deleted-anchor-cursors", async ({ requestJson }) => {
+    const first = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "Deleted anchor first",
+        body: "Newest tie case entry.",
+        tags: ["tie"],
+      },
+      method: "POST",
+    });
+    const second = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "Deleted anchor second",
+        body: "Second tie case entry.",
+        tags: ["tie"],
+      },
+      method: "POST",
+    });
+
+    const feedPage = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      nextCursor: string | null;
+      totalCount: number;
+    }>(`/api/feed?limit=1&viewerUserId=user-4`);
+
+    assert.equal(feedPage.body.items[0]?.id, second.body.item.id, feedPage.text);
+    assert.equal(feedPage.body.nextCursor !== null, true, feedPage.text);
+
+    const deletedFeedAnchor = await requestJson<{ deleted: boolean }>(`/api/journals/${second.body.item.id}`, {
+      method: "DELETE",
+    });
+    const nextFeedPage = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      nextCursor: string | null;
+      totalCount: number;
+    }>(`/api/feed?limit=1&viewerUserId=user-4&cursor=${encodeURIComponent(feedPage.body.nextCursor ?? "")}`);
+
+    assert.equal(deletedFeedAnchor.body.deleted, true, deletedFeedAnchor.text);
+    assert.equal(nextFeedPage.status, 200, nextFeedPage.text);
+    assert.equal(nextFeedPage.body.items[0]?.id, first.body.item.id, nextFeedPage.text);
+
+    const firstComment = await requestJson<{ item: { id: string } }>(`/api/journals/${first.body.item.id}/comments`, {
+      body: {
+        userId: "user-2",
+        body: "First comment anchor.",
+      },
+      method: "POST",
+    });
+    const secondComment = await requestJson<{ item: { id: string } }>(`/api/journals/${first.body.item.id}/comments`, {
+      body: {
+        userId: "user-2",
+        body: "Second comment anchor.",
+      },
+      method: "POST",
+    });
+    const commentPage = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      nextCursor: string | null;
+      totalCount: number;
+    }>(`/api/journals/${first.body.item.id}/comments?limit=1`);
+
+    assert.equal(commentPage.body.items[0]?.id, secondComment.body.item.id, commentPage.text);
+    assert.equal(commentPage.body.nextCursor !== null, true, commentPage.text);
+
+    const deletedCommentAnchor = await requestJson<{ deleted: boolean }>(
+      `/api/comments/${secondComment.body.item.id}?userId=user-2`,
+      {
+        method: "DELETE",
+      },
+    );
+    const nextCommentPage = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      nextCursor: string | null;
+      totalCount: number;
+    }>(
+      `/api/journals/${first.body.item.id}/comments?limit=1&cursor=${encodeURIComponent(commentPage.body.nextCursor ?? "")}`,
+    );
+
+    assert.equal(firstComment.status, 201, firstComment.text);
+    assert.equal(deletedCommentAnchor.body.deleted, true, deletedCommentAnchor.text);
+    assert.equal(nextCommentPage.status, 200, nextCommentPage.text);
+    assert.equal(nextCommentPage.body.items[0]?.id, firstComment.body.item.id, nextCommentPage.text);
+  });
+});

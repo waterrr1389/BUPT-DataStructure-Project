@@ -101,6 +101,11 @@ function decodeCursor(kind: string, cursor: string): { stamp: string; id: string
   }
 }
 
+function compareDescendingStampedIds(leftStamp: string, leftId: string, rightStamp: string, rightId: string): number {
+  const stampOrder = rightStamp.localeCompare(leftStamp);
+  return stampOrder !== 0 ? stampOrder : compareDescendingIds(leftId, rightId);
+}
+
 function resolveCursorIndex<T extends { id: string }>(
   items: T[],
   cursor: string | undefined,
@@ -113,10 +118,14 @@ function resolveCursorIndex<T extends { id: string }>(
 
   const decoded = decodeCursor(kind, cursor);
   const index = items.findIndex((item) => item.id === decoded.id && stampOf(item) === decoded.stamp);
-  if (index < 0) {
-    throw new Error("Invalid cursor.");
+  if (index >= 0) {
+    return index + 1;
   }
-  return index + 1;
+
+  const insertionIndex = items.findIndex(
+    (item) => compareDescendingStampedIds(stampOf(item), item.id, decoded.stamp, decoded.id) > 0,
+  );
+  return insertionIndex >= 0 ? insertionIndex : items.length;
 }
 
 function nextCursorForPage<T extends { id: string }>(
