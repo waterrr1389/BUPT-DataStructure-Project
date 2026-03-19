@@ -102,7 +102,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0, verified integrated state)
+### Plan Version: 3 (Updated: Round 2, verified integrated state)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -110,12 +110,14 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
 | 0 | Task status reconciled against integrated workspace verification and test pass (`npm test`: 34 passing, 0 failures). | Round 0 implementation completed across backend social services, API/server, SPA routes, and tests. | No scope change; closes planned AC work for Round 0. |
+| 1 | Round 0 completion status was corrected after review, and the remaining social pagination/browser-regression work was re-opened for implementation. | Round 0 and Round 1 summaries overstated closure; review found four real gaps spanning invalid over-max limits, post-detail pagination verification, Explore lazy destination-detail verification, and feed fallback viewer-context wiring. | No scope change; re-opened AC-2, AC-4, AC-5, and AC-6 verification work until the missing fixes and tests were complete. |
+| 2 | Round 2 completed the remaining browser-regression work from the Round 1 review and aligned tracker status with verified integrated state (`npm test`: 39 passing, 0 failures). | Round 2 added fallback viewer-context propagation in the SPA shell plus deterministic regression coverage for post-detail pagination/reset behavior and Explore lazy destination-detail loading. | No scope change; closes the residual AC-4, AC-5, and AC-6 browser-verification gaps and restores full plan alignment. |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| None | - | complete | Round 0 planned implementation tasks are complete and moved to `Completed and Verified`. |
+| None | - | complete | All tracked implementation and verification tasks are complete after the Round 2 review. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -128,6 +130,10 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 | AC-3, AC-5, AC-7 | Feed, Post Detail, and Compose route flows for summary-first social browsing and interactions. | 0 | 0 | `public/spa/views/feed.js`, `public/spa/views/post-detail.js`, `public/spa/views/compose.js`, plus `public/styles.css` and journal helpers deliver feed summaries, like/unlike/comment actions, detail reads, compose submission, and routed not-found handling. |
 | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7 | Verification and smoke coverage updates for social API and SPA behavior. | 0 | 0 | Updated tests: `tests/integration-smoke.test.ts`, `tests/journal-consumers.test.ts`, `tests/journal-presentation.test.ts`, and `tests/runtime-services.test.ts`; integrated `npm test` passed with 34 passing and 0 failures. |
 | AC-6, AC-7 | Performance and UX polish baseline integrated in routed implementation. | 0 | 0 | `public/spa/app-shell.js` lazy-loads route modules; Explore/Map inputs are debounced (`public/spa/views/explore.js`, `public/spa/views/map.js`); map projections/overlays are cached per destination (`public/spa/map-rendering.js`); shared styling moved into `public/styles.css`. |
+| AC-2, AC-6 | Over-max social feed/comment limits reject with the existing error contract and are covered at service/runtime plus HTTP levels. | 1 | 1 | Commit `6f1dbcc`; `src/services/service-helpers.ts`, `tests/runtime-services.test.ts`, and `tests/integration-smoke.test.ts` now reject over-max social pagination limits instead of silently clamping them. |
+| AC-3, AC-5 | Feed fallback viewer-context propagation now preserves `viewerUserId` when `/api/feed` is unavailable. | 2 | 2 | `public/spa/app-shell.js` now forwards `viewerUserId` through both the primary `/api/feed` and fallback `/api/journals` branches; deterministic coverage added in `tests/spa-regressions.test.ts`; integrated `npm test` passed with 39 passing and 0 failures. |
+| AC-5, AC-6 | Deterministic SPA regression coverage verifies post-detail comment pagination append behavior and reset-after-post behavior. | 2 | 2 | `tests/support/spa-harness.ts`, `tests/spa-regressions.test.ts`, and `tests/index.ts` add no-dependency browser coverage for bounded initial comment requests, load-more append behavior, and first-page reset after comment creation; integrated `npm test` passed with 39 passing and 0 failures. |
+| AC-4, AC-6 | Deterministic SPA regression coverage verifies Explore defers destination-detail loading until the facility surface is first touched. | 2 | 2 | `tests/support/spa-harness.ts`, `tests/spa-regressions.test.ts`, and `tests/index.ts` assert Explore boot does not call `ensureDestinationDetails` and that the first facility-surface interaction triggers exactly one destination-detail fetch; integrated `npm test` passed with 39 passing and 0 failures. |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
@@ -139,4 +145,4 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| None | - | - | No residual blocking issues recorded after the integrated green test run (`npm test`: 34 passing, 0 failures). |
+| None | - | - | No residual blocking issues remain after the Round 2 review and integrated green test run (`npm test`: 39 passing, 0 failures). |
