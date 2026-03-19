@@ -1,0 +1,141 @@
+# Goal Tracker
+
+<!--
+This file tracks the ultimate goal, acceptance criteria, and plan evolution.
+It prevents goal drift by maintaining a persistent anchor across all rounds.
+
+RULES:
+- IMMUTABLE SECTION: Do not modify after initialization
+- MUTABLE SECTION: Update each round, but document all changes
+- Every task must be in one of: Active, Completed, or Deferred
+- Deferred items require explicit justification
+-->
+
+## IMMUTABLE SECTION
+<!-- Do not modify after initialization -->
+
+### Ultimate Goal
+Rework the current single-page `public/` demo into a multi-view social travel SPA centered on journals, while preserving the existing TypeScript service, algorithm, and server layers plus all course-delivery capabilities. The default implementation path must stay compatible with the current zero-dependency Node plus `tsc` workflow; a React-based frontend is only acceptable if the repository intentionally adopts new frontend tooling first.
+
+## Acceptance Criteria
+
+### Acceptance Criteria
+<!-- Each criterion must be independently verifiable -->
+<!-- Claude must extract or define these in Round 0 -->
+
+
+Following TDD philosophy, each criterion includes positive and negative tests for deterministic verification.
+
+- AC-1: The domain and service contracts support journal social interactions without breaking existing journal data flows.
+  - Positive Tests (expected to PASS):
+    - Service-level tests can create and list flat comments for a valid `journalId` and `userId`, and comment metadata includes stable ids and timestamps.
+    - Service-level tests can record and remove a like for a valid `journalId` and `userId`, and feed/detail summaries expose `likeCount`, `commentCount`, `viewerHasLiked`, `destinationLabel`, `userLabel`, and a summary body.
+    - Existing journal create, update, delete, view, recommend, and rate tests continue to pass against the updated contracts.
+  - Negative Tests (expected to FAIL):
+    - A duplicate like from the same user on the same journal is rejected and does not increase `likeCount`.
+    - Comment creation fails for unknown journals, unknown users, or empty bodies.
+    - Feed summary payloads do not expose full comment collections or unrelated destination graph data.
+
+- AC-2: The HTTP API adds social endpoints while preserving the current course-facing journal and travel APIs.
+  - Positive Tests (expected to PASS):
+    - `GET /api/feed` returns paginated summary items and supports `cursor`, `limit`, `destinationId`, and `userId` filters.
+    - `GET /api/journals/:id`, `GET /api/journals/:id/comments`, `POST /api/journals/:id/likes`, `DELETE /api/journals/:id/likes`, `POST /api/journals/:id/comments`, `DELETE /api/comments/:id`, and `POST /api/journals` return deterministic JSON responses and mutate runtime state as expected.
+    - Existing endpoints for destinations, routes, facilities, journal rating, exchange, and food remain reachable and behaviorally compatible.
+  - Negative Tests (expected to FAIL):
+    - Invalid cursors, invalid limits, unknown ids, and malformed bodies return error payloads and leave persisted state unchanged.
+    - `GET /api/feed` does not return full comment threads or large per-destination map payloads.
+    - Unknown API paths still fail with the existing error contract instead of falling through silently.
+
+- AC-3: The browser experience becomes a routed SPA with distinct Explore, Map, Feed, Post Detail, and Compose views.
+  - Positive Tests (expected to PASS):
+    - Direct requests to `/`, `/explore`, `/map`, `/feed`, `/compose`, and `/posts/<journalId>` serve the SPA shell and boot the correct view.
+    - In-app navigation updates the active view without rendering the previous all-in-one dashboard.
+    - Deep links such as `/map?destinationId=dest-001&from=dest-001-gate&to=dest-001-hall-l1` hydrate the map view with the correct context.
+  - Negative Tests (expected to FAIL):
+    - The initial route does not render every course feature form in one long page.
+    - Unknown frontend routes resolve to a deliberate default or not-found view instead of a blank shell or server 404.
+    - The routed shell does not force full-page reloads for normal in-app navigation.
+
+- AC-4: Existing course-delivery capabilities are preserved across the new information architecture.
+  - Positive Tests (expected to PASS):
+    - Explore still supports destination search/recommendation, food discovery, and nearby facility lookup.
+    - Map still supports route planning and the current visualization logic, including destination graph rendering.
+    - Journal exchange remains reachable as a secondary surface tied to journal flows or a utility panel rather than being removed.
+  - Negative Tests (expected to FAIL):
+    - The redesign does not remove exchange, route, facility, food, or recommendation capabilities to make room for the social feed.
+    - Explore does not eagerly fetch full destination detail graphs until the user opens map-related context.
+    - Map does not become the only place where non-journal course features are accessible.
+
+- AC-5: Journal feed, detail, and compose flows prioritize social browsing instead of raw record management.
+  - Positive Tests (expected to PASS):
+    - Feed cards show summary-first journal content with author, destination, counts, like action, comment entry point, and open-in-map action.
+    - Post Detail loads full body content and paginated comments on demand, and supports comment creation plus like/unlike actions.
+    - Compose supports destination selection, title, body, tags, and optional media placeholders, then returns the user to a sensible post-create destination such as feed or detail.
+  - Negative Tests (expected to FAIL):
+    - Feed does not render full article bodies and complete comment threads for every card on initial load.
+    - The first phase does not attempt nested reply trees, realtime messaging, or notification systems.
+    - Compose does not regress into the original generic admin-style input sheet.
+
+- AC-6: Performance constraints are enforced in the API, view loading, and map rendering paths.
+  - Positive Tests (expected to PASS):
+    - Non-active views are deferred or lazy-loaded so the initial route does not initialize all page logic at once.
+    - Search, filter, and route-preview inputs use debounce or equivalent request coalescing.
+    - Map projection and derived overlay data are cached per destination instead of being recomputed on unrelated state changes.
+    - JSON responses are emitted compactly, and static asset caching is more specific than a blanket `no-store` policy for every asset.
+  - Negative Tests (expected to FAIL):
+    - `/api/bootstrap` does not expand to include full journal bodies, comment collections, or full destination graphs.
+    - Navigating to feed or explore does not trigger destination-detail requests for the entire catalog.
+    - Visual polish work does not depend on heavyweight UI libraries or costly realtime effects.
+
+- AC-7: The redesign ships with a coherent visual system that matches the draft's editorial and lifestyle direction and remains responsive.
+  - Positive Tests (expected to PASS):
+    - The implemented visual language aligns with `docs/journal-social-design-style.md` for palette, typography, spacing, atmosphere, and page-specific mood.
+    - Shared CSS tokens define palette, typography, spacing, surface treatments, and motion across all primary views.
+    - Desktop and mobile layouts both expose clear entry points to Explore, Map, Feed, and Compose.
+    - Motion is limited to low-cost opacity, transform, and blur effects that reinforce view transitions and map emphasis.
+  - Negative Tests (expected to FAIL):
+    - The landing experience does not regress to the current admin-console-like grid of all tools.
+    - The visual system does not rely on high-saturation blue or purple tech styling or heavy autoplay media to signal polish.
+    - Styling decisions do not require a large component framework to be maintainable.
+---
+
+## MUTABLE SECTION
+<!-- Update each round with justification for changes -->
+
+### Plan Version: 1 (Updated: Round 0)
+
+#### Plan Evolution Log
+<!-- Document any changes to the plan with justification -->
+| Round | Change | Reason | Impact on AC |
+|-------|--------|--------|--------------|
+| 0 | Initial plan | - | - |
+
+#### Active Tasks
+<!-- Map each task to its target Acceptance Criterion -->
+| Task | Target AC | Status | Notes |
+|------|-----------|--------|-------|
+| Backend social: extend contracts, persistence, and services for likes and flat comments without breaking journal flows. | AC-1, AC-2 | in_progress | Define social payload shapes; add runtime stores alongside runtime journals and keep seeded data stable. |
+| HTTP API and bootstrap: add feed/detail/comment/like endpoints and keep `/api/bootstrap` lean with compact JSON and clearer caching. | AC-2, AC-6 | in_progress | Expose social operations via `/api/feed` and related endpoints while preserving existing travel and journal APIs. |
+| Routed SPA shell: implement navigation and URL routing for Explore, Map, Feed, Post Detail, and Compose views. | AC-3, AC-4 | in_progress | Replace monolithic anchors with an SPA shell that handles direct entry routes and unknown-route fallbacks. |
+| Explore/Map migration: move destination, route, facility, and food tools into dedicated Explore and Map views. | AC-3, AC-4, AC-6 | in_progress | Preserve all course capabilities and avoid eager destination-detail loading for non-map views. |
+| Feed/Post Detail/Compose flows: build social browsing UI, comment and like actions, and Compose behavior using compact data shapes. | AC-3, AC-5, AC-7 | in_progress | Align layouts, hierarchy, and pacing with `docs/journal-social-design-style.md` while keeping feed summary-first. |
+| Verification and smoke coverage: extend service, integration, and browser tests to cover social APIs and SPA routes. | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7 | in_progress | Update runtime, integration, and app smoke tests plus server/browser smoke checks for new behavior. |
+| Performance and visual polish: enforce lazy-loading, debounced inputs, map caches, targeted cache headers, and shared CSS tokens. | AC-6, AC-7 | pending | Apply after route boundaries and core social flows are stable to avoid rework. |
+
+### Completed and Verified
+<!-- Only move tasks here after Codex verification -->
+| AC | Task | Completed Round | Verified Round | Evidence |
+|----|------|-----------------|----------------|----------|
+
+### Explicitly Deferred
+<!-- Items here require strong justification -->
+| Task | Original AC | Deferred Since | Justification | When to Reconsider |
+|------|-------------|----------------|---------------|-------------------|
+
+### Open Issues
+<!-- Issues discovered during implementation -->
+| Issue | Discovered Round | Blocking AC | Resolution Path |
+|-------|-----------------|-------------|-----------------|
+| JSON helper pretty-prints responses and sets `cache-control: no-store` for all payloads and static assets, which conflicts with compact JSON and targeted caching requirements. | 0 | AC-6 | Refine `json` helper and static-asset headers once social API and SPA entrypoints are in place to emit compact JSON and more nuanced cache behavior. |
+| `/api/bootstrap` currently returns a broad payload tailored to the single-page demo; reusing it for social feed/detail would violate payload and summary-first constraints. | 0 | AC-5, AC-6 | Introduce dedicated feed and detail endpoints with compact views and keep bootstrap focused on selector data; update frontend to rely on those lighter payloads. |
+| Single-page `public/index.html` and `public/app.js` own all course features; migrating to a routed SPA risks temporary gaps where tools become unreachable. | 0 | AC-3, AC-4 | Plan view-by-view migration and maintain interim navigation or fallback routes until Explore, Map, and social views are fully wired. |
