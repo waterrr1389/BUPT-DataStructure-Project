@@ -143,6 +143,8 @@ export interface WorldGraphRecord {
   edges: WorldEdgeRecord[];
 }
 
+export type DestinationPortalDirection = "inbound" | "outbound" | "bidirectional";
+
 export interface DestinationPortalRecord {
   id: string;
   destinationId: string;
@@ -152,7 +154,7 @@ export interface DestinationPortalRecord {
   label: string;
   priority: number;
   allowedModes: TravelMode[];
-  direction: string;
+  direction: DestinationPortalDirection | (string & {});
   transferDistance: number;
   transferCost: number;
 }

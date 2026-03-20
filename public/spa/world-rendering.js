@@ -2,6 +2,7 @@ import {
   createRouteContextHref,
   emptyStateMarkup,
   escapeHtml,
+  resultMetaMarkup,
   resolveRouteActor,
   safeArray,
   text,
@@ -24,6 +25,8 @@ const DESTINATION_MARKER_COLORS = {
   "scenic-lookout": "#546b42",
   "scenic-market": "#9a3412",
 };
+const WORLD_ROUTE_STRATEGIES = ["distance", "time", "mixed"];
+const WORLD_ROUTE_MODES = ["walk", "bike", "shuttle", "mixed"];
 
 let leafletPromise = null;
 
@@ -93,6 +96,19 @@ function extractWorld(payload) {
   return payload;
 }
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function toFiniteNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function toLatLngPair(point) {
   if (!Array.isArray(point) || point.length < 2) {
     return null;
@@ -108,9 +124,9 @@ function toLatLngPair(point) {
 }
 
 function createWorldBounds(world) {
-  const width = Number(world?.width);
-  const height = Number(world?.height);
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+  const width = toFiniteNumber(world?.width);
+  const height = toFiniteNumber(world?.height);
+  if (width == null || height == null || width <= 0 || height <= 0) {
     return null;
   }
   return [
@@ -128,11 +144,430 @@ function markerColorFor(destination) {
 }
 
 function markerRadiusFor(destination) {
-  const radius = Number(destination?.radius);
-  if (!Number.isFinite(radius)) {
+  const radius = toFiniteNumber(destination?.radius);
+  if (radius == null) {
     return 10;
   }
   return Math.max(8, Math.min(radius, 18));
+}
+
+function isCoordinateWithinBounds(x, y, width, height) {
+  return x >= 0 && x <= width && y >= 0 && y <= height;
+}
+
+function collectWorldDetailsIssues(world) {
+  const issues = [];
+  if (!isRecord(world)) {
+    issues.push("world details payload is missing a world object.");
+    return issues;
+  }
+
+  const worldId = text(world.id, "unknown-world");
+  const width = toFiniteNumber(world.width);
+  const height = toFiniteNumber(world.height);
+  if (width == null || height == null || width <= 0 || height <= 0) {
+    issues.push(`world "${worldId}" has invalid bounds.`);
+    return issues;
+  }
+
+  if (!isNonEmptyString(world.name)) {
+    issues.push(`world "${worldId}" is missing a name.`);
+  }
+  if (!isNonEmptyString(world.backgroundImage)) {
+    issues.push(`world "${worldId}" is missing a background image.`);
+  }
+
+  const regions = safeArray(world.regions);
+  if (!regions.length) {
+    issues.push(`world "${worldId}" must include regions.`);
+  }
+  const regionIds = new Set();
+  regions.forEach((region, index) => {
+    const regionId = text(region?.id, `region-${index}`);
+    if (!isNonEmptyString(region?.id) || regionIds.has(regionId)) {
+      issues.push(`world region "${regionId}" has an invalid or duplicate id.`);
+    }
+    regionIds.add(regionId);
+    if (!isNonEmptyString(region?.name)) {
+      issues.push(`world region "${regionId}" is missing a name.`);
+    }
+    const polygon = safeArray(region?.polygon);
+    if (polygon.length < 3) {
+      issues.push(`world region "${regionId}" must include a polygon with at least 3 points.`);
+      return;
+    }
+    polygon.forEach((point, pointIndex) => {
+      if (!Array.isArray(point) || point.length !== 2) {
+        issues.push(`world region "${regionId}" polygon point ${pointIndex} is invalid.`);
+        return;
+      }
+      const x = toFiniteNumber(point[0]);
+      const y = toFiniteNumber(point[1]);
+      if (x == null || y == null || !isCoordinateWithinBounds(x, y, width, height)) {
+        issues.push(`world region "${regionId}" polygon point ${pointIndex} is out of bounds.`);
+      }
+    });
+  });
+
+  const destinations = safeArray(world.destinations);
+  if (!destinations.length) {
+    issues.push(`world "${worldId}" must include destination markers.`);
+  }
+  const destinationIds = new Set();
+  destinations.forEach((destination, index) => {
+    const destinationId = text(destination?.destinationId, `destination-${index}`);
+    if (!isNonEmptyString(destination?.destinationId) || destinationIds.has(destinationId)) {
+      issues.push(`world destination "${destinationId}" has an invalid or duplicate id.`);
+    }
+    destinationIds.add(destinationId);
+    if (!isNonEmptyString(destination?.label)) {
+      issues.push(`world destination "${destinationId}" is missing a label.`);
+    }
+    if (!isNonEmptyString(destination?.iconType)) {
+      issues.push(`world destination "${destinationId}" is missing an iconType.`);
+    }
+    if (!isNonEmptyString(destination?.regionId) || !regionIds.has(text(destination.regionId))) {
+      issues.push(`world destination "${destinationId}" references an unknown region.`);
+    }
+    const x = toFiniteNumber(destination?.x);
+    const y = toFiniteNumber(destination?.y);
+    if (x == null || y == null || !isCoordinateWithinBounds(x, y, width, height)) {
+      issues.push(`world destination "${destinationId}" has invalid marker coordinates.`);
+    }
+    const radius = toFiniteNumber(destination?.radius);
+    if (radius == null || radius <= 0) {
+      issues.push(`world destination "${destinationId}" must include a positive radius.`);
+    }
+    const portalIds = safeArray(destination?.portalIds).map((value) => text(value)).filter(Boolean);
+    if (!portalIds.length) {
+      issues.push(`world destination "${destinationId}" must include portal ids.`);
+    }
+  });
+
+  const graph = world.graph;
+  const nodes = safeArray(graph?.nodes);
+  const edges = safeArray(graph?.edges);
+  if (!nodes.length || !edges.length) {
+    issues.push(`world "${worldId}" must include route-relevant graph nodes and edges.`);
+  }
+
+  const worldNodeIds = new Set();
+  nodes.forEach((node, index) => {
+    const nodeId = text(node?.id, `world-node-${index}`);
+    if (!isNonEmptyString(node?.id) || worldNodeIds.has(nodeId)) {
+      issues.push(`world node "${nodeId}" has an invalid or duplicate id.`);
+    }
+    worldNodeIds.add(nodeId);
+    if (!isNonEmptyString(node?.label)) {
+      issues.push(`world node "${nodeId}" is missing a label.`);
+    }
+    const x = toFiniteNumber(node?.x);
+    const y = toFiniteNumber(node?.y);
+    if (x == null || y == null || !isCoordinateWithinBounds(x, y, width, height)) {
+      issues.push(`world node "${nodeId}" has invalid coordinates.`);
+    }
+  });
+
+  edges.forEach((edge, index) => {
+    const edgeId = text(edge?.id, `world-edge-${index}`);
+    if (!isNonEmptyString(edge?.id)) {
+      issues.push(`world edge "${edgeId}" is missing an id.`);
+    }
+    const from = text(edge?.from);
+    const to = text(edge?.to);
+    if (!from || !to || !worldNodeIds.has(from) || !worldNodeIds.has(to)) {
+      issues.push(`world edge "${edgeId}" references an unknown node.`);
+    }
+    const distance = toFiniteNumber(edge?.distance);
+    if (distance == null || distance <= 0) {
+      issues.push(`world edge "${edgeId}" has invalid distance.`);
+    }
+    const congestion = toFiniteNumber(edge?.congestion);
+    if (congestion == null || congestion < 0 || congestion > 1) {
+      issues.push(`world edge "${edgeId}" has invalid congestion.`);
+    }
+    const allowedModes = safeArray(edge?.allowedModes).map((mode) => text(mode)).filter(Boolean);
+    if (!allowedModes.length) {
+      issues.push(`world edge "${edgeId}" must define allowed modes.`);
+    }
+    if (typeof edge?.bidirectional !== "boolean") {
+      issues.push(`world edge "${edgeId}" must define bidirectional as a boolean.`);
+    }
+  });
+
+  const portals = safeArray(world.portals);
+  if (!portals.length) {
+    issues.push(`world "${worldId}" must include destination portals.`);
+  }
+
+  const portalIds = new Set();
+  portals.forEach((portal, index) => {
+    const portalId = text(portal?.id, `portal-${index}`);
+    if (!isNonEmptyString(portal?.id) || portalIds.has(portalId)) {
+      issues.push(`world portal "${portalId}" has an invalid or duplicate id.`);
+    }
+    portalIds.add(portalId);
+    if (!isNonEmptyString(portal?.destinationId) || !destinationIds.has(text(portal.destinationId))) {
+      issues.push(`world portal "${portalId}" references an unknown destination.`);
+    }
+    if (!isNonEmptyString(portal?.worldNodeId) || !worldNodeIds.has(text(portal.worldNodeId))) {
+      issues.push(`world portal "${portalId}" references an unknown world node.`);
+    }
+    if (!isNonEmptyString(portal?.localNodeId)) {
+      issues.push(`world portal "${portalId}" is missing a local node id.`);
+    }
+    if (!isNonEmptyString(portal?.label) || !isNonEmptyString(portal?.portalType)) {
+      issues.push(`world portal "${portalId}" is missing metadata.`);
+    }
+    const transferDistance = toFiniteNumber(portal?.transferDistance);
+    if (transferDistance == null || transferDistance < 0) {
+      issues.push(`world portal "${portalId}" has invalid transferDistance.`);
+    }
+    const transferCost = toFiniteNumber(portal?.transferCost);
+    if (transferCost == null || transferCost < 0) {
+      issues.push(`world portal "${portalId}" has invalid transferCost.`);
+    }
+    if (!Number.isInteger(portal?.priority) || portal.priority < 0) {
+      issues.push(`world portal "${portalId}" has invalid priority.`);
+    }
+    const allowedModes = safeArray(portal?.allowedModes).map((mode) => text(mode)).filter(Boolean);
+    if (!allowedModes.length) {
+      issues.push(`world portal "${portalId}" must define allowed modes.`);
+    }
+    if (!isNonEmptyString(portal?.direction)) {
+      issues.push(`world portal "${portalId}" is missing a direction.`);
+    }
+  });
+
+  destinations.forEach((destination, index) => {
+    const destinationId = text(destination?.destinationId, `destination-${index}`);
+    safeArray(destination?.portalIds).forEach((portalIdRaw) => {
+      const portalId = text(portalIdRaw);
+      if (!portalId || !portalIds.has(portalId)) {
+        issues.push(`world destination "${destinationId}" references an unknown portal.`);
+        return;
+      }
+      const portal = portals.find((candidate) => text(candidate?.id) === portalId);
+      if (text(portal?.destinationId) !== destinationId) {
+        issues.push(`world destination "${destinationId}" references a portal from another destination.`);
+      }
+    });
+  });
+
+  return issues;
+}
+
+function extractWorldRouteNodeIds(itinerary) {
+  const legs = safeArray(itinerary?.legs);
+  const worldLeg = legs.find((leg) => text(leg?.scope) === "world");
+  if (!worldLeg) {
+    return [];
+  }
+
+  const worldNodeIds = safeArray(worldLeg?.worldNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
+  if (worldNodeIds.length >= 2) {
+    return worldNodeIds;
+  }
+
+  const fallback = [];
+  safeArray(worldLeg?.steps).forEach((step) => {
+    if (text(step?.kind) === "world-edge") {
+      const from = text(step?.fromWorldNodeId);
+      const to = text(step?.toWorldNodeId);
+      if (from) {
+        fallback.push(from);
+      }
+      if (to) {
+        fallback.push(to);
+      }
+      return;
+    }
+    if (text(step?.kind) === "portal-transfer") {
+      const worldNodeId = text(step?.worldNodeId);
+      if (worldNodeId) {
+        fallback.push(worldNodeId);
+      }
+    }
+  });
+
+  return fallback.filter((nodeId, index, list) => index === 0 || nodeId !== list[index - 1]);
+}
+
+function worldRoutePoints(world, itinerary) {
+  const nodeById = new Map(
+    safeArray(world?.graph?.nodes).map((node) => [text(node?.id), node]),
+  );
+  return extractWorldRouteNodeIds(itinerary)
+    .map((nodeId) => nodeById.get(nodeId))
+    .filter(Boolean)
+    .map((node) => [Number(node.y), Number(node.x)])
+    .filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1]));
+}
+
+function itineraryScopeLabel(scope) {
+  return scope === "cross-map" ? "Cross-map itinerary" : "World-only itinerary";
+}
+
+function destinationLegLabel(leg) {
+  const destinationId = text(leg?.destinationId, "destination");
+  const localNodeIds = safeArray(leg?.localNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
+  const fromNode = localNodeIds[0] || "origin";
+  const toNode = localNodeIds[localNodeIds.length - 1] || "destination";
+  return `${destinationId}: ${fromNode} -> ${toNode}`;
+}
+
+function worldLegLabel(leg) {
+  const worldNodeIds = safeArray(leg?.worldNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
+  const fromNode = worldNodeIds[0] || "origin";
+  const toNode = worldNodeIds[worldNodeIds.length - 1] || "destination";
+  return `world: ${fromNode} -> ${toNode}`;
+}
+
+function itineraryFailureSummary(itinerary) {
+  const failure = itinerary?.failure;
+  if (!isRecord(failure)) {
+    return "";
+  }
+  const stage = text(failure.stage).replaceAll("-", " ");
+  const reason = text(failure.reason).replaceAll("_", " ");
+  const code = text(failure.code).replaceAll("_", " ");
+  const blockedFrom = text(failure.blockedFrom);
+  const blockedTo = text(failure.blockedTo);
+  const blockedSegment = blockedFrom && blockedTo ? ` (${blockedFrom} -> ${blockedTo})` : "";
+  return `${stage || "route stage"} blocked due to ${reason || "routing constraints"} [${code || "unknown"}]${blockedSegment}.`;
+}
+
+function formatMetricValue(value) {
+  const metric = toFiniteNumber(value);
+  if (metric == null) {
+    return "0";
+  }
+  if (Number.isInteger(metric)) {
+    return String(metric);
+  }
+  return metric.toFixed(2);
+}
+
+function createWorldRouteLocalHref(leg, itinerary, route) {
+  const destinationId = text(leg?.destinationId);
+  if (!destinationId) {
+    return "";
+  }
+  const localNodeIds = safeArray(leg?.localNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
+  return createRouteContextHref(
+    "/map",
+    {
+      destinationId,
+      from: localNodeIds[0] || "",
+      to: localNodeIds[localNodeIds.length - 1] || "",
+      strategy: text(itinerary?.strategy),
+      mode: text(itinerary?.mode),
+    },
+    route,
+  );
+}
+
+function worldRoutePendingMarkup() {
+  return `
+    <article class="surface-card route-summary-card route-stage-shell" data-route-world-result-state="pending">
+      <p class="section-tag">World route</p>
+      <h3>Planning route</h3>
+      <p class="muted">Requesting itinerary details from world routing.</p>
+    </article>
+  `;
+}
+
+function worldRouteEmptyMarkup() {
+  return `
+    <div class="world-route-result-shell">
+      ${emptyStateMarkup({
+        body: "Choose world nodes or destinations, then plan a route to render a world itinerary.",
+        title: "World route summary appears after planning",
+      })}
+    </div>
+  `;
+}
+
+function worldRouteFailureMarkup(message) {
+  return `
+    <article class="surface-card route-summary-card route-stage-shell" data-route-world-result-state="error">
+      <p class="section-tag">World route</p>
+      <h3>Route planning failed</h3>
+      <p>${escapeHtml(text(message, "World route planning failed."))}</p>
+    </article>
+  `;
+}
+
+function worldRouteResultMarkup(itinerary, route) {
+  const legs = safeArray(itinerary?.legs);
+  const worldViewHref = createRouteContextHref("/map", { view: "world" }, route);
+  const fromLocalLeg = text(itinerary?.scope) === "cross-map" ? legs[0] : null;
+  const toLocalLeg = text(itinerary?.scope) === "cross-map" ? legs[2] : null;
+  const fromLocalHref = fromLocalLeg ? createWorldRouteLocalHref(fromLocalLeg, itinerary, route) : "";
+  const toLocalHref = toLocalLeg ? createWorldRouteLocalHref(toLocalLeg, itinerary, route) : "";
+  const summary = itinerary?.summary;
+  const legTags = legs
+    .map((leg) => {
+      if (text(leg?.scope) === "destination") {
+        return destinationLegLabel(leg);
+      }
+      if (text(leg?.scope) === "world") {
+        return worldLegLabel(leg);
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  const summaryTone = itinerary?.reachable ? "success" : "neutral";
+  const itineraryStatus = itinerary?.reachable ? "Route ready to follow." : "Route returned an incomplete itinerary.";
+  const failureSummary = itinerary?.reachable ? "" : itineraryFailureSummary(itinerary);
+
+  return `
+    <article
+      class="surface-card route-summary-card route-stage-shell"
+      data-route-world-result-state="${escapeHtml(summaryTone)}"
+      data-route-world-scope="${escapeHtml(text(itinerary?.scope, "world-only"))}"
+    >
+      <p class="section-tag">World route</p>
+      <h3>${escapeHtml(itineraryScopeLabel(text(itinerary?.scope)))}</h3>
+      ${resultMetaMarkup([
+        text(itinerary?.strategy, "distance"),
+        text(itinerary?.mode, "walk"),
+        `${formatMetricValue(itinerary?.totalDistance)} m`,
+        `cost ${formatMetricValue(itinerary?.totalCost)}`,
+      ])}
+      <p>${escapeHtml(itineraryStatus)}</p>
+      ${
+        failureSummary
+          ? `<p class="muted" data-route-world-failure="true">${escapeHtml(failureSummary)}</p>`
+          : `<p class="muted">Destination ${formatMetricValue(summary?.destinationDistance)} m · world ${formatMetricValue(summary?.worldDistance)} m · transfer ${formatMetricValue(summary?.transferDistance)} m.</p>`
+      }
+    </article>
+    <article class="surface-card route-summary-card route-stage-shell" data-route-world-result-state="details">
+      <p class="section-tag">Route handoff</p>
+      <h3>Local and world continuity</h3>
+      <div class="world-route-handoff-links" data-route-handoff-chain="local-world-local">
+        ${
+          fromLocalHref
+            ? `<a href="${fromLocalHref}" data-nav="true" data-route-handoff="local-origin">Origin local map</a>`
+            : `<span data-route-handoff="local-origin">Origin local map unavailable</span>`
+        }
+        <a href="${worldViewHref}" data-nav="true" data-route-handoff="world">World map</a>
+        ${
+          toLocalHref
+            ? `<a href="${toLocalHref}" data-nav="true" data-route-handoff="local-destination">Destination local map</a>`
+            : `<span data-route-handoff="local-destination">Destination local map unavailable</span>`
+        }
+      </div>
+      <div class="tag-row">
+        ${
+          legTags.length
+            ? legTags.map((label) => `<span class="tag" data-route-world-leg="true">${escapeHtml(label)}</span>`).join("")
+            : "<span class='tag'>No route legs returned.</span>"
+        }
+      </div>
+    </article>
+  `;
 }
 
 async function mountWorldMap(container, world, options = {}) {
@@ -206,6 +641,41 @@ async function mountWorldMap(container, world, options = {}) {
     }
   });
 
+  let activeRouteLayer = null;
+
+  function clearRouteLayer() {
+    if (!activeRouteLayer) {
+      return;
+    }
+    if (typeof map.removeLayer === "function") {
+      map.removeLayer(activeRouteLayer);
+    } else if (typeof activeRouteLayer.remove === "function") {
+      activeRouteLayer.remove();
+    }
+    activeRouteLayer = null;
+  }
+
+  function renderRoute(itinerary) {
+    clearRouteLayer();
+    if (typeof L.polyline !== "function") {
+      return;
+    }
+    const points = worldRoutePoints(world, itinerary);
+    if (points.length < 2) {
+      return;
+    }
+    activeRouteLayer = L.polyline(points, {
+      color: "#d95d1e",
+      lineCap: "round",
+      lineJoin: "round",
+      opacity: 0.92,
+      weight: 5,
+    }).addTo(map);
+    if (typeof activeRouteLayer.bringToFront === "function") {
+      activeRouteLayer.bringToFront();
+    }
+  }
+
   if (typeof map.setMaxBounds === "function") {
     map.setMaxBounds(bounds);
   }
@@ -213,10 +683,14 @@ async function mountWorldMap(container, world, options = {}) {
     map.fitBounds(bounds, { padding: [24, 24] });
   }
 
-  return () => {
-    if (typeof map.remove === "function") {
-      map.remove();
-    }
+  return {
+    destroy() {
+      clearRouteLayer();
+      if (typeof map.remove === "function") {
+        map.remove();
+      }
+    },
+    renderRoute,
   };
 }
 
@@ -260,16 +734,16 @@ function worldUnavailableMarkup(title, body, route) {
 export async function renderWorldMapView(app, route, root) {
   app.setDocumentTitle("World Map");
 
-  const routeActor = resolveRouteActor(route);
   const returnToExploreHref = createRouteContextHref("/explore", {}, route);
+  const routeActor = resolveRouteActor(route);
 
   root.innerHTML = `
     <section class="route-hero route-hero-map world-route-hero">
       <div class="route-hero-copy">
         <p class="eyebrow">World Map</p>
-        <h1>Browse the overworld without leaving the journal SPA.</h1>
+        <h1>Browse and plan world routes without leaving the journal SPA.</h1>
         <p class="route-lede">
-          This surface is read-only. Inspect regions and jump into a destination map when you need local routing.
+          Inspect regions, plan world itineraries, and jump into destination maps when you need local routing detail.
         </p>
         <div class="hero-actions">
           <a class="inline-link" href="${returnToExploreHref}" data-nav="true">Return to Explore</a>
@@ -279,8 +753,8 @@ export async function renderWorldMapView(app, route, root) {
         <p class="section-tag">World view</p>
         <ul class="hero-list">
           <li>Background art, regions, and destination markers render in Leaflet with CRS.Simple.</li>
-          <li>Selecting a destination opens the local destination map.</li>
-          <li>No route planning actions appear in world mode.</li>
+          <li>World route planning supports world-only and cross-map request scopes.</li>
+          <li>Destination marker selection still opens the local destination map.</li>
         </ul>
       </div>
     </section>
@@ -290,15 +764,77 @@ export async function renderWorldMapView(app, route, root) {
         <div class="section-head">
           <div>
             <p class="section-tag">Surface mode</p>
-            <h2>Read-only world surface</h2>
+            <h2>World routing surface</h2>
           </div>
         </div>
         <p class="world-map-copy">
-          Move between the world and local maps deliberately. Destination clicks keep the selected actor context and drop the world view flag.
+          Destination clicks keep actor context and open local maps. Route planning keeps world mode active and adds local/world/local handoff links.
         </p>
         <div id="world-map-meta">
           ${worldMetaMarkup(null, null)}
         </div>
+        <article class="surface-card route-stage-shell world-route-controls-shell">
+          <p class="section-tag">World routing</p>
+          <h3>Plan itinerary</h3>
+          <form id="world-route-form" class="control-grid world-route-form">
+            <label class="span-all">
+              Scope
+              <select id="world-route-scope" data-route-world-scope-select="true">
+                <option value="world-only">world-only</option>
+                <option value="cross-map">cross-map</option>
+              </select>
+            </label>
+            <div class="control-grid span-all world-route-scope-panel" data-route-world-scope-panel="world-only">
+              <label>
+                From world node
+                <select id="world-route-from-world-node"></select>
+              </label>
+              <label>
+                To world node
+                <select id="world-route-to-world-node"></select>
+              </label>
+            </div>
+            <div class="control-grid span-all world-route-scope-panel" data-route-world-scope-panel="cross-map" hidden>
+              <label>
+                From destination
+                <select id="world-route-from-destination"></select>
+              </label>
+              <label>
+                To destination
+                <select id="world-route-to-destination"></select>
+              </label>
+              <label>
+                Optional from local node
+                <input id="world-route-from-local-node" type="text" placeholder="local node id" />
+              </label>
+              <label>
+                Optional to local node
+                <input id="world-route-to-local-node" type="text" placeholder="local node id" />
+              </label>
+            </div>
+            <div class="control-grid span-all">
+              <label>
+                Strategy
+                <select id="world-route-strategy">
+                  ${WORLD_ROUTE_STRATEGIES.map((strategy) => `<option value="${escapeHtml(strategy)}">${escapeHtml(strategy)}</option>`).join("")}
+                </select>
+              </label>
+              <label>
+                Mode
+                <select id="world-route-mode">
+                  ${WORLD_ROUTE_MODES.map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+            <div class="button-row span-all">
+              <button type="submit" data-route-world-submit="true">Plan world route</button>
+              <button type="button" id="world-route-reset" class="ghost">Clear world route</button>
+            </div>
+          </form>
+          <div id="world-route-result">
+            ${worldRouteEmptyMarkup()}
+          </div>
+        </article>
       </article>
       <div id="world-map-stage">
         <article class="surface-card world-map-shell">
@@ -313,13 +849,120 @@ export async function renderWorldMapView(app, route, root) {
   const stage = root.querySelector("#world-map-stage");
   const meta = root.querySelector("#world-map-meta");
   const canvas = root.querySelector("#world-map-canvas");
+  const routeForm = root.querySelector("#world-route-form");
+  const routeResult = root.querySelector("#world-route-result");
+  const scopeSelect = root.querySelector("#world-route-scope");
+  const fromWorldNodeSelect = root.querySelector("#world-route-from-world-node");
+  const toWorldNodeSelect = root.querySelector("#world-route-to-world-node");
+  const fromDestinationSelect = root.querySelector("#world-route-from-destination");
+  const toDestinationSelect = root.querySelector("#world-route-to-destination");
+  const fromLocalNodeInput = root.querySelector("#world-route-from-local-node");
+  const toLocalNodeInput = root.querySelector("#world-route-to-local-node");
+  const strategySelect = root.querySelector("#world-route-strategy");
+  const modeSelect = root.querySelector("#world-route-mode");
+  const clearRouteButton = root.querySelector("#world-route-reset");
+  const scopePanels = Array.from(root.querySelectorAll("[data-route-world-scope-panel]"));
   let disposed = false;
-  let cleanupMap = null;
+  let mapController = null;
+  let world = null;
+  let routeFormEnabled = false;
+
+  function worldRouteFields() {
+    if (!routeForm) {
+      return [];
+    }
+    return Array.from(routeForm.querySelectorAll("input, select, button, textarea"));
+  }
+
+  const requestedStrategy = text(route.params?.strategy);
+  const requestedMode = text(route.params?.mode);
+  if (WORLD_ROUTE_STRATEGIES.includes(requestedStrategy) && strategySelect) {
+    strategySelect.value = requestedStrategy;
+  }
+  if (WORLD_ROUTE_MODES.includes(requestedMode) && modeSelect) {
+    modeSelect.value = requestedMode;
+  }
+  setRouteFormEnabled(false);
 
   function renderUnavailable(title, body) {
     if (stage) {
       stage.innerHTML = worldUnavailableMarkup(title, body, route);
     }
+    if (routeResult) {
+      routeResult.innerHTML = worldRouteFailureMarkup("World route controls are unavailable.");
+    }
+  }
+
+  function setRouteFormEnabled(enabled) {
+    routeFormEnabled = enabled;
+    worldRouteFields().forEach((element) => {
+      element.disabled = !enabled;
+    });
+  }
+
+  function selectOptionsMarkup(options, selectedValue) {
+    const list = [];
+    options.forEach((option) => {
+      const optionId = text(option?.id);
+      const selected = optionId === text(selectedValue) ? " selected" : "";
+      list.push(`<option value="${escapeHtml(optionId)}"${selected}>${escapeHtml(text(option?.label, optionId))}</option>`);
+    });
+    return list.join("");
+  }
+
+  function syncScopePanels() {
+    const scope = text(scopeSelect?.value, "world-only");
+    scopePanels.forEach((panel) => {
+      const panelScope = text(panel.getAttribute("data-route-world-scope-panel"));
+      const isActive = panelScope === scope;
+      panel.hidden = !isActive;
+      panel
+        .querySelectorAll("input, select, button, textarea")
+        .forEach((field) => {
+          field.disabled = !routeFormEnabled || !isActive;
+        });
+    });
+  }
+
+  function clearWorldRoute() {
+    if (!routeResult) {
+      return;
+    }
+    routeResult.innerHTML = worldRouteEmptyMarkup();
+    mapController?.renderRoute(null);
+  }
+
+  function buildWorldRoutePayload() {
+    const scope = text(scopeSelect?.value, "world-only") === "cross-map" ? "cross-map" : "world-only";
+    const strategy = text(strategySelect?.value, "distance");
+    const mode = text(modeSelect?.value, "walk");
+
+    if (scope === "cross-map") {
+      const payload = {
+        scope,
+        fromDestinationId: text(fromDestinationSelect?.value),
+        toDestinationId: text(toDestinationSelect?.value),
+        strategy,
+        mode,
+      };
+      const fromLocalNodeId = text(fromLocalNodeInput?.value);
+      const toLocalNodeId = text(toLocalNodeInput?.value);
+      if (fromLocalNodeId) {
+        payload.fromLocalNodeId = fromLocalNodeId;
+      }
+      if (toLocalNodeId) {
+        payload.toLocalNodeId = toLocalNodeId;
+      }
+      return payload;
+    }
+
+    return {
+      scope,
+      fromWorldNodeId: text(fromWorldNodeSelect?.value),
+      toWorldNodeId: text(toWorldNodeSelect?.value),
+      strategy,
+      mode,
+    };
   }
 
   try {
@@ -345,7 +988,17 @@ export async function renderWorldMapView(app, route, root) {
       return () => {};
     }
 
-    const world = extractWorld(detailsPayload);
+    world = extractWorld(detailsPayload);
+    const issues = collectWorldDetailsIssues(world);
+    if (issues.length > 0) {
+      renderUnavailable(
+        "World details unavailable",
+        "World details payload failed validation. Check world bounds, polygons, markers, and route graph data.",
+      );
+      app.setStatus(`World details are malformed: ${issues[0]}`, "error");
+      return () => {};
+    }
+
     if (!world) {
       renderUnavailable(
         "World details unavailable",
@@ -358,12 +1011,93 @@ export async function renderWorldMapView(app, route, root) {
     if (meta) {
       meta.innerHTML = worldMetaMarkup(summary, world);
     }
-    cleanupMap = await mountWorldMap(canvas, world, {
+    mapController = await mountWorldMap(canvas, world, {
       onDestinationSelect(destinationId) {
         const params = routeActor ? { actor: routeActor, destinationId } : { destinationId };
         app.navigate(app.buildMapHref(params));
       },
     });
+
+    const nodeOptions = safeArray(world.graph?.nodes).map((node) => ({
+      id: text(node?.id),
+      label: text(node?.label, text(node?.id)),
+    }));
+    const destinationOptions = safeArray(world.destinations).map((destination) => ({
+      id: text(destination?.destinationId),
+      label: text(destination?.label, text(destination?.destinationId)),
+    }));
+
+    if (fromWorldNodeSelect) {
+      fromWorldNodeSelect.innerHTML = selectOptionsMarkup(nodeOptions, nodeOptions[0]?.id);
+      fromWorldNodeSelect.value = text(nodeOptions[0]?.id);
+    }
+    if (toWorldNodeSelect) {
+      toWorldNodeSelect.innerHTML = selectOptionsMarkup(nodeOptions, nodeOptions[1]?.id || nodeOptions[0]?.id);
+      toWorldNodeSelect.value = text(nodeOptions[1]?.id || nodeOptions[0]?.id);
+    }
+    if (fromDestinationSelect) {
+      fromDestinationSelect.innerHTML = selectOptionsMarkup(destinationOptions, destinationOptions[0]?.id);
+      fromDestinationSelect.value = text(destinationOptions[0]?.id);
+    }
+    if (toDestinationSelect) {
+      toDestinationSelect.innerHTML = selectOptionsMarkup(
+        destinationOptions,
+        destinationOptions[1]?.id || destinationOptions[0]?.id,
+      );
+      toDestinationSelect.value = text(destinationOptions[1]?.id || destinationOptions[0]?.id);
+    }
+
+    setRouteFormEnabled(true);
+    syncScopePanels();
+    clearWorldRoute();
+
+    scopeSelect?.addEventListener("change", () => {
+      syncScopePanels();
+    });
+
+    routeForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (disposed || !world) {
+        return;
+      }
+      if (routeResult) {
+        routeResult.innerHTML = worldRoutePendingMarkup();
+      }
+      try {
+        const payload = buildWorldRoutePayload();
+        const response = await app.requestJson("/api/world/routes/plan", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        if (disposed) {
+          return;
+        }
+        const itinerary = response?.item;
+        if (!isRecord(itinerary) || !Array.isArray(itinerary.legs) || !isRecord(itinerary.summary)) {
+          throw new Error("World route payload is malformed.");
+        }
+        mapController?.renderRoute(itinerary);
+        if (routeResult) {
+          routeResult.innerHTML = worldRouteResultMarkup(itinerary, route);
+        }
+        app.setStatus(itinerary.reachable ? "World route ready." : "World route returned an incomplete itinerary.", itinerary.reachable ? "success" : "neutral");
+      } catch (error) {
+        if (disposed) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "World route planning failed.";
+        mapController?.renderRoute(null);
+        if (routeResult) {
+          routeResult.innerHTML = worldRouteFailureMarkup(message);
+        }
+        app.setStatus(message, "error");
+      }
+    });
+
+    clearRouteButton?.addEventListener("click", () => {
+      clearWorldRoute();
+    });
+
     app.setStatus("World surface ready.", "success");
   } catch (error) {
     const message = error instanceof Error ? error.message : "World map failed to load.";
@@ -376,8 +1110,6 @@ export async function renderWorldMapView(app, route, root) {
 
   return () => {
     disposed = true;
-    if (typeof cleanupMap === "function") {
-      cleanupMap();
-    }
+    mapController?.destroy();
   };
 }

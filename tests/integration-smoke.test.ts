@@ -147,6 +147,23 @@ function disableWorld(services: AppServices): void {
   services.runtime.world = deriveWorldRuntimeState(services.runtime.seedData);
 }
 
+function cloneWorld(services: AppServices) {
+  const world = services.runtime.seedData.world;
+  if (!world) {
+    throw new Error("World mode is unavailable.");
+  }
+  return JSON.parse(JSON.stringify(world)) as typeof world;
+}
+
+function applyWorld(services: AppServices, world: NonNullable<AppServices["runtime"]["seedData"]["world"]>): void {
+  services.runtime.seedData = {
+    ...services.runtime.seedData,
+    world,
+  };
+  services.runtime.lookups.world = world;
+  services.runtime.world = deriveWorldRuntimeState(services.runtime.seedData);
+}
+
 test("demo support exposes deterministic end-to-end coverage", async () => {
   const report = await createDemoReport();
 
@@ -290,8 +307,8 @@ test("server exposes read-only world summary and details while keeping bootstrap
     assert.equal(summary.body.enabled, true, summary.text);
     assert.deepEqual(summary.body.capabilities, {
       worldView: true,
-      destinationRouting: false,
-      crossMapRouting: false,
+      destinationRouting: true,
+      crossMapRouting: true,
     });
     assert.deepEqual(
       Object.keys(summary.body.world ?? {}).sort(),
@@ -351,6 +368,164 @@ test("server returns disabled world summary and a conflict for details when worl
         code: "world_unavailable",
       });
 
+      assert.equal(bootstrap.status, 200, bootstrap.text);
+      assert.equal("world" in bootstrap.body, false, bootstrap.text);
+    },
+    {
+      prepareServices: disableWorld,
+    },
+  );
+});
+
+test("server exposes world route planning for cross-map destination-to-destination and local-node-to-local-node requests", async () => {
+  await withServer("world-routes-success", async ({ requestJson }) => {
+    const destinationToDestination = await requestJson<{
+      item: {
+        reachable: boolean;
+        scope: string;
+        legs: Array<Record<string, unknown>>;
+        portalSelection: { entryPortalId: string; exitPortalId: string };
+      };
+    }>("/api/world/routes/plan", {
+      method: "POST",
+      body: {
+        scope: "cross-map",
+        fromDestinationId: "dest-002",
+        toDestinationId: "dest-004",
+        strategy: "distance",
+        mode: "walk",
+      },
+    });
+
+    assert.equal(destinationToDestination.status, 200, destinationToDestination.text);
+    assert.equal(destinationToDestination.body.item.reachable, true, destinationToDestination.text);
+    assert.equal(destinationToDestination.body.item.scope, "cross-map");
+    assert.equal(destinationToDestination.body.item.legs.length, 3, destinationToDestination.text);
+    assert.equal(destinationToDestination.body.item.legs[0]?.scope, "destination", destinationToDestination.text);
+    assert.equal(destinationToDestination.body.item.legs[1]?.scope, "world", destinationToDestination.text);
+    assert.equal(destinationToDestination.body.item.legs[2]?.scope, "destination", destinationToDestination.text);
+    assert.equal(destinationToDestination.body.item.portalSelection.entryPortalId, "portal-dest-002-main");
+    assert.equal(destinationToDestination.body.item.portalSelection.exitPortalId, "portal-dest-004-main");
+
+    const localNodeToLocalNode = await requestJson<{
+      item: {
+        reachable: boolean;
+        legs: Array<Record<string, unknown>>;
+      };
+    }>("/api/world/routes/plan", {
+      method: "POST",
+      body: {
+        scope: "cross-map",
+        fromDestinationId: "dest-002",
+        toDestinationId: "dest-004",
+        fromLocalNodeId: "dest-002-archive",
+        toLocalNodeId: "dest-004-archive",
+        strategy: "distance",
+        mode: "walk",
+      },
+    });
+
+    assert.equal(localNodeToLocalNode.status, 200, localNodeToLocalNode.text);
+    assert.equal(localNodeToLocalNode.body.item.reachable, true, localNodeToLocalNode.text);
+    assert.equal(
+      (localNodeToLocalNode.body.item.legs[0]?.localNodeIds as string[])[0],
+      "dest-002-archive",
+      localNodeToLocalNode.text,
+    );
+    assert.equal(
+      (localNodeToLocalNode.body.item.legs[2]?.localNodeIds as string[])[
+        (localNodeToLocalNode.body.item.legs[2]?.localNodeIds as string[]).length - 1
+      ],
+      "dest-004-archive",
+      localNodeToLocalNode.text,
+    );
+
+    const worldOnly = await requestJson<{
+      item: {
+        reachable: boolean;
+        scope: string;
+        legs: Array<Record<string, unknown>>;
+      };
+    }>("/api/world/routes/plan", {
+      method: "POST",
+      body: {
+        scope: "world-only",
+        fromWorldNodeId: "world-node-dest-002-main",
+        toWorldNodeId: "world-node-dest-004-main",
+        strategy: "distance",
+        mode: "walk",
+      },
+    });
+
+    assert.equal(worldOnly.status, 200, worldOnly.text);
+    assert.equal(worldOnly.body.item.reachable, true, worldOnly.text);
+    assert.equal(worldOnly.body.item.scope, "world-only", worldOnly.text);
+    assert.equal(worldOnly.body.item.legs.length, 1, worldOnly.text);
+    assert.equal(worldOnly.body.item.legs[0]?.scope, "world", worldOnly.text);
+  });
+});
+
+test("server returns reachable=false with world failure and prefix legs when world graph is disconnected", async () => {
+  await withServer(
+    "world-routes-world-failure",
+    async ({ requestJson }) => {
+      const response = await requestJson<{
+        item: {
+          reachable: boolean;
+          legs: Array<Record<string, unknown>>;
+          failure: { stage: string; code: string };
+        };
+      }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+
+      assert.equal(response.status, 200, response.text);
+      assert.equal(response.body.item.reachable, false, response.text);
+      assert.equal(response.body.item.failure.stage, "world", response.text);
+      assert.equal(response.body.item.failure.code, "world_segment_unreachable", response.text);
+      assert.equal(response.body.item.legs.length, 1, response.text);
+      assert.equal(response.body.item.legs[0]?.scope, "destination", response.text);
+    },
+    {
+      prepareServices: (services) => {
+        const world = cloneWorld(services);
+        world.graph.edges = world.graph.edges.filter(
+          (edge) => edge.id !== "world-edge-west-to-crossing" && edge.id !== "world-edge-west-to-central",
+        );
+        applyWorld(services, world);
+      },
+    },
+  );
+});
+
+test("server returns world_unavailable for world route planning and keeps bootstrap free of world payload", async () => {
+  await withServer(
+    "world-routes-unavailable",
+    async ({ requestJson }) => {
+      const route = await requestJson<{ error: string; code: string }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+      const bootstrap = await requestJson<Record<string, unknown>>("/api/bootstrap");
+
+      assert.equal(route.status, 409, route.text);
+      assert.deepEqual(route.body, {
+        error: "World mode is unavailable.",
+        code: "world_unavailable",
+      });
       assert.equal(bootstrap.status, 200, bootstrap.text);
       assert.equal("world" in bootstrap.body, false, bootstrap.text);
     },

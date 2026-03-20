@@ -93,6 +93,45 @@ test("validateSeedData rejects invalid world references and portal semantics", (
       },
       expectedIssue: /references unknown local node "dest-001-missing-gate" in destination "dest-001"/,
     },
+    {
+      name: "world node kind must stay in the frozen domain",
+      mutate: (candidate) => {
+        const worldNode = candidate.world!.graph.nodes[0];
+        worldNode.kind = "sky-node" as unknown as (typeof worldNode)["kind"];
+      },
+      expectedIssue: /has unsupported kind "sky-node"/,
+    },
+    {
+      name: "world edge roadType must stay in the frozen domain",
+      mutate: (candidate) => {
+        const worldEdge = candidate.world!.graph.edges[0];
+        worldEdge.roadType = "hyperloop" as unknown as (typeof worldEdge)["roadType"];
+      },
+      expectedIssue: /has unsupported roadType "hyperloop"/,
+    },
+    {
+      name: "world edge allowedModes must stay in the frozen domain",
+      mutate: (candidate) => {
+        const worldEdge = candidate.world!.graph.edges[0];
+        worldEdge.allowedModes = ["teleport"] as unknown as typeof worldEdge.allowedModes;
+      },
+      expectedIssue: /includes unsupported travel mode "teleport"/,
+    },
+    {
+      name: "world portal allowedModes must stay in the frozen domain",
+      mutate: (candidate) => {
+        const portal = candidate.world!.portals[0];
+        portal.allowedModes = ["walk", "teleport"] as unknown as typeof portal.allowedModes;
+      },
+      expectedIssue: /includes unsupported travel mode "teleport"/,
+    },
+    {
+      name: "world portal direction must stay in the frozen domain",
+      mutate: (candidate) => {
+        candidate.world!.portals[0].direction = "outbound-only";
+      },
+      expectedIssue: /has unsupported direction "outbound-only"/,
+    },
   ];
 
   for (const testCase of cases) {
@@ -104,6 +143,16 @@ test("validateSeedData rejects invalid world references and portal semantics", (
     assert.equal(result.ok, false, `${testCase.name} unexpectedly passed validation`);
     assert.equal(testCase.expectedIssue.test(result.issues.join("\n")), true, testCase.name);
   }
+});
+
+test("validateSeedData accepts frozen world portal directions inbound and outbound", () => {
+  const candidate = structuredClone(seedData);
+  candidate.world!.portals[0].direction = "inbound";
+  candidate.world!.portals[1].direction = "outbound";
+
+  const result = validateSeedData(candidate);
+
+  assert.equal(result.ok, true, result.issues.join("\n"));
 });
 
 test("world seed keeps the Boston-inspired structural constraints deterministic", () => {

@@ -1552,6 +1552,86 @@ body {
   color: rgba(17, 32, 49, 0.8);
 }
 
+.world-route-controls-shell {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(17, 32, 49, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(246, 238, 223, 0.92)),
+    radial-gradient(circle at top right, rgba(44, 110, 145, 0.08), transparent 42%);
+}
+
+.world-route-controls-shell > h3 {
+  margin: 0;
+}
+
+.world-route-form {
+  gap: 10px;
+}
+
+.world-route-form .control-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.world-route-scope-panel[hidden] {
+  display: none;
+}
+
+.world-route-controls-shell .button-row {
+  margin-top: 0;
+}
+
+.world-route-controls-shell .button-row > button[type="submit"] {
+  box-shadow: 0 10px 20px rgba(217, 93, 30, 0.2);
+}
+
+.world-route-controls-shell .button-row > .ghost {
+  border: 1px solid rgba(17, 32, 49, 0.12);
+  background: rgba(255, 252, 246, 0.9);
+  color: rgba(17, 32, 49, 0.84);
+  box-shadow: none;
+}
+
+#world-route-result {
+  display: grid;
+  gap: 10px;
+}
+
+.world-route-result-shell .empty-state {
+  padding: 0;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.world-route-handoff-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.world-route-handoff-links > a,
+.world-route-handoff-links > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 32, 49, 0.14);
+  background: rgba(255, 253, 246, 0.9);
+  color: rgba(17, 32, 49, 0.82);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.world-route-handoff-links > a:hover {
+  border-color: rgba(17, 32, 49, 0.28);
+}
+
 .world-map-meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1832,6 +1912,10 @@ body {
   .world-map-frame,
   .world-map-canvas {
     min-height: 420px;
+  }
+
+  .world-route-form .control-grid {
+    grid-template-columns: 1fr;
   }
 
   .advanced-panel-grid {

@@ -3,6 +3,7 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { parseDestinationSortBy } from "../services/contracts";
 import { createAppServices, type AppServices } from "../services/index";
+import { isWorldRouteServiceError } from "../services/world-route-service";
 
 const publicDir = path.resolve(process.cwd(), "public");
 
@@ -170,6 +171,22 @@ async function handleApi(
     }
     json(response, 200, services.world.details());
     return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/world/routes/plan") {
+    try {
+      const body = await readBody(request);
+      json(response, 200, {
+        item: services.worldRouting.plan(body),
+      });
+      return true;
+    } catch (error) {
+      if (isWorldRouteServiceError(error)) {
+        json(response, error.statusCode, error.payload);
+        return true;
+      }
+      throw error;
+    }
   }
 
   if (request.method === "GET" && url.pathname === "/api/feed") {

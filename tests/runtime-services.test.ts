@@ -5,6 +5,7 @@ import test from "node:test";
 
 import { createAppServices, type AppServices } from "../src/services/index";
 import { deriveWorldRuntimeState } from "../src/services/runtime";
+import { isWorldRouteServiceError } from "../src/services/world-route-service";
 
 // These package-level checks depend on the runtime/service wiring the external algorithm bundle.
 // Use an isolated runtimeDir because JournalStore persists the seed journals on disk.
@@ -64,6 +65,23 @@ function disableWorld(app: AppServices): void {
     world: undefined,
   };
   app.runtime.lookups.world = undefined;
+  app.runtime.world = deriveWorldRuntimeState(app.runtime.seedData);
+}
+
+function cloneWorld(app: AppServices) {
+  const world = app.runtime.seedData.world;
+  if (!world) {
+    throw new Error("World mode is unavailable.");
+  }
+  return JSON.parse(JSON.stringify(world)) as typeof world;
+}
+
+function applyWorld(app: AppServices, world: NonNullable<AppServices["runtime"]["seedData"]["world"]>): void {
+  app.runtime.seedData = {
+    ...app.runtime.seedData,
+    world,
+  };
+  app.runtime.lookups.world = world;
   app.runtime.world = deriveWorldRuntimeState(app.runtime.seedData);
 }
 
@@ -151,8 +169,8 @@ test("runtime derives read-only world capabilities and world service keeps summa
     available: true,
     capabilities: {
       worldView: true,
-      destinationRouting: false,
-      crossMapRouting: false,
+      destinationRouting: true,
+      crossMapRouting: true,
     },
   });
   assert.equal(app.runtime.lookups.world, app.runtime.seedData.world);
@@ -196,6 +214,215 @@ test("world service exposes disabled summary and unavailable details when world 
     code: "world_unavailable",
   });
   assert.throws(() => app.world.details(), /World mode is unavailable\./);
+});
+
+test("world route service plans cross-map destination-to-destination routes using zero-length local boundary legs", async () => {
+  const app = await createIsolatedApp("world-routing-destination-to-destination");
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<Record<string, unknown>>;
+    portalSelection: Record<string, unknown>;
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.equal(itinerary.legs.length, 3, format(itinerary.legs));
+  assert.equal(itinerary.legs[0]?.scope, "destination", format(itinerary.legs[0]));
+  assert.equal(itinerary.legs[0]?.distance, 0, format(itinerary.legs[0]));
+  assert.equal(Array.isArray(itinerary.legs[0]?.steps), true, format(itinerary.legs[0]));
+  assert.equal((itinerary.legs[0]?.steps as unknown[]).length, 0, format(itinerary.legs[0]));
+  assert.equal(itinerary.legs[1]?.scope, "world", format(itinerary.legs[1]));
+  assert.equal(itinerary.legs[2]?.scope, "destination", format(itinerary.legs[2]));
+  assert.equal(itinerary.legs[2]?.distance, 0, format(itinerary.legs[2]));
+  assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-main");
+  assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-main");
+});
+
+test("world route service plans world-only routes from world node to world node", async () => {
+  const app = await createIsolatedApp("world-routing-world-only");
+  const itinerary = app.worldRouting.plan({
+    scope: "world-only",
+    fromWorldNodeId: "world-node-dest-002-main",
+    toWorldNodeId: "world-node-dest-004-main",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    scope: string;
+    legs: Array<Record<string, unknown>>;
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.equal(itinerary.scope, "world-only", format(itinerary));
+  assert.equal(itinerary.legs.length, 1, format(itinerary.legs));
+  assert.equal(itinerary.legs[0]?.scope, "world", format(itinerary.legs[0]));
+  assert.equal(
+    (itinerary.legs[0]?.steps as Array<{ kind?: string }>).every((step) => step.kind === "world-edge"),
+    true,
+    format(itinerary.legs[0]),
+  );
+});
+
+test("world route service plans cross-map routes between explicit local nodes", async () => {
+  const app = await createIsolatedApp("world-routing-local-to-local");
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    fromLocalNodeId: "dest-002-archive",
+    toLocalNodeId: "dest-004-archive",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<Record<string, unknown>>;
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.equal(itinerary.legs.length, 3, format(itinerary.legs));
+  const originLocalLeg = itinerary.legs[0];
+  const targetLocalLeg = itinerary.legs[2];
+  assert.equal(originLocalLeg?.scope, "destination", format(originLocalLeg));
+  assert.equal(targetLocalLeg?.scope, "destination", format(targetLocalLeg));
+  assert.equal((originLocalLeg?.localNodeIds as string[])[0], "dest-002-archive", format(originLocalLeg));
+  assert.equal(
+    (originLocalLeg?.localNodeIds as string[])[(originLocalLeg?.localNodeIds as string[]).length - 1],
+    "dest-002-gate",
+    format(originLocalLeg),
+  );
+  assert.equal((targetLocalLeg?.localNodeIds as string[])[0], "dest-004-gate", format(targetLocalLeg));
+  assert.equal(
+    (targetLocalLeg?.localNodeIds as string[])[(targetLocalLeg?.localNodeIds as string[]).length - 1],
+    "dest-004-archive",
+    format(targetLocalLeg),
+  );
+  assert.equal((originLocalLeg?.steps as unknown[]).length > 0, true, format(originLocalLeg));
+  assert.equal((targetLocalLeg?.steps as unknown[]).length > 0, true, format(targetLocalLeg));
+});
+
+test("world route service respects mode-restricted portal candidates during deterministic selection", async () => {
+  const app = await createIsolatedApp("world-routing-mode-portal-selection");
+  const world = cloneWorld(app);
+  const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+  const targetMain = world.portals.find((portal) => portal.id === "portal-dest-004-main");
+  if (!originMain || !targetMain) {
+    throw new Error(format({ originMain, targetMain }));
+  }
+
+  world.portals.push(
+    {
+      ...originMain,
+      id: "portal-dest-002-bike-only-fast",
+      label: "River Polytechnic Bike Connector",
+      allowedModes: ["bike"],
+      priority: 1,
+      transferDistance: 2,
+      transferCost: 1,
+    },
+    {
+      ...originMain,
+      id: "portal-dest-002-walk-only-fast",
+      label: "River Polytechnic Walk Connector",
+      allowedModes: ["walk"],
+      priority: 2,
+      transferDistance: 2,
+      transferCost: 1,
+    },
+    {
+      ...targetMain,
+      id: "portal-dest-004-bike-only-fast",
+      label: "Summit Learning Hub Bike Connector",
+      allowedModes: ["bike"],
+      priority: 1,
+      transferDistance: 2,
+      transferCost: 1,
+    },
+    {
+      ...targetMain,
+      id: "portal-dest-004-walk-only-fast",
+      label: "Summit Learning Hub Walk Connector",
+      allowedModes: ["walk"],
+      priority: 2,
+      transferDistance: 2,
+      transferCost: 1,
+    },
+  );
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    portalSelection: { entryPortalId: string; exitPortalId: string };
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-walk-only-fast");
+  assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-walk-only-fast");
+});
+
+test("world route service returns reachable=false with prefix legs when world traversal becomes disconnected", async () => {
+  const app = await createIsolatedApp("world-routing-world-unreachable");
+  const world = cloneWorld(app);
+  world.graph.edges = world.graph.edges.filter(
+    (edge) => edge.id !== "world-edge-west-to-crossing" && edge.id !== "world-edge-west-to-central",
+  );
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<Record<string, unknown>>;
+    failure?: Record<string, unknown>;
+  };
+
+  assert.equal(itinerary.reachable, false, format(itinerary));
+  assert.equal(itinerary.failure?.stage, "world", format(itinerary.failure));
+  assert.equal(itinerary.failure?.code, "world_segment_unreachable", format(itinerary.failure));
+  assert.equal(itinerary.legs.length, 1, format(itinerary.legs));
+  assert.equal(itinerary.legs[0]?.scope, "destination", format(itinerary.legs[0]));
+});
+
+test("world route service returns the world unavailable contract when world mode is disabled", async () => {
+  const app = await createIsolatedApp("world-routing-unavailable");
+  disableWorld(app);
+
+  try {
+    app.worldRouting.plan({
+      scope: "cross-map",
+      fromDestinationId: "dest-002",
+      toDestinationId: "dest-004",
+      strategy: "distance",
+      mode: "walk",
+    });
+  } catch (error) {
+    assert.equal(isWorldRouteServiceError(error), true, format(error));
+    if (!isWorldRouteServiceError(error)) {
+      throw error;
+    }
+    assert.equal(error.statusCode, 409, format(error.payload));
+    assert.deepEqual(error.payload, {
+      error: "World mode is unavailable.",
+      code: "world_unavailable",
+    });
+    return;
+  }
+
+  throw new Error("Expected world route planning to fail when world mode is disabled.");
 });
 
 test("food search tolerates typo queries on the real dataset", async () => {

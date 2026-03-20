@@ -9,11 +9,14 @@ import type {
   FoodVenue,
   JournalEntry,
   SeedData,
+  TravelMode,
   UserProfile,
   WorldDestinationPlacement,
   WorldEdgeRecord,
   WorldMapRecord,
+  WorldNodeKind,
   WorldNodeRecord,
+  WorldRoadType,
   WorldRegionRecord,
 } from "../domain/models";
 
@@ -25,6 +28,29 @@ export const MINIMUM_COUNTS = {
   facilities: 50,
   edges: 200,
 } as const;
+
+const TRAVEL_MODE_DOMAIN = ["walk", "bike", "shuttle", "mixed"] as const satisfies readonly TravelMode[];
+const WORLD_NODE_KIND_DOMAIN = [
+  "portal",
+  "junction",
+  "hub",
+  "region-center",
+] as const satisfies readonly WorldNodeKind[];
+const WORLD_ROAD_TYPE_DOMAIN = [
+  "road",
+  "rail",
+  "trail",
+  "ferry",
+  "tunnel",
+  "airlift",
+  "bridge",
+] as const satisfies readonly WorldRoadType[];
+const WORLD_PORTAL_DIRECTION_DOMAIN = ["inbound", "outbound", "bidirectional"] as const;
+
+const TRAVEL_MODE_SET = new Set<string>(TRAVEL_MODE_DOMAIN);
+const WORLD_NODE_KIND_SET = new Set<string>(WORLD_NODE_KIND_DOMAIN);
+const WORLD_ROAD_TYPE_SET = new Set<string>(WORLD_ROAD_TYPE_DOMAIN);
+const WORLD_PORTAL_DIRECTION_SET = new Set<string>(WORLD_PORTAL_DIRECTION_DOMAIN);
 
 export interface SeedMetrics {
   destinations: number;
@@ -93,6 +119,11 @@ function validateTravelModes(
   }
   if (!hasUniqueStrings([...modes])) {
     issues.push(`${label} includes duplicate travel modes`);
+  }
+  for (const mode of modes) {
+    if (!TRAVEL_MODE_SET.has(mode)) {
+      issues.push(`${label} includes unsupported travel mode "${mode}"`);
+    }
   }
 }
 
@@ -211,6 +242,9 @@ function validateWorldNode(
   if (!isNonEmptyString(node.label)) {
     issues.push(`world node "${node.id}" is missing a label`);
   }
+  if (!WORLD_NODE_KIND_SET.has(node.kind)) {
+    issues.push(`world node "${node.id}" has unsupported kind "${node.kind}"`);
+  }
   validateWorldCoordinates(node.x, node.y, world.width, world.height, `world node "${node.id}"`, issues);
   validateStringArray(node.tags, `world node "${node.id}" tags`, issues);
   if (node.destinationId && !destinationIds.has(node.destinationId)) {
@@ -237,6 +271,9 @@ function validateWorldEdge(
   }
   if (!isFiniteNumber(edge.congestion) || edge.congestion < 0 || edge.congestion > 1) {
     issues.push(`world edge "${edge.id}" has invalid congestion ${edge.congestion}`);
+  }
+  if (!WORLD_ROAD_TYPE_SET.has(edge.roadType)) {
+    issues.push(`world edge "${edge.id}" has unsupported roadType "${edge.roadType}"`);
   }
   validateTravelModes(edge.allowedModes, `world edge "${edge.id}"`, issues);
   if (typeof edge.bidirectional !== "boolean") {
@@ -272,6 +309,8 @@ function validateWorldPortal(
   validateTravelModes(portal.allowedModes, `world portal "${portal.id}"`, issues);
   if (!isNonEmptyString(portal.direction)) {
     issues.push(`world portal "${portal.id}" is missing a direction`);
+  } else if (!WORLD_PORTAL_DIRECTION_SET.has(portal.direction)) {
+    issues.push(`world portal "${portal.id}" has unsupported direction "${portal.direction}"`);
   }
   if (!isFiniteNumber(portal.transferDistance) || portal.transferDistance < 0) {
     issues.push(`world portal "${portal.id}" must use a non-negative transferDistance`);

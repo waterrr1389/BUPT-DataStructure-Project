@@ -48,6 +48,17 @@ const runtimeImport = new Function("specifier", "return import(specifier);") as 
   specifier: string,
 ) => Promise<unknown>;
 
+function ensureRouteVisualizationMarkers(): void {
+  const runtimeGlobals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
+  };
+  if (!runtimeGlobals.RouteVisualizationMarkers) {
+    runtimeGlobals.RouteVisualizationMarkers = require(
+      path.join(process.cwd(), "public", "route-visualization-markers.js"),
+    );
+  }
+}
+
 function escapeText(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -495,6 +506,7 @@ async function ensureSpaModuleRoot(): Promise<string> {
 }
 
 export async function importSpaModule<TModule>(relativePath: string): Promise<TModule> {
+  ensureRouteVisualizationMarkers();
   const moduleRoot = await ensureSpaModuleRoot();
   const absolutePath = path.join(moduleRoot, "spa", relativePath);
   const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");

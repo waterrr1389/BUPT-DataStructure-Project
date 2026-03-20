@@ -84,12 +84,18 @@ function resolveSourceKind(value: unknown): RuntimeSourceKind {
 
 export function deriveWorldRuntimeState(data: SeedDataContract): WorldRuntimeState {
   const available = Boolean(data.world);
+  const routingAvailable = Boolean(
+    data.world &&
+      data.world.graph.nodes.length > 0 &&
+      data.world.graph.edges.length > 0 &&
+      data.world.portals.length > 0,
+  );
   return {
     available,
     capabilities: {
       worldView: available,
-      destinationRouting: false,
-      crossMapRouting: false,
+      destinationRouting: routingAvailable,
+      crossMapRouting: routingAvailable,
     },
   };
 }

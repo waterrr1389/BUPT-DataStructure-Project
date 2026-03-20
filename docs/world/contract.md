@@ -159,8 +159,110 @@ seed 顶层保持：
 - `localNodeId` 必须指向对应 destination 内真实 local node
 - `transferDistance` 与 `transferCost` 都是单次穿越成本
 - `direction = bidirectional` 只表示双向可用，不表示双倍计费
+- `direction` 仅允许：`inbound`、`outbound`、`bidirectional`
+
+## Route Units And Ranges
+
+冻结单位与范围：
+
+- `distance` 单位固定为 `meters`，范围 `[0, 1_000_000]`
+- `cost` 单位固定为 `cost-units`，范围 `[0, 2_000_000]`
+- `transferDistance` 单位固定为 `meters`，范围 `[0, 10_000]`
+- `transferCost` 单位固定为 `cost-units`，范围 `[0, 100_000]`
+- `congestion` 为无量纲比率，范围 `[0, 1]`
+- `congestion` 派生倍率范围固定为 `[1, 2]`
+
+冻结公式：
+
+- world edge 成本固定为 `distance * (1 + congestion)`
+- 派生成本范围固定为 `[distance, distance * 2]`
 
 ## Route Semantics
+
+## `WorldRouteStep`
+
+`WorldRouteStep` 冻结为以下三种离散步骤：
+
+1) `local-edge`
+
+- `kind`
+- `destinationId`
+- `edgeId`
+- `fromLocalNodeId`
+- `toLocalNodeId`
+- `mode`
+- `distance`
+- `cost`
+
+2) `world-edge`
+
+- `kind`
+- `edgeId`
+- `fromWorldNodeId`
+- `toWorldNodeId`
+- `roadType`
+- `mode`
+- `distance`
+- `congestion`
+- `cost`
+
+3) `portal-transfer`
+
+- `kind`
+- `portalId`
+- `transferDirection` (`local-to-world` | `world-to-local`)
+- `destinationId`
+- `localNodeId`
+- `worldNodeId`
+- `mode`
+- `transferDistance`
+- `transferCost`
+- `distance`
+- `cost`
+
+## `WorldRouteLeg`
+
+`WorldRouteLeg` 仅允许两种 scope：
+
+- `destination`
+- `world`
+
+冻结语义：
+
+- `destination` leg 只能包含 `local-edge` steps
+- `world` leg 只能包含 `world-edge` 与 `portal-transfer` steps
+- `portal` 不是独立 leg scope
+
+`destination` leg 必填字段：
+
+- `scope`
+- `destinationId`
+- `localNodeIds`
+- `distance`
+- `cost`
+- `steps`
+
+`world` leg 必填字段：
+
+- `scope`
+- `worldNodeIds`
+- `distance`
+- `cost`
+- `steps`
+
+`world-only` 的 `world` leg：
+
+- `steps` 仅允许 `world-edge`
+- 不提供 `entryPortalId`、`exitPortalId`
+
+`cross-map` 的 `world` leg：
+
+- 必须提供 `entryPortalId`
+- 必须提供 `exitPortalId`
+- `steps` 必须为：
+  - 第一个 `portal-transfer(local-to-world)`
+  - 零个或多个 `world-edge`
+  - 最后一个 `portal-transfer(world-to-local)`
 
 ## `WorldRouteItinerary`
 
@@ -179,38 +281,59 @@ seed 顶层保持：
 可选字段：
 
 - `failure?`
+- `portalSelection?`（仅 `scope = cross-map` 必填）
 
 顶层 `scope`：
 
 - `world-only`
 - `cross-map`
 
-## `WorldRouteLeg`
+冻结边界：
 
-必填字段：
+- `scope = world-only` 时，`legs` 必须且仅能为一个 `world` leg
+- `scope = cross-map` 时，`legs` 必须且仅能按顺序为：
+  - 第一个 `destination` leg（origin local）
+  - 一个 `world` leg
+  - 第二个 `destination` leg（target local）
+- `scope = cross-map` 时，`world` leg 必须提供 `entryPortalId` 与 `exitPortalId`
+- `scope = cross-map` 时，`world` leg 的第一个 step 必须是 `portal-transfer(local-to-world)`，最后一个 step 必须是 `portal-transfer(world-to-local)`
+- 当 `fromLocalNodeId` 缺失时，origin `destination` leg 边界固定在选中 `entryPortalId.localNodeId`
+- 当 `toLocalNodeId` 缺失时，target `destination` leg 边界固定在选中 `exitPortalId.localNodeId`
+- 上述“缺失 local node”场景仍必须保留 local/world/local 三段边界，允许对应 local leg 为 `distance = 0`、`cost = 0`、`steps = []`
 
-- `scope`
-- `distance`
-- `cost`
-- `steps`
+## `WorldRoutePortalSelection`
 
-可选字段：
+`scope = cross-map` 时，portal 选择规则固定为确定性流程：
 
-- `destinationId?`
-- `worldNodeIds?`
-- `localNodeIds?`
-- `entryPortalId?`
-- `exitPortalId?`
+1. 枚举所有可行 `(entryPortalId, exitPortalId)` 组合。可行条件：
+   - portal `direction` 与 `mode` 允许对应方向穿越
+   - 两 portal 在 world graph 上可连通
+2. 对每个组合计算总分：
+   - `totalCost = originLocalCost + entry.transferCost + worldCost + exit.transferCost + targetLocalCost`
+3. 按如下稳定顺序排序并取第一项：
+   - `totalCost` 升序
+   - `worldCost` 升序
+   - `entry.priority` 升序
+   - `exit.priority` 升序
+   - `entry.id` 字典序升序
+   - `exit.id` 字典序升序
 
-`scope` 枚举：
+`portalSelection` 必填字段：
 
-- `destination`
-- `world`
+- `ruleVersion`（固定 `v1`）
+- `candidatePairCount`
+- `entryPortalId`
+- `exitPortalId`
+- `tieBreakOrder`
 
-冻结语义：
+`tieBreakOrder` 固定值顺序：
 
-- `portal` 不作为独立 leg scope
-- portal 穿越通过 `entryPortalId`、`exitPortalId` 或 step metadata 表达
+- `total-cost-asc`
+- `world-cost-asc`
+- `entry-priority-asc`
+- `exit-priority-asc`
+- `entry-id-asc`
+- `exit-id-asc`
 
 ## `WorldRouteFailure`
 
@@ -218,6 +341,7 @@ seed 顶层保持：
 
 - `stage`
 - `reason`
+- `code`
 
 可选字段：
 
@@ -231,6 +355,22 @@ seed 顶层保持：
 - `world`
 - `destination-portal`
 - `destination-local`
+
+`reason` 枚举：
+
+- `unreachable`
+- `mode_not_allowed`
+- `direction_not_allowed`
+- `world_disconnected`
+- `portal_misconfigured`
+
+`code` 枚举：
+
+- `origin_local_unreachable`
+- `origin_portal_unavailable`
+- `world_segment_unreachable`
+- `destination_portal_unavailable`
+- `destination_local_unreachable`
 
 ## HTTP Contracts
 
@@ -334,26 +474,130 @@ world 不可用时推荐返回：
 
 - 返回 world-only 或 cross-map itinerary
 
-推荐请求模式：
-
-- destination 到 destination
-  - `fromDestinationId`
-  - `toDestinationId`
-  - `mode`
-  - `strategy`
-- local node 到 local node
-  - `fromDestinationId`
-  - `fromLocalNodeId`
-  - `toDestinationId`
-  - `toLocalNodeId`
-  - `mode`
-  - `strategy`
-
 冻结语义：
 
 - `mode` 可为 `walk`、`bike`、`shuttle`、`mixed`
 - `mixed` 是规划模式，不是独立物理交通方式
 - `reachable = false` 时允许返回已成功规划出的前缀 `legs`
+- 本接口仅冻结 contract，不包含 backend 或 SPA 实现承诺
+
+请求体固定为以下二选一：
+
+1) world-only
+
+```json
+{
+  "scope": "world-only",
+  "fromWorldNodeId": "string",
+  "toWorldNodeId": "string",
+  "strategy": "distance | time | mixed",
+  "mode": "walk | bike | shuttle | mixed"
+}
+```
+
+2) cross-map
+
+```json
+{
+  "scope": "cross-map",
+  "fromDestinationId": "string",
+  "toDestinationId": "string",
+  "fromLocalNodeId": "string?",
+  "toLocalNodeId": "string?",
+  "strategy": "distance | time | mixed",
+  "mode": "walk | bike | shuttle | mixed"
+}
+```
+
+成功响应：
+
+- `200`
+
+```json
+{
+  "item": {
+    "reachable": true,
+    "scope": "world-only | cross-map",
+    "strategy": "distance | time | mixed",
+    "mode": "walk | bike | shuttle | mixed",
+    "legs": [],
+    "summary": {
+      "destinationDistance": 0,
+      "worldDistance": 0,
+      "transferDistance": 0,
+      "destinationCost": 0,
+      "worldCost": 0,
+      "transferCost": 0
+    },
+    "totalDistance": 0,
+    "totalCost": 0,
+    "usedModes": []
+  }
+}
+```
+
+失败响应冻结如下：
+
+- `409`
+
+```json
+{
+  "error": "World mode is unavailable.",
+  "code": "world_unavailable"
+}
+```
+
+- `400`
+
+```json
+{
+  "error": "Invalid world route request.",
+  "code": "world_route_invalid_request",
+  "issues": ["string"]
+}
+```
+
+- `404`
+
+```json
+{
+  "error": "Destination was not found.",
+  "code": "world_route_destination_not_found",
+  "destinationId": "string"
+}
+```
+
+- `404`
+
+```json
+{
+  "error": "Local node was not found in destination.",
+  "code": "world_route_local_node_not_found",
+  "destinationId": "string",
+  "localNodeId": "string"
+}
+```
+
+- `422`
+
+```json
+{
+  "error": "Route mode is not allowed by selected edges or portals.",
+  "code": "world_route_mode_not_allowed",
+  "mode": "walk",
+  "allowedModes": ["walk", "bike"]
+}
+```
+
+- `409`
+
+```json
+{
+  "error": "Portal binding is misconfigured.",
+  "code": "world_route_portal_misconfigured",
+  "portalId": "string"
+}
+```
 
 ## Cost Model
 

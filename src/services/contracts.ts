@@ -103,6 +103,29 @@ export type WorldRoadType =
   | "airlift"
   | "bridge";
 
+export type WorldDistanceMeters = number;
+
+export type WorldCostUnits = number;
+
+export type WorldCongestionRatio = number;
+
+export const WORLD_ROUTE_UNITS = {
+  distance: "meters",
+  cost: "cost-units",
+  congestion: "ratio",
+} as const;
+
+export const WORLD_ROUTE_LIMITS = {
+  distance: { min: 0, max: 1_000_000 },
+  cost: { min: 0, max: 2_000_000 },
+  transferDistance: { min: 0, max: 10_000 },
+  transferCost: { min: 0, max: 100_000 },
+  congestion: { min: 0, max: 1 },
+  congestionCostMultiplier: { min: 1, max: 2 },
+} as const;
+
+export const WORLD_CONGESTION_COST_FORMULA = "distance * (1 + congestion)" as const;
+
 export interface WorldRegionRecord {
   id: string;
   name: string;
@@ -131,10 +154,10 @@ export interface WorldEdgeRecord {
   id: string;
   from: string;
   to: string;
-  distance: number;
+  distance: WorldDistanceMeters;
   roadType: WorldRoadType;
   allowedModes: TravelMode[];
-  congestion: number;
+  congestion: WorldCongestionRatio;
   bidirectional: boolean;
 }
 
@@ -142,6 +165,8 @@ export interface WorldGraphRecord {
   nodes: WorldNodeRecord[];
   edges: WorldEdgeRecord[];
 }
+
+export type DestinationPortalDirection = "inbound" | "outbound" | "bidirectional";
 
 export interface DestinationPortalRecord {
   id: string;
@@ -152,9 +177,9 @@ export interface DestinationPortalRecord {
   label: string;
   priority: number;
   allowedModes: TravelMode[];
-  direction: string;
-  transferDistance: number;
-  transferCost: number;
+  direction: DestinationPortalDirection;
+  transferDistance: WorldDistanceMeters;
+  transferCost: WorldCostUnits;
 }
 
 export interface WorldMapRecord {
@@ -300,6 +325,243 @@ export interface WorldUnavailableRecord {
   error: string;
   code: "world_unavailable";
 }
+
+export type WorldRouteScope = "world-only" | "cross-map";
+
+export type WorldRouteLegScope = "destination" | "world";
+
+export type WorldRouteFailureStage =
+  | "origin-destination"
+  | "origin-portal"
+  | "world"
+  | "destination-portal"
+  | "destination-local";
+
+export type WorldRouteFailureReason =
+  | "unreachable"
+  | "mode_not_allowed"
+  | "direction_not_allowed"
+  | "world_disconnected"
+  | "portal_misconfigured";
+
+export type WorldRouteFailureCode =
+  | "origin_local_unreachable"
+  | "origin_portal_unavailable"
+  | "world_segment_unreachable"
+  | "destination_portal_unavailable"
+  | "destination_local_unreachable";
+
+export type WorldPortalTransferDirection = "local-to-world" | "world-to-local";
+
+export interface WorldRouteLocalStep {
+  kind: "local-edge";
+  destinationId: string;
+  edgeId: string;
+  fromLocalNodeId: string;
+  toLocalNodeId: string;
+  mode: TravelMode;
+  distance: WorldDistanceMeters;
+  cost: WorldCostUnits;
+}
+
+export interface WorldRouteWorldEdgeStep {
+  kind: "world-edge";
+  edgeId: string;
+  fromWorldNodeId: string;
+  toWorldNodeId: string;
+  roadType: WorldRoadType;
+  mode: TravelMode;
+  distance: WorldDistanceMeters;
+  congestion: WorldCongestionRatio;
+  cost: WorldCostUnits;
+}
+
+interface WorldRoutePortalTransferStepBase {
+  kind: "portal-transfer";
+  portalId: string;
+  destinationId: string;
+  localNodeId: string;
+  worldNodeId: string;
+  mode: TravelMode;
+  transferDistance: WorldDistanceMeters;
+  transferCost: WorldCostUnits;
+  distance: WorldDistanceMeters;
+  cost: WorldCostUnits;
+}
+
+export interface WorldRoutePortalEntryTransferStep extends WorldRoutePortalTransferStepBase {
+  transferDirection: "local-to-world";
+}
+
+export interface WorldRoutePortalExitTransferStep extends WorldRoutePortalTransferStepBase {
+  transferDirection: "world-to-local";
+}
+
+export type WorldRoutePortalTransferStep = WorldRoutePortalEntryTransferStep | WorldRoutePortalExitTransferStep;
+
+export type WorldRouteStep = WorldRouteLocalStep | WorldRouteWorldEdgeStep | WorldRoutePortalTransferStep;
+
+export type WorldRouteWorldStep = WorldRouteWorldEdgeStep | WorldRoutePortalTransferStep;
+
+export interface WorldDestinationRouteLeg {
+  scope: "destination";
+  destinationId: string;
+  localNodeIds: string[];
+  distance: WorldDistanceMeters;
+  cost: WorldCostUnits;
+  steps: WorldRouteLocalStep[];
+}
+
+export interface WorldOnlyRouteWorldLeg {
+  scope: "world";
+  worldNodeIds: string[];
+  distance: WorldDistanceMeters;
+  cost: WorldCostUnits;
+  steps: WorldRouteWorldEdgeStep[];
+}
+
+export interface CrossMapRouteWorldLeg {
+  scope: "world";
+  worldNodeIds: string[];
+  distance: WorldDistanceMeters;
+  cost: WorldCostUnits;
+  entryPortalId: string;
+  exitPortalId: string;
+  steps: [WorldRoutePortalEntryTransferStep, ...WorldRouteWorldEdgeStep[], WorldRoutePortalExitTransferStep];
+}
+
+export type WorldRouteWorldLeg = WorldOnlyRouteWorldLeg | CrossMapRouteWorldLeg;
+
+export type WorldRouteLeg = WorldDestinationRouteLeg | WorldRouteWorldLeg;
+
+export interface WorldRouteFailure {
+  stage: WorldRouteFailureStage;
+  reason: WorldRouteFailureReason;
+  code: WorldRouteFailureCode;
+  blockedFrom?: string;
+  blockedTo?: string;
+}
+
+export interface WorldRouteSummary {
+  destinationDistance: WorldDistanceMeters;
+  worldDistance: WorldDistanceMeters;
+  transferDistance: WorldDistanceMeters;
+  destinationCost: WorldCostUnits;
+  worldCost: WorldCostUnits;
+  transferCost: WorldCostUnits;
+}
+
+export const WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER = [
+  "total-cost-asc",
+  "world-cost-asc",
+  "entry-priority-asc",
+  "exit-priority-asc",
+  "entry-id-asc",
+  "exit-id-asc",
+] as const;
+
+export type WorldRoutePortalSelectionTieBreak = (typeof WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER)[number];
+
+export interface WorldRoutePortalSelection {
+  ruleVersion: "v1";
+  candidatePairCount: number;
+  entryPortalId: string;
+  exitPortalId: string;
+  tieBreakOrder: WorldRoutePortalSelectionTieBreak[];
+}
+
+export interface WorldOnlyRouteItinerary {
+  reachable: boolean;
+  scope: "world-only";
+  strategy: RouteStrategy;
+  mode: TravelMode;
+  legs: [WorldOnlyRouteWorldLeg];
+  summary: WorldRouteSummary;
+  totalDistance: WorldDistanceMeters;
+  totalCost: WorldCostUnits;
+  usedModes: TravelMode[];
+  failure?: WorldRouteFailure;
+}
+
+export interface CrossMapRouteItinerary {
+  reachable: boolean;
+  scope: "cross-map";
+  strategy: RouteStrategy;
+  mode: TravelMode;
+  legs: [WorldDestinationRouteLeg, CrossMapRouteWorldLeg, WorldDestinationRouteLeg];
+  summary: WorldRouteSummary;
+  totalDistance: WorldDistanceMeters;
+  totalCost: WorldCostUnits;
+  usedModes: TravelMode[];
+  portalSelection: WorldRoutePortalSelection;
+  failure?: WorldRouteFailure;
+}
+
+export type WorldRouteItinerary = WorldOnlyRouteItinerary | CrossMapRouteItinerary;
+
+export interface WorldOnlyRoutePlanRequest {
+  scope: "world-only";
+  fromWorldNodeId: string;
+  toWorldNodeId: string;
+  strategy: RouteStrategy;
+  mode: TravelMode;
+}
+
+export interface CrossMapRoutePlanRequest {
+  scope: "cross-map";
+  fromDestinationId: string;
+  toDestinationId: string;
+  fromLocalNodeId?: string;
+  toLocalNodeId?: string;
+  strategy: RouteStrategy;
+  mode: TravelMode;
+}
+
+export type WorldRoutePlanRequest = WorldOnlyRoutePlanRequest | CrossMapRoutePlanRequest;
+
+export interface WorldRoutePlanResponse {
+  item: WorldRouteItinerary;
+}
+
+export interface WorldRoutePlanInvalidRequestRecord {
+  error: string;
+  code: "world_route_invalid_request";
+  issues: string[];
+}
+
+export interface WorldRoutePlanDestinationNotFoundRecord {
+  error: string;
+  code: "world_route_destination_not_found";
+  destinationId: string;
+}
+
+export interface WorldRoutePlanLocalNodeNotFoundRecord {
+  error: string;
+  code: "world_route_local_node_not_found";
+  destinationId: string;
+  localNodeId: string;
+}
+
+export interface WorldRoutePlanModeNotAllowedRecord {
+  error: string;
+  code: "world_route_mode_not_allowed";
+  mode: TravelMode;
+  allowedModes: TravelMode[];
+}
+
+export interface WorldRoutePlanPortalMisconfiguredRecord {
+  error: string;
+  code: "world_route_portal_misconfigured";
+  portalId: string;
+}
+
+export type WorldRoutePlanErrorRecord =
+  | WorldUnavailableRecord
+  | WorldRoutePlanInvalidRequestRecord
+  | WorldRoutePlanDestinationNotFoundRecord
+  | WorldRoutePlanLocalNodeNotFoundRecord
+  | WorldRoutePlanModeNotAllowedRecord
+  | WorldRoutePlanPortalMisconfiguredRecord;
 
 export interface RouteStep {
   edgeId: string;
