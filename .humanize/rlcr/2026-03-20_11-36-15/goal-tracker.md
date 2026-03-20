@@ -50,6 +50,55 @@ RULES:
   - Positive Tests (expected to PASS):
     - `Route Planning` 成为左侧控制区的主标题，`Choose the spatial context first` 降级为说明性副文案或辅助文本，不再在层级上压过模块名。
     - `Destination` 作为空间上下文选择独立占位；`Start node` 与 `End node` 在 DOM 结构和视觉布局上作为一组连续出现，可以是垂直排列，也可以是单独分组后的并排布局。
+  - Negative Tests (expected to FAIL):
+    - 不允许继续出现 `Destination` 与 `Start node` 并列、但 `End node` 被拆到另一视觉组的布局。
+    - 不允许辅助说明继续以更高视觉权重替代模块标题。
+
+- AC-4: 高级选项和按钮层级符合常见交互预期
+  - Positive Tests (expected to PASS):
+    - `Advanced routing` 采用明确的 accordion / disclosure 表达，去除当前类似拖拽上传区或未激活态的虚线外框观感。
+    - `Plan route` 是控制区唯一 primary action；`Clear route` 明确为 ghost / secondary；`Return to Explore` 表现为返回导航。
+    - `tests/spa-regressions.test.ts` 新增 DOM/class 断言，验证主次按钮结构与返回链接角色。
+  - Negative Tests (expected to FAIL):
+    - 不允许 `Advanced routing` 继续保留虚线边框的上传区暗示。
+    - 不允许次级操作在视觉权重上接近或混淆 primary action。
+
+- AC-5: 地图页面的用户可见文案不暴露内部命名、实现说明或深链接示例
+  - Positive Tests (expected to PASS):
+    - `#map-route-result` 空状态保留 `Route summary appears after planning` 及解释性文本，不再显示 `Calm Empty State`。
+    - Hero/body 不再包含 `Direct entry works on /map?...` 之类开发者式 deep-link 示例；必要说明放入 docs。
+    - 相关 helper 改动保持其他页面结构无残留。
+    - `tests/spa-regressions.test.ts` 验证空状态/hero copy 中没有内部命名。
+  - Negative Tests (expected to FAIL):
+    - 不允许任何设计系统内部名、组件占位名或开发备注出现在终端 UI。
+    - 不允许把原始 query path 或调试提示混入面向用户的正文或核心信息区。
+
+- AC-6: 辅助标签和次级文案的可读性提升，但不破坏全站主题层级
+  - Positive Tests (expected to PASS):
+    - `Route Planning`、`Spatial context` 等 map 标签使用更强颜色 token / map 专用样式，确保浅色背景下可读。
+    - 样式调整通过现有 token 或 map 局部类完成，不影响其他页面。
+    - 桌面和窄屏人工检查确认辅助标签、返回导航、ghost button 层级清晰。
+  - Negative Tests (expected to FAIL):
+    - 不允许继续依赖过浅的对比度承载关键语义标签。
+    - 不允许全局 `.section-tag` 等被粗暴加深，影响 Explore/Feed 等其他页面。
+
+- AC-7: 实际代码与 `docs/` 中的相关说明保持同步
+  - Positive Tests (expected to PASS):
+    - Map 结构、视觉层级、用户可见文案或设计约束变化后，相关文档（至少 `docs/user-guide.md` 与 `docs/journal-social-design-style.md`）同步更新。
+    - 文档中 map 描述与实际 shipped UI 一致，不保留已移除的直角卡片或 dev copy。
+    - 代码与 docs 改动同步交付，不留空档。
+  - Negative Tests (expected to FAIL):
+    - 不允许代码调整完成但 `docs/` 仍描述旧版地图结构或文案。
+    - 不允许只改文档没改 UI 或只改 UI没改文档。
+
+- AC-8: 现有 map 行为回归全部守住
+  - Positive Tests (expected to PASS):
+    - 保持 destination fallback、actor context、renderless URL rewrite、初始地图渲染、端点 marker 行为和 route summary 占位状态不变。
+    - 引入的 helper 改动在其他 SPA 页面不产生结构性回归。
+    - `npm test` 全量通过，路由渲染/legend/marker 相关测试仍绿。
+  - Negative Tests (expected to FAIL):
+    - 不允许 UI 重构破坏深链接 `/map?destinationId=...&from=...&to=...`。
+    - 不允许视觉层改动顺带改变 route planning 请求参数、scene cache 或 marker 语义。
 
 ---
 
@@ -94,3 +143,5 @@ RULES:
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
+| Map radius scope bug still leaves the right-hand map shell with conflicting corner curves | 0 | AC-1 | Audit the card/frame containers, consolidate radius tokens, and verify clipping relationships before finalizing styles |
+| Transition legend badge mismatch persists between legend swatches and rendered markers | 0 | AC-2 | Align legend semantics with `renderRouteVisualization`/marker helpers and ensure `route-visualization-markers.test.ts` catches any divergence |
