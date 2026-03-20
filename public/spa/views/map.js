@@ -42,14 +42,14 @@ export async function render(app, route, root) {
         <p class="eyebrow">Map</p>
         <h1>Plan a route with the destination map still in view.</h1>
         <p class="route-lede">
-          Choose a destination, preview the route endpoints, and plan the path that fits the visit.
+          Choose a destination, preview where the route begins and ends, and plan the path that fits the visit.
         </p>
       </div>
       <div class="route-hero-panel">
         <p class="section-tag">Route flow</p>
         <ul class="hero-list">
-          <li>Select a destination to load its map and node list.</li>
-          <li>Preview the start and end markers before sending a planner request.</li>
+          <li>Select a destination to load its map and route options.</li>
+          <li>Preview the start and end markers before planning the route.</li>
           <li>Open advanced routing only when you need waypoints or different travel preferences.</li>
         </ul>
       </div>
@@ -86,7 +86,7 @@ export async function render(app, route, root) {
             <div class="advanced-panel-grid">
               <label>
                 Waypoints
-                <input id="map-waypoints" type="text" placeholder="node ids, comma separated" />
+                <input id="map-waypoints" type="text" placeholder="Optional stops, separated by commas" />
               </label>
               <label>
                 Strategy
@@ -146,14 +146,22 @@ export async function render(app, route, root) {
   }
 
   function clearNodeOptions() {
-    fillSelect(startSelect, [], { includeBlank: true, blankLabel: "No nodes available" });
-    fillSelect(endSelect, [], { includeBlank: true, blankLabel: "No nodes available" });
+    fillSelect(startSelect, [], { includeBlank: true, blankLabel: "No stops available" });
+    fillSelect(endSelect, [], { includeBlank: true, blankLabel: "No stops available" });
     startSelect.value = "";
     endSelect.value = "";
   }
 
+  function mapStageEmptyMarkup(title, body) {
+    return `
+      <div class="surface-card map-stage-empty-shell">
+        ${emptyStateMarkup({ title, body })}
+      </div>
+    `;
+  }
+
   function renderInlineMapState(title, body) {
-    visualization.innerHTML = emptyStateMarkup({ title, body });
+    visualization.innerHTML = mapStageEmptyMarkup(title, body);
     routeResult.innerHTML = "";
   }
 
@@ -248,10 +256,10 @@ export async function render(app, route, root) {
     routeResult.innerHTML =
       activeRoute && activeRoute.destinationId === destinationId
         ? renderRouteResult(activeRoute, details)
-        : emptyStateMarkup({
-            title: "Route summary appears after planning",
-            body: "Preview markers update while you change nodes, but route distance and step details wait for a planner request.",
-          });
+        : mapStageEmptyMarkup(
+            "Route summary appears after planning",
+            "Preview markers update while you adjust the route, and distance plus directions appear after you plan it.",
+          );
   }
 
   async function planRoute() {
