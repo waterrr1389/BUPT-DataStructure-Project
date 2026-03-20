@@ -1289,6 +1289,48 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.map-stage-empty-shell,
+#map-visualization > .empty-state,
+#map-route-result > .empty-state {
+  padding: 20px;
+  border-radius: var(--route-card-radius-outer, 24px);
+  border: 1px solid var(--shell-line);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(255, 247, 230, 0.92)),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 40%);
+  box-shadow: 0 16px 42px rgba(17, 32, 49, 0.08);
+  backdrop-filter: blur(8px);
+  color: rgba(17, 32, 49, 0.78);
+}
+
+.map-stage-empty-shell > .empty-state,
+#map-visualization > .empty-state,
+#map-route-result > .empty-state {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  color: inherit;
+}
+
+.map-stage-empty-shell > .empty-state h3,
+#map-visualization > .empty-state h3,
+#map-route-result > .empty-state h3,
+.map-stage-empty-shell > .empty-state p,
+#map-visualization > .empty-state p,
+#map-route-result > .empty-state p {
+  margin: 0;
+}
+
+.map-stage-empty-shell > .empty-state .inline-link,
+#map-visualization > .empty-state .inline-link,
+#map-route-result > .empty-state .inline-link {
+  justify-self: start;
+}
+
 .map-stage-head {
   display: flex;
   align-items: flex-start;
