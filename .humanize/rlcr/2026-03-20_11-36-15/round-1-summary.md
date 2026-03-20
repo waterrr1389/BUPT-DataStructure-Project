@@ -5,7 +5,7 @@ Secure the remaining pieces of the Map-area alignment from the plan: share the m
 
 ## Subtask Results
 - **Map shell consistency and copy cleanup:** `public/spa/views/map.js` now wraps the route-result area in the `map-stage-empty-shell` surface so it shares the same `surface-card` treatment as the map stage, and `public/spa/map-rendering.js` removes the remaining implementation-facing copy while updating the result copy to `Route ready to follow.` and `Route details`. Together these edits ensure the inline fallback and planned-route summary follow the expected messaging and card geometry (`3e355c2`, `34e301e`, `54fb236`).
-- **Styling and documentation alignment:** `public/styles.css` introduces the map-specific `map-stage-empty-shell` styling that enforces the 24px desktop/18px mobile radius, no inner border on `.empty-state`, and the shared return-link/button-row layout, while `docs/journal-social-design-style.md` now describes the actual legend semantics and map guidance that ship in production (`d00ce9b`, `b200ac5`).
+- **Styling and documentation alignment:** `public/styles.css` introduces the map-specific `map-stage-empty-shell` styling that enforces the 24px desktop/18px mobile radius, no inner border on `.empty-state`, and the shared return-link/button-row layout, while `docs/journal-social-design-style.md` and `docs/user-guide.md` now describe the actual legend semantics and map guidance that ship in production (`d00ce9b`, `b200ac5`).
 - **Regression coverage:** `tests/spa-regressions.test.ts` gained assertions for the Destination → Start/End field order, `details/summary` Advanced routing disclosure, `.ghost` secondary button, return link outside the button row, the `surface-card map-stage-empty-shell` hook, absence of the `/map?destinationId=...&from=...&to=...` raw query, and a non-Map consumer for the shared helper; the final route-summary copy expectations were also tightened (`988f145`, `8e6b34d`).
 
 ## Verification Conclusion
@@ -16,7 +16,7 @@ No outstanding issues remain; continue to rerun `npm test` after any future map-
 
 ## Files Modified
 - `public/spa/views/map.js`, `public/spa/map-rendering.js`, `public/styles.css` (map stage shell, copy, and styling updates)
-- `docs/journal-social-design-style.md` (legend semantics and map guidance sync)
+- `docs/journal-social-design-style.md`, `docs/user-guide.md` (legend semantics and map guidance sync)
 - `tests/spa-regressions.test.ts` (regression assertions covering the new hooks and copy expectations)
 
 ## Tests Added/Passed
@@ -27,7 +27,7 @@ No outstanding issues remain; continue to rerun `npm test` after any future map-
 ### Requested Changes:
 - Mark AC-1 as resolved with the new `map-stage-empty-shell` wrapper that aligns the route-result card with the map shell and refreshed copy (`3e355c2`, `34e301e`, `54fb236`).
 - Mark AC-5 as resolved now that all remaining implementation-facing words are removed from the Map UI and supporting copy (`34e301e`, `54fb236`).
-- Mark AC-7 as resolved because `docs/journal-social-design-style.md` now documents the shipped legend and map guidance (`b200ac5`).
+- Mark AC-7 as resolved because `docs/journal-social-design-style.md` and `docs/user-guide.md` now document the shipped legend and map guidance (`b200ac5`).
 - Mark AC-8 as resolved given the expanded SPA regression suite that locks in field order, disclosure structure, `.ghost` hook, shell CSS/design, absence of the raw `/map?destinationId=...&from=...&to=...` example, and non-Map helper safety, plus the tighter route-result copy expectations (`988f145`, `8e6b34d`).
 - Update AC-6 evidence to cite the verified desktop 1280×900 and mobile 390×844 viewport checks on the `/map` page.
 - Note that no open issues remain after the round-1 fixes.
