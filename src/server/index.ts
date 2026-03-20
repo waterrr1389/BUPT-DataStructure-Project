@@ -31,6 +31,9 @@ function mimeType(filePath: string): string {
   if (filePath.endsWith(".svg")) {
     return "image/svg+xml";
   }
+  if (filePath.endsWith(".png")) {
+    return "image/png";
+  }
   if (filePath.endsWith(".json")) {
     return "application/json; charset=utf-8";
   }
@@ -152,6 +155,20 @@ async function handleApi(
 
   if (request.method === "GET" && url.pathname === "/api/bootstrap") {
     json(response, 200, await services.bootstrap());
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/world") {
+    json(response, 200, services.world.summary());
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/world/details") {
+    if (!services.world.isAvailable()) {
+      json(response, 409, services.world.unavailable());
+      return true;
+    }
+    json(response, 200, services.world.details());
     return true;
   }
 

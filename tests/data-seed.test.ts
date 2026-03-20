@@ -7,8 +7,17 @@ import {
   lookups,
   seedData,
   userById,
+  worldData,
 } from "../src/data/seed";
 import { MINIMUM_COUNTS, validateSeedData } from "../src/data/validation";
+
+function requireWorld(): NonNullable<typeof seedData.world> {
+  const world = seedData.world;
+  if (!world) {
+    throw new Error("Expected seedData.world to be available");
+  }
+  return world;
+}
 
 test("seedData exports a validation-ready dataset with matching lookups", () => {
   const result = validateSeedData(seedData);
@@ -31,4 +40,99 @@ test("seedData exports a validation-ready dataset with matching lookups", () => 
   assert.equal(destinationById.size, seedData.destinations.length);
   assert.equal(userById.size, seedData.users.length);
   assert.equal(facilityCategoryById.size, seedData.facilityCategories.length);
+  assert.equal(seedData.world, worldData);
+  assert.equal(lookups.world, worldData);
+});
+
+test("validateSeedData keeps world optional for local-only seed data", () => {
+  const localOnlySeed = structuredClone(seedData);
+  delete localOnlySeed.world;
+
+  const result = validateSeedData(localOnlySeed);
+
+  assert.equal(result.ok, true, result.issues.join("\n"));
+});
+
+test("validateSeedData rejects invalid world references and portal semantics", () => {
+  const cases: Array<{
+    name: string;
+    mutate: (candidate: typeof seedData) => void;
+    expectedIssue: RegExp;
+  }> = [
+    {
+      name: "unknown placement region",
+      mutate: (candidate) => {
+        candidate.world!.destinations[0].regionId = "world-region-missing";
+      },
+      expectedIssue: /references unknown region "world-region-missing"/,
+    },
+    {
+      name: "unknown placement portal",
+      mutate: (candidate) => {
+        candidate.world!.destinations[0].portalIds = ["portal-missing"];
+      },
+      expectedIssue: /references unknown portal "portal-missing"/,
+    },
+    {
+      name: "portal world node must stay portal-kind",
+      mutate: (candidate) => {
+        const portalWorldNodeId = candidate.world!.portals[0].worldNodeId;
+        const worldNode = candidate.world!.graph.nodes.find((node) => node.id === portalWorldNodeId);
+        if (!worldNode) {
+          throw new Error(`Expected world node ${portalWorldNodeId} to exist`);
+        }
+        const portalNode = worldNode;
+        portalNode.kind = "hub";
+      },
+      expectedIssue: /references world node "world-node-dest-001-main" that is not kind "portal"/,
+    },
+    {
+      name: "portal local node must exist in the destination graph",
+      mutate: (candidate) => {
+        candidate.world!.portals[0].localNodeId = "dest-001-missing-gate";
+      },
+      expectedIssue: /references unknown local node "dest-001-missing-gate" in destination "dest-001"/,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const candidate = structuredClone(seedData);
+    testCase.mutate(candidate);
+
+    const result = validateSeedData(candidate);
+
+    assert.equal(result.ok, false, `${testCase.name} unexpectedly passed validation`);
+    assert.equal(testCase.expectedIssue.test(result.issues.join("\n")), true, testCase.name);
+  }
+});
+
+test("world seed keeps the Boston-inspired structural constraints deterministic", () => {
+  const world = requireWorld();
+
+  assert.equal(world.regions.length, 6);
+  assert.equal(world.destinations.length, 12);
+  assert.equal(world.portals.length, 12);
+  assert.equal(
+    world.graph.nodes.filter((node) => node.kind === "portal").length,
+    12,
+  );
+  assert.equal(
+    world.graph.nodes.filter(
+      (node) => node.kind === "junction" && node.tags.includes("chokepoint"),
+    ).length,
+    4,
+  );
+
+  const portalById = new Map(world.portals.map((portal) => [portal.id, portal]));
+  for (const placement of world.destinations) {
+    assert.equal(placement.portalIds.length > 0, true, placement.destinationId);
+    for (const portalId of placement.portalIds) {
+      const portal = portalById.get(portalId);
+      if (!portal) {
+        throw new Error(`Expected world portal ${portalId} to exist`);
+      }
+      const placementPortal = portal;
+      assert.equal(placementPortal.destinationId, placement.destinationId);
+    }
+  }
 });

@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { createAppServices, type AppServices } from "../src/services/index";
+import { deriveWorldRuntimeState } from "../src/services/runtime";
 
 // These package-level checks depend on the runtime/service wiring the external algorithm bundle.
 // Use an isolated runtimeDir because JournalStore persists the seed journals on disk.
@@ -55,6 +56,15 @@ async function createRuntimeDir(name: string): Promise<string> {
   );
   await fs.mkdir(runtimeDir, { recursive: true });
   return runtimeDir;
+}
+
+function disableWorld(app: AppServices): void {
+  app.runtime.seedData = {
+    ...app.runtime.seedData,
+    world: undefined,
+  };
+  app.runtime.lookups.world = undefined;
+  app.runtime.world = deriveWorldRuntimeState(app.runtime.seedData);
 }
 
 function destinationIds(items: Array<{ id: string }>): string[] {
@@ -123,12 +133,69 @@ test("bootstrap exposes full destination catalog for seeded journal lookups and 
 
   assert.equal("graph" in (destinations[0] ?? {}), false, format(destinations[0]));
   assert.equal("buildings" in (destinations[0] ?? {}), false, format(destinations[0]));
+  assert.equal("world" in bootstrap, false, format(bootstrap));
   assert.equal("interests" in (users[0] ?? {}), false, format(users[0]));
   assert.deepEqual(
     Object.keys(users[0] ?? {}).sort(),
     ["id", "name"],
     format(users[0]),
   );
+});
+
+test("runtime derives read-only world capabilities and world service keeps summary and details separate", async () => {
+  const app = await createIsolatedApp("world-summary");
+  const summary = app.world.summary();
+  const details = app.world.details();
+
+  assert.deepEqual(app.runtime.world, {
+    available: true,
+    capabilities: {
+      worldView: true,
+      destinationRouting: false,
+      crossMapRouting: false,
+    },
+  });
+  assert.equal(app.runtime.lookups.world, app.runtime.seedData.world);
+  assert.equal(summary.enabled, true, format(summary));
+  assert.deepEqual(summary.capabilities, app.runtime.world.capabilities, format(summary.capabilities));
+  assert.deepEqual(
+    Object.keys(summary.world ?? {}).sort(),
+    ["backgroundImage", "height", "id", "name", "width"],
+    format(summary.world),
+  );
+  assert.equal("polygon" in (summary.regions[0] ?? {}), false, format(summary.regions[0]));
+  assert.equal("tags" in (summary.regions[0] ?? {}), false, format(summary.regions[0]));
+  assert.equal("radius" in (summary.destinations[0] ?? {}), false, format(summary.destinations[0]));
+  assert.equal("portalIds" in (summary.destinations[0] ?? {}), false, format(summary.destinations[0]));
+  assert.equal(details.world.id, app.runtime.seedData.world?.id);
+  assert.equal(details.world.regions.length > 0, true, format(details.world.regions));
+  assert.equal(details.world.graph.nodes.length > 0, true, format(details.world.graph));
+  assert.equal(details.world.portals.length > 0, true, format(details.world.portals));
+});
+
+test("world service exposes disabled summary and unavailable details when world mode is absent", async () => {
+  const app = await createIsolatedApp("world-unavailable");
+  disableWorld(app);
+
+  const summary = app.world.summary();
+
+  assert.equal(app.world.isAvailable(), false);
+  assert.equal(app.runtime.lookups.world, undefined);
+  assert.deepEqual(summary, {
+    enabled: false,
+    regions: [],
+    destinations: [],
+    capabilities: {
+      worldView: false,
+      destinationRouting: false,
+      crossMapRouting: false,
+    },
+  });
+  assert.deepEqual(app.world.unavailable(), {
+    error: "World mode is unavailable.",
+    code: "world_unavailable",
+  });
+  assert.throws(() => app.world.details(), /World mode is unavailable\./);
 });
 
 test("food search tolerates typo queries on the real dataset", async () => {

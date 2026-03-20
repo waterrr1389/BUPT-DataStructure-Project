@@ -16,13 +16,24 @@ import type {
   SeedLookupsContract,
   ServiceContextOptions,
   ValidationBundle,
+  WorldCapabilityRecord,
 } from "./contracts";
+
+export interface WorldRuntimeState {
+  available: boolean;
+  capabilities: WorldCapabilityRecord;
+}
+
+export interface ResolvedSeedLookups extends Required<SeedLookupsContract> {
+  world?: SeedDataContract["world"];
+}
 
 export interface ResolvedRuntime {
   seedData: SeedDataContract;
-  lookups: Required<SeedLookupsContract>;
+  lookups: ResolvedSeedLookups;
   algorithms: ResolvedAlgorithmBundle;
   validation: ResolvedValidationBundle;
+  world: WorldRuntimeState;
   runtimeDir: string;
   source: {
     data: "fallback" | "external";
@@ -71,10 +82,23 @@ function resolveSourceKind(value: unknown): RuntimeSourceKind {
   return value ? "external" : "fallback";
 }
 
-function createLookups(data: SeedDataContract): Required<SeedLookupsContract> {
+export function deriveWorldRuntimeState(data: SeedDataContract): WorldRuntimeState {
+  const available = Boolean(data.world);
+  return {
+    available,
+    capabilities: {
+      worldView: available,
+      destinationRouting: false,
+      crossMapRouting: false,
+    },
+  };
+}
+
+function createLookups(data: SeedDataContract): ResolvedSeedLookups {
   return {
     destinationById: new Map(data.destinations.map((destination) => [destination.id, destination])),
     userById: new Map(data.users.map((user) => [user.id, user])),
+    world: data.world,
   };
 }
 
@@ -155,17 +179,20 @@ function mergeAlgorithms(bundle: AlgorithmBundle | null): ResolvedAlgorithmBundl
   };
 }
 
-function normalizeSeedModule(module: unknown): { seedData: SeedDataContract; lookups: Required<SeedLookupsContract> } | null {
+function normalizeSeedModule(module: unknown): { seedData: SeedDataContract; lookups: ResolvedSeedLookups } | null {
   const candidate = unwrapModule(module) as { seedData?: SeedDataContract; lookups?: SeedLookupsContract } | null;
   if (!candidate?.seedData) {
     return null;
   }
+  const defaultLookups = createLookups(candidate.seedData);
+  const lookups: ResolvedSeedLookups = {
+    destinationById: candidate.lookups?.destinationById ?? defaultLookups.destinationById,
+    userById: candidate.lookups?.userById ?? defaultLookups.userById,
+    world: candidate.seedData.world,
+  };
   return {
     seedData: candidate.seedData,
-    lookups: {
-      destinationById: candidate.lookups?.destinationById ?? createLookups(candidate.seedData).destinationById,
-      userById: candidate.lookups?.userById ?? createLookups(candidate.seedData).userById,
-    },
+    lookups,
   };
 }
 
@@ -236,6 +263,12 @@ export async function getRuntime(options: ServiceContextOptions = {}): Promise<R
 
     const fallback = createFallbackRuntime();
     const resolvedSeed = externalSeed ?? fallback;
+    const defaultLookups = createLookups(resolvedSeed.seedData);
+    const resolvedLookups: ResolvedSeedLookups = {
+      destinationById: resolvedSeed.lookups.destinationById ?? defaultLookups.destinationById,
+      userById: resolvedSeed.lookups.userById ?? defaultLookups.userById,
+      world: resolvedSeed.seedData.world,
+    };
     const resolvedValidation = mergeValidation(externalValidation);
     resolvedValidation.assertValidSeedData(resolvedSeed.seedData);
     const source: ResolvedRuntime["source"] = {
@@ -246,9 +279,10 @@ export async function getRuntime(options: ServiceContextOptions = {}): Promise<R
 
     return {
       seedData: resolvedSeed.seedData,
-      lookups: resolvedSeed.lookups as Required<SeedLookupsContract>,
+      lookups: resolvedLookups,
       algorithms: mergeAlgorithms(externalAlgorithms),
       validation: resolvedValidation,
+      world: deriveWorldRuntimeState(resolvedSeed.seedData),
       runtimeDir,
       source,
     };

@@ -92,6 +92,83 @@ export interface Destination {
   foods: FoodVenue[];
 }
 
+export type WorldNodeKind = "portal" | "junction" | "hub" | "region-center";
+
+export type WorldRoadType =
+  | "road"
+  | "rail"
+  | "trail"
+  | "ferry"
+  | "tunnel"
+  | "airlift"
+  | "bridge";
+
+export interface WorldRegionRecord {
+  id: string;
+  name: string;
+  polygon: Array<[number, number]>;
+  tags: string[];
+}
+
+export interface WorldDestinationPlacement extends Coordinates {
+  destinationId: string;
+  label: string;
+  radius: number;
+  regionId: string;
+  portalIds: string[];
+  iconType: string;
+}
+
+export interface WorldNodeRecord extends Coordinates {
+  id: string;
+  kind: WorldNodeKind;
+  label: string;
+  tags: string[];
+  destinationId?: string;
+}
+
+export interface WorldEdgeRecord {
+  id: string;
+  from: string;
+  to: string;
+  distance: number;
+  roadType: WorldRoadType;
+  allowedModes: TravelMode[];
+  congestion: number;
+  bidirectional: boolean;
+}
+
+export interface WorldGraphRecord {
+  nodes: WorldNodeRecord[];
+  edges: WorldEdgeRecord[];
+}
+
+export interface DestinationPortalRecord {
+  id: string;
+  destinationId: string;
+  worldNodeId: string;
+  localNodeId: string;
+  portalType: string;
+  label: string;
+  priority: number;
+  allowedModes: TravelMode[];
+  direction: string;
+  transferDistance: number;
+  transferCost: number;
+}
+
+export interface WorldMapRecord {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  backgroundImage: string;
+  regions: WorldRegionRecord[];
+  destinations: WorldDestinationPlacement[];
+  graph: WorldGraphRecord;
+  portals: DestinationPortalRecord[];
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -141,12 +218,14 @@ export interface SeedData {
   destinations: Destination[];
   users: UserProfile[];
   journals: JournalEntry[];
+  world?: WorldMapRecord;
 }
 
 export interface SeedLookups {
   destinationById: Map<string, Destination>;
   userById: Map<string, UserProfile>;
   facilityCategoryById: Map<FacilityCategory, FacilityCategoryDefinition>;
+  world?: WorldMapRecord;
 }
 
 export type DestinationRecord = Destination;
@@ -155,3 +234,4 @@ export type FacilityRecord = Facility;
 export type FoodRecord = FoodVenue;
 export type UserRecord = UserProfile;
 export type JournalRecord = JournalEntry;
+export type WorldRecord = WorldMapRecord;

@@ -6,7 +6,6 @@ import {
   resolveRouteActor,
   safeArray,
 } from "../lib.js";
-import { getDestinationScene, renderRouteResult, renderRouteVisualization } from "../map-rendering.js";
 
 function sanitizeOptionSelection(options, preferredValue, fallbackIndex = 0) {
   const optionIds = safeArray(options).map((option) => option.id);
@@ -17,7 +16,13 @@ function sanitizeOptionSelection(options, preferredValue, fallbackIndex = 0) {
 }
 
 export async function render(app, route, root) {
+  if ((route.params.view || "") === "world") {
+    const { renderWorldMapView } = await import("../world-rendering.js");
+    return renderWorldMapView(app, route, root);
+  }
+
   app.setDocumentTitle("Map");
+  const { getDestinationScene, renderRouteResult, renderRouteVisualization } = await import("../map-rendering.js");
 
   await app.loadBootstrap();
   const destinationBindings = app.getDestinationBindings();
@@ -27,6 +32,7 @@ export async function render(app, route, root) {
   const usedDestinationFallback = Boolean(requestedDestinationId) && requestedDestinationId !== defaultDestinationId;
   const routeActor = resolveRouteActor(route);
   const returnToExploreHref = createRouteContextHref("/explore", {}, route);
+  const worldViewHref = createRouteContextHref("/map", { view: "world" }, route);
 
   // Deep links can outlive the bootstrap destination list. Normalize before fetching map details.
   if (usedDestinationFallback) {
@@ -44,6 +50,9 @@ export async function render(app, route, root) {
         <p class="route-lede">
           Choose a destination, preview where the route begins and ends, and plan the path that fits the visit.
         </p>
+        <div class="hero-actions">
+          <a class="secondary-link" href="${worldViewHref}" data-map-world-link="true" data-nav="true">Open World View</a>
+        </div>
       </div>
       <div class="route-hero-panel">
         <p class="section-tag">Route flow</p>

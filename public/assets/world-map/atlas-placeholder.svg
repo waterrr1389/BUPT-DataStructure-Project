@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 768" role="img" aria-labelledby="title desc">
+  <title id="title">Atlas Overworld Placeholder</title>
+  <desc id="desc">A stylized placeholder background for the world map surface.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e7efe7" />
+      <stop offset="52%" stop-color="#f4e9d3" />
+      <stop offset="100%" stop-color="#e3d4b0" />
+    </linearGradient>
+    <linearGradient id="water" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b9d6df" />
+      <stop offset="100%" stop-color="#8ab5c4" />
+    </linearGradient>
+    <filter id="soft">
+      <feGaussianBlur stdDeviation="18" />
+    </filter>
+  </defs>
+
+  <rect width="1024" height="768" fill="url(#sky)" />
+  <ellipse cx="128" cy="122" rx="230" ry="150" fill="#ffffff" fill-opacity="0.34" filter="url(#soft)" />
+  <ellipse cx="902" cy="118" rx="260" ry="140" fill="#ffffff" fill-opacity="0.24" filter="url(#soft)" />
+
+  <path
+    d="M54 580C148 526 212 480 274 414C338 346 392 258 476 216C564 172 644 182 732 222C812 258 886 324 970 362L970 768L54 768Z"
+    fill="#d9cfb0"
+  />
+  <path
+    d="M-10 526C96 472 180 468 256 420C340 368 384 268 468 232C550 196 632 214 720 256C820 304 894 384 1034 402L1034 768L-10 768Z"
+    fill="#c8bf9c"
+    fill-opacity="0.56"
+  />
+
+  <path
+    d="M0 436C130 362 236 336 330 364C420 388 474 450 556 456C666 466 742 354 824 332C902 310 970 338 1024 382L1024 612C936 588 880 616 800 626C700 638 642 588 548 568C446 546 364 594 276 606C174 620 90 600 0 564Z"
+    fill="url(#water)"
+  />
+
+  <path
+    d="M186 208L306 172L412 232L382 340L264 372L172 312Z"
+    fill="#c4b488"
+    stroke="#8a744f"
+    stroke-opacity="0.46"
+  />
+  <path
+    d="M552 110L754 146L808 294L688 360L520 296L496 182Z"
+    fill="#ccb98f"
+    stroke="#876d43"
+    stroke-opacity="0.42"
+  />
+  <path
+    d="M720 450L898 458L940 604L818 680L668 604L650 520Z"
+    fill="#d7c7a2"
+    stroke="#886f49"
+    stroke-opacity="0.4"
+  />
+  <path
+    d="M132 488L270 454L374 540L330 680L174 690L96 590Z"
+    fill="#d5c7a3"
+    stroke="#7d6947"
+    stroke-opacity="0.44"
+  />
+
+  <g stroke="#48626d" stroke-width="6" stroke-linecap="round" stroke-opacity="0.5">
+    <path d="M226 290L342 430L448 428L568 364L688 278L804 244" />
+    <path d="M306 520L422 494L522 534L650 534L766 592" />
+    <path d="M522 254L466 334L402 408" />
+  </g>
+
+  <g fill="#112031" fill-opacity="0.14">
+    <circle cx="254" cy="286" r="16" />
+    <circle cx="416" cy="428" r="14" />
+    <circle cx="570" cy="362" r="16" />
+    <circle cx="690" cy="282" r="15" />
+    <circle cx="344" cy="520" r="14" />
+    <circle cx="524" cy="536" r="16" />
+    <circle cx="764" cy="592" r="16" />
+  </g>
+</svg>

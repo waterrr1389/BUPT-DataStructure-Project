@@ -6,7 +6,8 @@ import test from "node:test";
 import { collectBenchmarkResults } from "../scripts/benchmark-support";
 import { createDemoReport } from "../scripts/demo-support";
 import { createServerHandler } from "../src/server/index";
-import { createAppServices } from "../src/services/index";
+import { createAppServices, type AppServices } from "../src/services/index";
+import { deriveWorldRuntimeState } from "../src/services/runtime";
 
 type JsonResponse<T> = {
   body: T;
@@ -24,6 +25,10 @@ type TextResponse = {
 type RequestOptions = {
   body?: string | Record<string, unknown>;
   method?: string;
+};
+
+type ServerOptions = {
+  prepareServices?: (services: AppServices) => Promise<void> | void;
 };
 
 type RuntimeFs = {
@@ -90,6 +95,7 @@ async function withServer<T>(
     requestJson: <TResponse>(requestPath: string, options?: RequestOptions) => Promise<JsonResponse<TResponse>>;
     requestText: (requestPath: string, options?: RequestOptions) => Promise<TextResponse>;
   }) => Promise<T>,
+  options: ServerOptions = {},
 ): Promise<T> {
   const runtimeFs = fs as unknown as RuntimeFs;
   const runtimeDir = path.join(
@@ -99,6 +105,7 @@ async function withServer<T>(
   await runtimeFs.mkdir(runtimeDir, { recursive: true });
   const services = await createAppServices({ runtimeDir });
   await services.journalStore.reset();
+  await options.prepareServices?.(services);
   const handler = createServerHandler(services);
 
   async function requestText(requestPath: string, options: RequestOptions = {}): Promise<TextResponse> {
@@ -129,6 +136,15 @@ async function withServer<T>(
   } finally {
     await runtimeFs.rm(runtimeDir, { force: true, recursive: true });
   }
+}
+
+function disableWorld(services: AppServices): void {
+  services.runtime.seedData = {
+    ...services.runtime.seedData,
+    world: undefined,
+  };
+  services.runtime.lookups.world = undefined;
+  services.runtime.world = deriveWorldRuntimeState(services.runtime.seedData);
 }
 
 test("demo support exposes deterministic end-to-end coverage", async () => {
@@ -247,6 +263,101 @@ test("benchmark support covers the expected algorithm groups", () => {
   );
   assert.ok(results.every((result) => result.iterations === 2));
   assert.ok(results.every((result) => result.durationMs >= 0));
+});
+
+test("server exposes read-only world summary and details while keeping bootstrap lightweight", async () => {
+  await withServer("world-http", async ({ requestJson, requestText }) => {
+    const summary = await requestJson<{
+      enabled: boolean;
+      world?: Record<string, unknown>;
+      regions: Array<Record<string, unknown>>;
+      destinations: Array<Record<string, unknown>>;
+      capabilities: Record<string, unknown>;
+    }>("/api/world");
+    const details = await requestJson<{
+      world: {
+        id: string;
+        graph: { nodes: unknown[]; edges: unknown[] };
+        portals: unknown[];
+        regions: unknown[];
+      };
+    }>("/api/world/details");
+    const bootstrap = await requestJson<Record<string, unknown>>("/api/bootstrap");
+    const worldBackground = await requestText("/assets/world-map/atlas-boston-inspired-v1.png");
+    const leafletMarker = await requestText("/vendor/leaflet/images/marker-icon.png");
+
+    assert.equal(summary.status, 200, summary.text);
+    assert.equal(summary.body.enabled, true, summary.text);
+    assert.deepEqual(summary.body.capabilities, {
+      worldView: true,
+      destinationRouting: false,
+      crossMapRouting: false,
+    });
+    assert.deepEqual(
+      Object.keys(summary.body.world ?? {}).sort(),
+      ["backgroundImage", "height", "id", "name", "width"],
+      summary.text,
+    );
+    assert.equal("polygon" in (summary.body.regions[0] ?? {}), false, summary.text);
+    assert.equal("tags" in (summary.body.regions[0] ?? {}), false, summary.text);
+    assert.equal("radius" in (summary.body.destinations[0] ?? {}), false, summary.text);
+    assert.equal("portalIds" in (summary.body.destinations[0] ?? {}), false, summary.text);
+
+    assert.equal(details.status, 200, details.text);
+    assert.equal(details.body.world.id.length > 0, true, details.text);
+    assert.equal(details.body.world.regions.length > 0, true, details.text);
+    assert.equal(details.body.world.graph.nodes.length > 0, true, details.text);
+    assert.equal(details.body.world.graph.edges.length > 0, true, details.text);
+    assert.equal(details.body.world.portals.length > 0, true, details.text);
+
+    assert.equal(bootstrap.status, 200, bootstrap.text);
+    assert.equal("world" in bootstrap.body, false, bootstrap.text);
+
+    assert.equal(worldBackground.status, 200, worldBackground.text);
+    assert.equal(worldBackground.headers["content-type"], "image/png");
+    assert.equal(leafletMarker.status, 200, leafletMarker.text);
+    assert.equal(leafletMarker.headers["content-type"], "image/png");
+  });
+});
+
+test("server returns disabled world summary and a conflict for details when world mode is unavailable", async () => {
+  await withServer(
+    "world-http-unavailable",
+    async ({ requestJson }) => {
+      const summary = await requestJson<{
+        enabled: boolean;
+        regions: unknown[];
+        destinations: unknown[];
+        capabilities: Record<string, unknown>;
+      }>("/api/world");
+      const details = await requestJson<{ error: string; code: string }>("/api/world/details");
+      const bootstrap = await requestJson<Record<string, unknown>>("/api/bootstrap");
+
+      assert.equal(summary.status, 200, summary.text);
+      assert.deepEqual(summary.body, {
+        enabled: false,
+        regions: [],
+        destinations: [],
+        capabilities: {
+          worldView: false,
+          destinationRouting: false,
+          crossMapRouting: false,
+        },
+      });
+
+      assert.equal(details.status, 409, details.text);
+      assert.deepEqual(details.body, {
+        error: "World mode is unavailable.",
+        code: "world_unavailable",
+      });
+
+      assert.equal(bootstrap.status, 200, bootstrap.text);
+      assert.equal("world" in bootstrap.body, false, bootstrap.text);
+    },
+    {
+      prepareServices: disableWorld,
+    },
+  );
 });
 
 test("server exposes compact social journal APIs with SPA fallback and targeted cache headers", async () => {
@@ -404,6 +515,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(Array.isArray(bootstrap.body.users), true, bootstrap.text);
     assert.equal("interests" in (bootstrap.body.users[0] ?? {}), false, bootstrap.text);
     assert.equal("graph" in (bootstrap.body.destinations[0] ?? {}), false, bootstrap.text);
+    assert.equal("world" in bootstrap.body, false, bootstrap.text);
 
     assert.equal(spaRoute.status, 200);
     assert.equal(spaRoute.headers["cache-control"], "no-store");

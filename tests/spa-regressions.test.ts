@@ -48,6 +48,19 @@ type AppShellModule = {
       options?: { cursor?: string; limit?: number },
     ): Promise<CommentResponse>;
     navigate(href: string, options?: Record<string, unknown>): void;
+    parseRoute(url?: URL): {
+      params: {
+        actor: string;
+        author: string;
+        destinationId: string;
+        from: string;
+        mode: string;
+        strategy: string;
+        to: string;
+        view: string;
+        waypoints: string;
+      };
+    };
     start(): Promise<void>;
     state: {
       bootstrap: unknown;
@@ -119,6 +132,109 @@ function buildHref(pathname: string, params: Record<string, string | undefined> 
     }
   });
   return `${url.pathname}${url.search}`;
+}
+
+function createLeafletStub() {
+  const imageOverlays: Array<{ bounds: unknown; options: Record<string, unknown>; url: string }> = [];
+  const maps: Array<{
+    boundsCalls: Array<{ bounds: unknown; options?: Record<string, unknown> }>;
+    container: unknown;
+    layers: unknown[];
+    maxBoundsCalls: unknown[];
+    options: Record<string, unknown>;
+    removeCallCount: number;
+  }> = [];
+  const markers: Array<{
+    events: Record<string, () => void>;
+    latlng: unknown;
+    options: Record<string, unknown>;
+    tooltip: string;
+  }> = [];
+  const polygons: Array<{
+    latlngs: unknown;
+    options: Record<string, unknown>;
+    tooltip: string;
+  }> = [];
+
+  function attachLayer<TLayer extends { tooltip: string }>(layer: TLayer): TLayer & {
+    addTo(map: { layers: unknown[] }): TLayer;
+    bindTooltip(label: string): TLayer;
+  } {
+    const attached = layer as TLayer & {
+      addTo(map: { layers: unknown[] }): TLayer;
+      bindTooltip(label: string): TLayer;
+    };
+    attached.addTo = (map) => {
+      map.layers.push(attached);
+      return attached;
+    };
+    attached.bindTooltip = (label) => {
+      attached.tooltip = label;
+      return attached;
+    };
+    return attached;
+  }
+
+  return {
+    L: {
+      CRS: {
+        Simple: { name: "simple" },
+      },
+      circleMarker(latlng: unknown, options: Record<string, unknown>) {
+        const marker = attachLayer({
+          events: {} as Record<string, () => void>,
+          latlng,
+          options,
+          tooltip: "",
+          on(event: string, handler: () => void) {
+            this.events[event] = handler;
+            return this;
+          },
+        });
+        markers.push(marker);
+        return marker;
+      },
+      imageOverlay(url: string, bounds: unknown, options: Record<string, unknown>) {
+        const overlay = attachLayer({ bounds, options, url, tooltip: "" });
+        imageOverlays.push({ bounds, options, url });
+        return overlay;
+      },
+      map(container: unknown, options: Record<string, unknown>) {
+        const map = {
+          boundsCalls: [] as Array<{ bounds: unknown; options?: Record<string, unknown> }>,
+          container,
+          layers: [] as unknown[],
+          maxBoundsCalls: [] as unknown[],
+          options,
+          removeCallCount: 0,
+          fitBounds(bounds: unknown, fitOptions?: Record<string, unknown>) {
+            this.boundsCalls.push({ bounds, options: fitOptions });
+            return this;
+          },
+          remove() {
+            this.removeCallCount += 1;
+          },
+          setMaxBounds(bounds: unknown) {
+            this.maxBoundsCalls.push(bounds);
+            return this;
+          },
+        };
+        maps.push(map);
+        return map;
+      },
+      polygon(latlngs: unknown, options: Record<string, unknown>) {
+        const polygon = attachLayer({ latlngs, options, tooltip: "" });
+        polygons.push(polygon);
+        return polygon;
+      },
+    } as unknown,
+    records: {
+      imageOverlays,
+      maps,
+      markers,
+      polygons,
+    },
+  };
 }
 
 function compactText(node: { innerHTML?: string; textContent?: string | null }) {
@@ -503,7 +619,7 @@ function createMapFixture(overrides: {
     ],
   ]);
   const ensureDestinationDetailsCalls: string[] = [];
-  const navigateCalls: Array<{ href: string; options: Record<string, unknown> }> = [];
+  const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
   const requestJsonCalls: string[] = [];
   const statuses: Array<{ message: string; tone: string }> = [];
 
@@ -561,7 +677,7 @@ function createMapFixture(overrides: {
     async loadBootstrap() {
       return {};
     },
-    navigate(href: string, options: Record<string, unknown>) {
+    navigate(href: string, options?: Record<string, unknown>) {
       navigateCalls.push({ href, options });
     },
     async requestJson(endpoint: string, options?: Record<string, unknown>) {
@@ -1954,7 +2070,8 @@ test("map preserves actor context on fallback, return links, and renderless URL 
       root,
     );
 
-    assert.equal(requireElement(root, "a[data-nav='true']").getAttribute("href"), "/explore?actor=user-2");
+    assert.equal(requireElement(root, "[data-map-world-link='true']").getAttribute("href"), "/map?view=world&actor=user-2");
+    assert.equal(requireElement(root, ".section-head a[data-nav='true']").getAttribute("href"), "/explore?actor=user-2");
     assert.deepEqual(fixture.navigateCalls[0], {
       href: "/map?destinationId=dest-1&actor=user-2",
       options: {
@@ -2023,7 +2140,8 @@ test("map keeps clean URLs when no actor is present during renderless rewrites",
       root,
     );
 
-    assert.equal(requireElement(root, "a[data-nav='true']").getAttribute("href"), "/explore");
+    assert.equal(requireElement(root, "[data-map-world-link='true']").getAttribute("href"), "/map?view=world");
+    assert.equal(requireElement(root, ".section-head a[data-nav='true']").getAttribute("href"), "/explore");
 
     const destinationSelect = requireElement(root, "#map-destination");
     destinationSelect.value = "dest-2";
@@ -2109,6 +2227,9 @@ test("map renders planning controls and switches legend hooks from preview to ac
     );
 
     const returnLink = requireElement(root, ".section-head a[data-nav='true']");
+    const worldLink = requireElement(root, "[data-map-world-link='true']");
+    assert.equal(worldLink.getAttribute("href"), "/map?view=world&actor=user-2");
+    assert.equal(root.innerHTML.includes(">Open World View</a>"), true);
     assert.equal(returnLink.getAttribute("href"), "/explore?actor=user-2");
     assert.equal(root.innerHTML.includes("Return to Explore"), true);
     assert.equal(returnLink.closest(".button-row"), null);
@@ -2289,6 +2410,305 @@ test("map ignores stale node loads after destination changes", async () => {
     }
   } finally {
     globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    restore();
+  }
+});
+
+test("map world view renders Leaflet layers, preserves actor context, and removes the map on cleanup", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: false,
+              destinationRouting: false,
+              worldView: true,
+            },
+            destinations: [
+              {
+                destinationId: "dest-1",
+                iconType: "campus-waterfront",
+                label: "Harbor Reach",
+                regionId: "region-river",
+                x: 180,
+                y: 240,
+              },
+              {
+                destinationId: "dest-2",
+                iconType: "scenic-harbor",
+                label: "Lantern Point",
+                regionId: "region-harbor",
+                x: 620,
+                y: 430,
+              },
+            ],
+            enabled: true,
+            regions: [
+              { id: "region-river", name: "River Arc" },
+              { id: "region-harbor", name: "Harbor Line" },
+            ],
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              width: 1024,
+            },
+          };
+        }
+
+        if (endpoint === "/api/world/details") {
+          return {
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              destinations: [
+                {
+                  destinationId: "dest-1",
+                  iconType: "campus-waterfront",
+                  label: "Harbor Reach",
+                  radius: 18,
+                  regionId: "region-river",
+                  x: 180,
+                  y: 240,
+                },
+                {
+                  destinationId: "dest-2",
+                  iconType: "scenic-harbor",
+                  label: "Lantern Point",
+                  radius: 22,
+                  regionId: "region-harbor",
+                  x: 620,
+                  y: 430,
+                },
+              ],
+              graph: {
+                edges: [],
+                nodes: [],
+              },
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              portals: [],
+              regions: [
+                {
+                  id: "region-river",
+                  name: "River Arc",
+                  polygon: [
+                    [80, 120],
+                    [320, 140],
+                    [300, 340],
+                    [120, 320],
+                  ],
+                  tags: [],
+                },
+                {
+                  id: "region-harbor",
+                  name: "Harbor Line",
+                  polygon: [
+                    [500, 240],
+                    [900, 260],
+                    [860, 520],
+                    [560, 540],
+                  ],
+                  tags: [],
+                },
+              ],
+              width: 1024,
+            },
+          };
+        }
+
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          actor: "user-2",
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
+    assert.equal(root.innerHTML.includes("Read-only world surface"), true);
+    assert.equal(root.innerHTML.includes("No route planning actions appear in world mode."), true);
+    assert.equal(leaflet.records.maps.length, 1);
+    assert.equal(leaflet.records.imageOverlays.length, 1);
+    assert.deepEqual(leaflet.records.imageOverlays[0], {
+      bounds: [
+        [0, 0],
+        [768, 1024],
+      ],
+      options: {
+        interactive: false,
+      },
+      url: "/assets/world-map/atlas-placeholder.svg",
+    });
+    assert.equal(leaflet.records.polygons.length, 2);
+    assert.equal(leaflet.records.markers.length, 2);
+    assert.deepEqual(leaflet.records.markers[0]?.latlng, [240, 180]);
+    assert.deepEqual(leaflet.records.markers[1]?.latlng, [430, 620]);
+    leaflet.records.markers[1]?.events.click?.();
+    assert.deepEqual(fixture.navigateCalls, [
+      {
+        href: "/map?actor=user-2&destinationId=dest-2",
+        options: undefined,
+      },
+    ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+
+    assert.equal(leaflet.records.maps[0]?.removeCallCount, 1);
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
+    restore();
+  }
+});
+
+test("map world view renders an unavailable state when the backend disables world mode", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: false,
+              destinationRouting: false,
+              worldView: false,
+            },
+            destinations: [],
+            enabled: false,
+            regions: [],
+          };
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/world"]);
+    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("World map unavailable"), true);
+    assert.equal(leaflet.records.maps.length, 0);
+    assert.deepEqual(fixture.statuses, [
+      {
+        message: "World mode is unavailable.",
+        tone: "neutral",
+      },
+    ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
+    restore();
+  }
+});
+
+test("map world view falls back to an unavailable state when world details fail", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: false,
+              destinationRouting: false,
+              worldView: true,
+            },
+            destinations: [],
+            enabled: true,
+            regions: [],
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              width: 1024,
+            },
+          };
+        }
+        if (endpoint === "/api/world/details") {
+          throw new Error("World details worker offline.");
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
+    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("World details unavailable"), true);
+    assert.equal(leaflet.records.maps.length, 0);
+    assert.deepEqual(fixture.statuses, [
+      {
+        message: "World details worker offline.",
+        tone: "error",
+      },
+    ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
     restore();
   }
 });
@@ -2571,6 +2991,43 @@ test("shell nav links preserve actor context after non-rendering navigation", as
     assert.equal(requireElement(root, "a[data-route-name='compose']").getAttribute("href"), "/compose?actor=user-2");
   } finally {
     globalThis.fetch = previousFetch;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("app shell parseRoute preserves the world view param alongside actor and destination context", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
+    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+
+    const root = env.createRoot();
+    const module = await importSpaModule<AppShellModule>("app-shell.js");
+    const app = module.createAppShell(root);
+    const route = app.parseRoute(new URL("/map?view=world&destinationId=dest-2&actor=user-2", "http://localhost"));
+
+    assert.deepEqual(route.params, {
+      actor: "user-2",
+      author: "",
+      destinationId: "dest-2",
+      from: "",
+      mode: "",
+      strategy: "",
+      to: "",
+      view: "world",
+      waypoints: "",
+    });
+  } finally {
     globals.JournalConsumers = previousJournalConsumers;
     globals.JournalPresentation = previousJournalPresentation;
     restore();

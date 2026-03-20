@@ -5,6 +5,7 @@ import { createFoodService } from "./food-service";
 import { createJournalService } from "./journal-service";
 import { JournalStore } from "./journal-store";
 import { createRouteService } from "./route-service";
+import { createWorldService } from "./world-service";
 import type { ServiceContextOptions, UserRecord } from "./contracts";
 import { getRuntime } from "./runtime";
 
@@ -28,6 +29,7 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
   const journals = createJournalService(runtime, journalStore);
   const exchange = createExchangeService(runtime, journalStore);
   const foods = createFoodService(runtime);
+  const world = createWorldService(runtime);
 
   return {
     runtime,
@@ -38,6 +40,7 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
     journals,
     exchange,
     foods,
+    world,
     async bootstrap() {
       return {
         users: runtime.seedData.users.map(summarizeBootstrapUser),

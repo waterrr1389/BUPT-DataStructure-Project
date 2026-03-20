@@ -72,6 +72,7 @@ function parseRoute(url = new URL(window.location.href)) {
       waypoints: url.searchParams.get("waypoints") ?? "",
       strategy: url.searchParams.get("strategy") ?? "",
       mode: url.searchParams.get("mode") ?? "",
+      view: url.searchParams.get("view") ?? "",
       actor: url.searchParams.get("actor") ?? "",
       author: url.searchParams.get("author") ?? "",
     },

@@ -1,5 +1,6 @@
 import type {
   Building,
+  DestinationPortalRecord,
   Destination,
   DestinationEdge,
   DestinationNode,
@@ -9,6 +10,11 @@ import type {
   JournalEntry,
   SeedData,
   UserProfile,
+  WorldDestinationPlacement,
+  WorldEdgeRecord,
+  WorldMapRecord,
+  WorldNodeRecord,
+  WorldRegionRecord,
 } from "../domain/models";
 
 export const MINIMUM_COUNTS = {
@@ -88,6 +94,334 @@ function validateTravelModes(
   if (!hasUniqueStrings([...modes])) {
     issues.push(`${label} includes duplicate travel modes`);
   }
+}
+
+function validateStringArray(
+  values: readonly string[],
+  label: string,
+  issues: string[],
+): void {
+  if (!Array.isArray(values) || values.length === 0) {
+    issues.push(`${label} must include at least one value`);
+    return;
+  }
+  if (!values.every(isNonEmptyString)) {
+    issues.push(`${label} must only include non-empty strings`);
+  }
+  if (!hasUniqueStrings([...values])) {
+    issues.push(`${label} includes duplicate values`);
+  }
+}
+
+function validateWorldCoordinates(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  label: string,
+  issues: string[],
+): void {
+  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+    issues.push(`${label} has invalid coordinates`);
+    return;
+  }
+  if (x < 0 || x > width || y < 0 || y > height) {
+    issues.push(`${label} must stay within world bounds`);
+  }
+}
+
+function validateWorldRegion(
+  region: WorldRegionRecord,
+  world: WorldMapRecord,
+  issues: string[],
+): void {
+  if (!isNonEmptyString(region.name)) {
+    issues.push(`world region "${region.id}" is missing a name`);
+  }
+  if (!Array.isArray(region.polygon) || region.polygon.length < 3) {
+    issues.push(`world region "${region.id}" must include a polygon with at least 3 points`);
+  } else {
+    for (const [index, point] of region.polygon.entries()) {
+      if (!Array.isArray(point) || point.length !== 2) {
+        issues.push(`world region "${region.id}" polygon point ${index} is invalid`);
+        continue;
+      }
+      validateWorldCoordinates(
+        point[0],
+        point[1],
+        world.width,
+        world.height,
+        `world region "${region.id}" polygon point ${index}`,
+        issues,
+      );
+    }
+  }
+  validateStringArray(region.tags, `world region "${region.id}" tags`, issues);
+}
+
+function validateWorldPlacement(
+  placement: WorldDestinationPlacement,
+  world: WorldMapRecord,
+  destinationIds: Set<string>,
+  regionIds: Set<string>,
+  issues: string[],
+): void {
+  if (!destinationIds.has(placement.destinationId)) {
+    issues.push(
+      `world destination placement "${placement.destinationId}" references unknown destination "${placement.destinationId}"`,
+    );
+  }
+  if (!isNonEmptyString(placement.label)) {
+    issues.push(`world destination placement "${placement.destinationId}" is missing a label`);
+  }
+  validateWorldCoordinates(
+    placement.x,
+    placement.y,
+    world.width,
+    world.height,
+    `world destination placement "${placement.destinationId}"`,
+    issues,
+  );
+  if (!isFiniteNumber(placement.radius) || placement.radius <= 0) {
+    issues.push(
+      `world destination placement "${placement.destinationId}" must have a positive radius`,
+    );
+  }
+  if (!regionIds.has(placement.regionId)) {
+    issues.push(
+      `world destination placement "${placement.destinationId}" references unknown region "${placement.regionId}"`,
+    );
+  }
+  validateStringArray(
+    placement.portalIds,
+    `world destination placement "${placement.destinationId}" portalIds`,
+    issues,
+  );
+  if (!isNonEmptyString(placement.iconType)) {
+    issues.push(`world destination placement "${placement.destinationId}" is missing an iconType`);
+  }
+}
+
+function validateWorldNode(
+  node: WorldNodeRecord,
+  world: WorldMapRecord,
+  destinationIds: Set<string>,
+  issues: string[],
+): void {
+  if (!isNonEmptyString(node.label)) {
+    issues.push(`world node "${node.id}" is missing a label`);
+  }
+  validateWorldCoordinates(node.x, node.y, world.width, world.height, `world node "${node.id}"`, issues);
+  validateStringArray(node.tags, `world node "${node.id}" tags`, issues);
+  if (node.destinationId && !destinationIds.has(node.destinationId)) {
+    issues.push(`world node "${node.id}" references unknown destination "${node.destinationId}"`);
+  }
+  if (node.kind === "portal" && !isNonEmptyString(node.destinationId)) {
+    issues.push(`world node "${node.id}" with kind "portal" must include a destinationId`);
+  }
+}
+
+function validateWorldEdge(
+  edge: WorldEdgeRecord,
+  nodeIds: Set<string>,
+  issues: string[],
+): void {
+  if (!nodeIds.has(edge.from)) {
+    issues.push(`world edge "${edge.id}" references missing from node "${edge.from}"`);
+  }
+  if (!nodeIds.has(edge.to)) {
+    issues.push(`world edge "${edge.id}" references missing to node "${edge.to}"`);
+  }
+  if (!isFiniteNumber(edge.distance) || edge.distance <= 0) {
+    issues.push(`world edge "${edge.id}" must have a positive distance`);
+  }
+  if (!isFiniteNumber(edge.congestion) || edge.congestion < 0 || edge.congestion > 1) {
+    issues.push(`world edge "${edge.id}" has invalid congestion ${edge.congestion}`);
+  }
+  validateTravelModes(edge.allowedModes, `world edge "${edge.id}"`, issues);
+  if (typeof edge.bidirectional !== "boolean") {
+    issues.push(`world edge "${edge.id}" must define bidirectional as a boolean`);
+  }
+}
+
+function validateWorldPortal(
+  portal: DestinationPortalRecord,
+  destinationIds: Set<string>,
+  destinationNodeIds: Map<string, Set<string>>,
+  worldNodeById: Map<string, WorldNodeRecord>,
+  issues: string[],
+): void {
+  if (!destinationIds.has(portal.destinationId)) {
+    issues.push(`world portal "${portal.id}" references unknown destination "${portal.destinationId}"`);
+  }
+  if (!isNonEmptyString(portal.worldNodeId)) {
+    issues.push(`world portal "${portal.id}" is missing a worldNodeId`);
+  }
+  if (!isNonEmptyString(portal.localNodeId)) {
+    issues.push(`world portal "${portal.id}" is missing a localNodeId`);
+  }
+  if (!isNonEmptyString(portal.portalType)) {
+    issues.push(`world portal "${portal.id}" is missing a portalType`);
+  }
+  if (!isNonEmptyString(portal.label)) {
+    issues.push(`world portal "${portal.id}" is missing a label`);
+  }
+  if (!Number.isInteger(portal.priority) || portal.priority < 0) {
+    issues.push(`world portal "${portal.id}" must use a non-negative integer priority`);
+  }
+  validateTravelModes(portal.allowedModes, `world portal "${portal.id}"`, issues);
+  if (!isNonEmptyString(portal.direction)) {
+    issues.push(`world portal "${portal.id}" is missing a direction`);
+  }
+  if (!isFiniteNumber(portal.transferDistance) || portal.transferDistance < 0) {
+    issues.push(`world portal "${portal.id}" must use a non-negative transferDistance`);
+  }
+  if (!isFiniteNumber(portal.transferCost) || portal.transferCost < 0) {
+    issues.push(`world portal "${portal.id}" must use a non-negative transferCost`);
+  }
+
+  const worldNode = worldNodeById.get(portal.worldNodeId);
+  if (!worldNode) {
+    issues.push(`world portal "${portal.id}" references unknown world node "${portal.worldNodeId}"`);
+  } else {
+    if (worldNode.kind !== "portal") {
+      issues.push(
+        `world portal "${portal.id}" references world node "${portal.worldNodeId}" that is not kind "portal"`,
+      );
+    }
+    if (worldNode.destinationId && worldNode.destinationId !== portal.destinationId) {
+      issues.push(
+        `world portal "${portal.id}" destination "${portal.destinationId}" does not match world node destination "${worldNode.destinationId}"`,
+      );
+    }
+  }
+
+  const localNodeIds = destinationNodeIds.get(portal.destinationId);
+  if (!localNodeIds || !localNodeIds.has(portal.localNodeId)) {
+    issues.push(
+      `world portal "${portal.id}" references unknown local node "${portal.localNodeId}" in destination "${portal.destinationId}"`,
+    );
+  }
+}
+
+function validateWorld(
+  world: WorldMapRecord,
+  destinationIds: Set<string>,
+  destinationNodeIds: Map<string, Set<string>>,
+): string[] {
+  const issues: string[] = [];
+
+  if (!isNonEmptyString(world.id)) {
+    issues.push("world map has a missing id");
+  }
+  if (!isNonEmptyString(world.name)) {
+    issues.push(`world map "${world.id}" is missing a name`);
+  }
+  if (!isFiniteNumber(world.width) || world.width <= 0) {
+    issues.push(`world map "${world.id}" must have a positive width`);
+  }
+  if (!isFiniteNumber(world.height) || world.height <= 0) {
+    issues.push(`world map "${world.id}" must have a positive height`);
+  }
+  if (!isNonEmptyString(world.backgroundImage)) {
+    issues.push(`world map "${world.id}" is missing a backgroundImage`);
+  }
+  if (!Array.isArray(world.regions) || world.regions.length === 0) {
+    issues.push(`world map "${world.id}" must include regions`);
+    return issues;
+  }
+  if (!Array.isArray(world.destinations) || world.destinations.length === 0) {
+    issues.push(`world map "${world.id}" must include destinations`);
+    return issues;
+  }
+  if (!world.graph || !Array.isArray(world.graph.nodes) || !Array.isArray(world.graph.edges)) {
+    issues.push(`world map "${world.id}" must include a graph with nodes and edges`);
+    return issues;
+  }
+  if (world.graph.nodes.length === 0) {
+    issues.push(`world map "${world.id}" must include world graph nodes`);
+  }
+  if (world.graph.edges.length === 0) {
+    issues.push(`world map "${world.id}" must include world graph edges`);
+  }
+  if (!Array.isArray(world.portals) || world.portals.length === 0) {
+    issues.push(`world map "${world.id}" must include portals`);
+    return issues;
+  }
+
+  ensureUniqueIds(world.regions, "world region", issues);
+  ensureUniqueIds(world.graph.nodes, "world node", issues);
+  ensureUniqueIds(world.graph.edges, "world edge", issues);
+  ensureUniqueIds(world.portals, "world portal", issues);
+
+  const placementIds = world.destinations.map((placement) => placement.destinationId);
+  if (!hasUniqueStrings(placementIds)) {
+    issues.push("world destination placements must use unique destinationId values");
+  }
+
+  const regionIds = new Set(world.regions.map((region) => region.id));
+  const worldNodeIds = new Set(world.graph.nodes.map((node) => node.id));
+  const worldNodeById = new Map(world.graph.nodes.map((node) => [node.id, node]));
+  const portalById = new Map(world.portals.map((portal) => [portal.id, portal]));
+  const placementByDestinationId = new Map(
+    world.destinations.map((placement) => [placement.destinationId, placement]),
+  );
+
+  for (const region of world.regions) {
+    validateWorldRegion(region, world, issues);
+  }
+
+  for (const placement of world.destinations) {
+    validateWorldPlacement(placement, world, destinationIds, regionIds, issues);
+  }
+
+  for (const node of world.graph.nodes) {
+    validateWorldNode(node, world, destinationIds, issues);
+  }
+
+  for (const edge of world.graph.edges) {
+    validateWorldEdge(edge, worldNodeIds, issues);
+  }
+
+  for (const portal of world.portals) {
+    validateWorldPortal(portal, destinationIds, destinationNodeIds, worldNodeById, issues);
+  }
+
+  for (const placement of world.destinations) {
+    for (const portalId of placement.portalIds) {
+      const portal = portalById.get(portalId);
+      if (!portal) {
+        issues.push(
+          `world destination placement "${placement.destinationId}" references unknown portal "${portalId}"`,
+        );
+        continue;
+      }
+      if (portal.destinationId !== placement.destinationId) {
+        issues.push(
+          `world destination placement "${placement.destinationId}" references portal "${portalId}" for destination "${portal.destinationId}"`,
+        );
+      }
+    }
+  }
+
+  const portalNodeIds = world.graph.nodes
+    .filter((node) => node.kind === "portal")
+    .map((node) => node.id);
+  for (const portalNodeId of portalNodeIds) {
+    if (!world.portals.some((portal) => portal.worldNodeId === portalNodeId)) {
+      issues.push(`world node "${portalNodeId}" with kind "portal" must map to a world portal`);
+    }
+  }
+
+  for (const portal of world.portals) {
+    if (!placementByDestinationId.has(portal.destinationId)) {
+      issues.push(
+        `world portal "${portal.id}" references destination "${portal.destinationId}" without a world destination placement`,
+      );
+    }
+  }
+
+  return issues;
 }
 
 function validateNode(
@@ -558,6 +892,12 @@ export function collectSeedDataIssues(seedData: SeedData): string[] {
 
   const destinationIds = new Set(seedData.destinations.map((destination) => destination.id));
   const categoryIds = new Set(seedData.facilityCategories.map((category) => category.id));
+  const destinationNodeIds = new Map(
+    seedData.destinations.map((destination) => [
+      destination.id,
+      new Set(destination.graph.nodes.map((node) => node.id)),
+    ]),
+  );
 
   for (const destination of seedData.destinations) {
     issues.push(...validateDestination(destination, categoryIds));
@@ -582,6 +922,10 @@ export function collectSeedDataIssues(seedData: SeedData): string[] {
   const userIds = new Set(seedData.users.map((user) => user.id));
   for (const journal of seedData.journals) {
     validateJournal(journal, userIds, destinationIds, issues);
+  }
+
+  if (seedData.world !== undefined) {
+    issues.push(...validateWorld(seedData.world, destinationIds, destinationNodeIds));
   }
 
   return issues;

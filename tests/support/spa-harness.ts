@@ -35,6 +35,7 @@ const SPA_MODULE_FILES = [
   "app-shell.js",
   "lib.js",
   "map-rendering.js",
+  "world-rendering.js",
   "views/compose.js",
   "views/explore.js",
   "views/feed.js",
