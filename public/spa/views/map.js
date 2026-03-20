@@ -40,17 +40,17 @@ export async function render(app, route, root) {
     <section class="route-hero route-hero-map">
       <div class="route-hero-copy">
         <p class="eyebrow">Map</p>
-        <h1>Let the map breathe, then open advanced routing only when you need it.</h1>
+        <h1>Plan a route with the destination map still in view.</h1>
         <p class="route-lede">
-          The map view owns destination graph rendering, route planning, and direct-entry query hydration. Destination projections and overlays are cached per place so unrelated state changes do not recompute them.
+          Choose a destination, preview the route endpoints, and plan the path that fits the visit.
         </p>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">Deep links</p>
+        <p class="section-tag">Route flow</p>
         <ul class="hero-list">
-          <li>Direct entry works on <code>/map?destinationId=...&from=...&to=...</code>.</li>
-          <li>Changing controls updates the URL client-side without a reload.</li>
-          <li>Only the selected destination graph is fetched.</li>
+          <li>Select a destination to load its map and node list.</li>
+          <li>Preview the start and end markers before sending a planner request.</li>
+          <li>Open advanced routing only when you need waypoints or different travel preferences.</li>
         </ul>
       </div>
     </section>
@@ -58,26 +58,30 @@ export async function render(app, route, root) {
     <section class="map-view-grid">
       <article class="surface-card map-controls-card">
         <div class="section-head">
-          <div>
-            <p class="section-tag">Route planning</p>
-            <h2>Choose the spatial context first</h2>
+          <div class="map-controls-copy">
+            <h2>Route Planning</h2>
+            <p>Choose the spatial context first, then set the route start and end nodes.</p>
           </div>
           <a class="inline-link" href="${returnToExploreHref}" data-nav="true">Return to Explore</a>
         </div>
         <form class="control-grid" id="map-route-form">
-          <label>
-            Destination
-            <select id="map-destination"></select>
-          </label>
-          <label>
-            Start node
-            <select id="map-start"></select>
-          </label>
-          <label>
-            End node
-            <select id="map-end"></select>
-          </label>
-          <details class="advanced-panel" id="map-advanced">
+          <div class="span-all map-control-group">
+            <label>
+              Destination
+              <select id="map-destination"></select>
+            </label>
+          </div>
+          <div class="control-grid span-all map-control-group map-node-pair">
+            <label>
+              Start node
+              <select id="map-start"></select>
+            </label>
+            <label>
+              End node
+              <select id="map-end"></select>
+            </label>
+          </div>
+          <details class="advanced-panel span-all" id="map-advanced">
             <summary>Advanced routing</summary>
             <div class="advanced-panel-grid">
               <label>
@@ -103,7 +107,7 @@ export async function render(app, route, root) {
               </label>
             </div>
           </details>
-          <div class="button-row">
+          <div class="button-row span-all">
             <button type="submit">Plan route</button>
             <button type="button" id="map-reset-route" class="ghost">Clear route</button>
           </div>
