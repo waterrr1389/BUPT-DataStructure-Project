@@ -105,7 +105,7 @@ RULES:
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0)
+### Plan Version: 1 (Updated: Round 1)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -116,23 +116,23 @@ RULES:
 | 0 | Set AC-1, AC-4, and AC-6 CSS/visual tasks to in_progress to record the CSS worker kickoff | Card radius work, advanced section/button restyle, and auxiliary label contrast all started | AC-1, AC-4, AC-6 |
 | 0 | Started final wave by marking docs sync and regression/test tasks in_progress | Documentation and regression coverage work now underway | AC-7, AC-8 |
 | 0 | Closed Round 0 after resolving radius/legend review findings and verifying all tests | New map shell, legend semantics, copy, docs, and tests proved complete via the provided commit evidence and `npm test` | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8 |
+| 1 | Reopened the right-stage shell alignment follow-up after review found a narrow-screen radius mismatch between the map stage and the route-result and summary shells | Round 1 landed the remaining copy, docs, and regression updates, but the mobile CSS still mixes the map-stage radius with the shared surface-card radius | AC-1 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
-*No Active Tasks remain this round; all work is captured under Completed and Verified.*
+- AC-1: Align `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card` to one responsive radius token on narrow screens, then re-check the right-stage clipping and result shells at desktop and mobile widths.
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
-| AC-1 | Audit right-hand map card, frame, and surrounding summary containers to adopt shared radius tokens, verify clipping, and remove bespoke corner values | 0 | 0 | `ea75c25` reorganized the map route panel shell and `fa2d82a` locked down the radius scope |
 | AC-2 | Centralize legend and route marker semantics so legend items and SVG rendering share a single mapping | 0 | 0 | `cf9ef7a` aligned route legend semantics with rendered markers and `3b4a1e1` fixed transition badge mismatches |
 | AC-3 | Restructure the left control panel with clearer title hierarchy and grouped Destination/Start/End controls | 0 | 0 | `ea75c25` reshaped the route planning hierarchy and field grouping |
 | AC-4 | Restyle the Advanced routing section and action buttons to clarify primary/secondary roles | 0 | 0 | `055fafd` tightened the advanced panel styling and button hierarchy |
-| AC-5 | Remove the `Calm Empty State` label and developer deep-link copy while keeping user-facing text consistent | 0 | 0 | `b05b92e` updated the empty-state helper output |
-| AC-6 | Improve auxiliary label contrast/weight via map-scoped styles | 0 | 0 | `055fafd` refreshed label styles with stronger map-specific tokens |
-| AC-7 | Sync documentation (`docs/user-guide.md`, `docs/journal-social-design-style.md`, etc.) with the new map layout and copy | 0 | 0 | `f10738f` aligned docs with the refreshed interface |
-| AC-8 | Extend regression coverage for map structure, legend semantics, empty state copy, and confirm via `npm test` | 0 | 0 | `97b97d8` added SPA regression assertions and local `npm test` (73 passed/0 failed) confirms no regressions |
+| AC-5 | Remove the `Calm Empty State` label and developer deep-link copy while keeping user-facing text consistent | 0 | 1 | `b05b92e` removed the helper tag leakage, and `34e301e` plus `54fb236` removed the remaining implementation-facing Map copy while preserving the shipped empty-state/result structure |
+| AC-6 | Improve auxiliary label contrast/weight via map-scoped styles | 0 | 1 | `055fafd` refreshed label styles with stronger map-specific tokens, and the Round 1 verification notes recorded desktop `1280×900` plus mobile `390×844` checks on `/map` |
+| AC-7 | Sync documentation (`docs/user-guide.md`, `docs/journal-social-design-style.md`, etc.) with the new map layout and copy | 0 | 1 | `f10738f` and `b200ac5` aligned the user guide and map-experience guidance with the shipped legend semantics and planner hierarchy |
+| AC-8 | Extend regression coverage for map structure, legend semantics, empty state copy, and confirm via `npm test` | 0 | 1 | `97b97d8`, `988f145`, and `8e6b34d` added the Map DOM and copy regressions, and local `npm test` still passes with 73/73 |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
@@ -143,4 +143,4 @@ RULES:
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-*No open issues remain this round; previous radius and legend mismatches were resolved and verified.*
+| The right-stage map card and the route-result shells still diverge on narrow screens: `.map-stage-card` resolves to a 20px outer radius at `max-width: 640px`, while `.map-stage-empty-shell` and `.route-summary-card` still follow the shared `.surface-card` 18px radius path. | 1 | AC-1 | Move the right-column map and result shells onto one responsive radius token, verify the empty-state wrapper and planned-route summary cards use it, and re-run the desktop/mobile `/map` checks before closing the round. |
