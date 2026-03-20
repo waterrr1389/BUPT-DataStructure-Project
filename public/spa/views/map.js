@@ -154,7 +154,7 @@ export async function render(app, route, root) {
 
   function mapStageEmptyMarkup(title, body) {
     return `
-      <div class="surface-card map-stage-empty-shell">
+      <div class="surface-card map-stage-empty-shell route-stage-shell">
         ${emptyStateMarkup({ title, body })}
       </div>
     `;
