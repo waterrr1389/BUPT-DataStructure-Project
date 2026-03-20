@@ -2135,6 +2135,8 @@ test("map renders planning controls and switches legend hooks from preview to ac
 
     const visualization = requireElement(root, "#map-visualization");
     const mapStageCard = requireElement(visualization, ".map-stage-card");
+    const mapControlsCard = requireElement(root, ".map-controls-card");
+    assert.equal(mapControlsCard.classList.contains("route-stage-shell"), true);
     assert.equal(mapStageCard.classList.contains("route-stage-shell"), true);
     const previewMarkerSemantics = Array.from(new Set(
       visualization
