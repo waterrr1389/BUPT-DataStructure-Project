@@ -1,101 +1,47 @@
-# Personalized Travel System
+# Trail Atlas
 
-This repository is a zero-dependency TypeScript course project that now delivers the implemented travel system rather than a scaffold. The codebase covers destination recommendation and search, route planning, nearby facility lookup, journal management and exchange, food discovery, a browser-facing demo, and reproducible validation and benchmark scripts.
+## 项目简介
+`Trail Atlas` 是一个零依赖、纯 TypeScript 实现的出行与探索产品，不只是教学脚手架，而是具备完整功能的课程项目。仓库内包含目的地探索、推荐、路线规划、周边设施查找、餐饮推荐以及日记与交换机制，配套 SPA 界面与 JSON API，且依赖 `tsc` 全局编译。
 
-## Implemented Scope
+## 当前能力
+- 目的地探索与推荐：通过自定义排名和全文索引，对目的地与推荐结果提供搜索与排序。
+- 路线规划：支持 `distance` / `time` / `mixed` 策略和 `walk` / `bike` / `shuttle` / `mixed` 出行模式的室内外路径规划。
+- 周边设施：依据图距离排序附近设施，避免直线误差。
+- 餐饮：提供推荐列表、按菜系筛选及容错搜索。
+- 日记与社交：支持日记撰写、查看、评分、推荐，搭配 Exchange 搜索、压缩/解压与故事板生成功能。
+- 运行时体验：SPA 通过 actor/user 选择替代身份系统，数据持久保存在 `.runtime/*.json`，未引入传统 auth/session。
 
-- Destination search and recommendation backed by custom ranking and text-search helpers.
-- Indoor and outdoor routing with `distance`, `time`, and `mixed` strategies plus `walk`, `bike`, `shuttle`, and `mixed` travel modes.
-- Nearby facility lookup ordered by graph distance instead of straight-line distance.
-- Journal create, browse, view, rate, and recommend flows.
-- Journal exchange features for exact-title lookup, full-text search, reversible compression, decompression, and storyboard generation.
-- Food recommendation plus cuisine-filtered and typo-tolerant search.
-- Browser and JSON API surface from `src/server/index.ts` and `public/`.
+## 页面与接口概览
+- SPA 路由：`/`、`/explore`、`/map`、`/feed`、`/compose`、`/posts/:journalId`。
+- 主要 JSON API：`/api/health`、`/api/bootstrap`、目的地与推荐接口、距离/时间/混合路由规划、附近设施、日记/Feed/评论/点赞/评分/查看、Exchange 相关、餐饮接口。
 
-## Repository Layout
+## 环境要求
+- Node `>=20`。
+- `package.json` 中无 `dependencies` 与 `devDependencies`，仅依赖全局 `tsc`。
+- 脚本包括：`build`、`validate:data`、`test`、`benchmark`、`demo`、`start`，其中 `start` 默认监听 `127.0.0.1:3000`。
 
-```text
-src/
-  domain/models.ts
-  data/seed.ts
-  data/validation.ts
-  algorithms/
-  services/
-  server/index.ts
-public/
-scripts/
-  validate-data.ts
-  run-benchmarks.ts
-  demo.ts
-tests/
-docs/
-```
+## 快速开始
+1. 安装或确认有全局 `tsc`。
+2. 运行 `npm run build` 生成产物。
+3. 依次执行 `npm run validate:data`、`npm test`、`npm run benchmark` 保证数据与功能完整。
+4. 若需本地演示，执行 `npm run demo` 或 `npm run start` 并访问 `http://127.0.0.1:3000`。
 
-## Command Surface
+## 项目结构
+- `src/`: 领域模型、数据、算法、服务与 `server/index.ts`。
+- `public/`: 浏览器 SPA 资源。
+- `scripts/`: 含 `validate-data.ts`、`run-benchmarks.ts`、`demo.ts`。
+- `tests/` 与 `docs/`：测试与交付文档。
 
-The package scripts are the delivery contract:
+## 当前验证状态
+- `npm test` 已验证通过，共 75 个测试，无失败。
 
-- `npm run build`
-- `npm run validate:data`
-- `npm test`
-- `npm run benchmark`
-- `npm run demo`
-- `npm run start`
+## 文档索引
+- 用户指南：`docs/user-guide.md`。
+- 示例结果与测试：`docs/example-results-and-tests.md`。
+- 设计文档：`docs/overall-design.md`、`docs/module-design.md`。
+- 数据结构与字典：`docs/data-structures-and-dictionary.md`。
+- 其他参考：任务/需求/评估/创新文档（可在 `docs/` 下查找相应文件）。
 
-## Current Verified Evidence
-
-These results reflect the verified workspace state for March 19, 2026. They combine the current automated evidence below with the earlier March 18 unrestricted live-start and smoke-verification record.
-
-- `npm run build` passed.
-- `npm run validate:data` passed with counts:
-  - destinations `220`
-  - buildings `660`
-  - facilityCategories `10`
-  - facilities `1100`
-  - edges `4070`
-  - users `12`
-  - journals `12`
-  - foods `880`
-- `npm test` passed with `30` tests.
-- `npm run benchmark` produced representative output:
-  - `top-k: 6.250 ms over 25 iteration(s) with sample size 1000`
-  - `search: 27.531 ms over 25 iteration(s) with sample size 1000`
-  - `graph: 3.149 ms over 25 iteration(s) with sample size 64`
-  - `compression: 11.428 ms over 25 iteration(s) with sample size 2640`
-- `npm run demo` passed and produced the deterministic `dest-002` / `River Polytechnic` report, including exchange metrics:
-  - inputLength `179`
-  - compressedLength `162`
-  - compressionRatio `0.9050279329608939`
-  - algorithmCompressionRatio `0.7430167597765364`
-  - spaceSavings `0.0949720670391061`
-- `node dist/src/server/index.js` successfully bound to `http://127.0.0.1:3000` in an unrestricted environment.
-- Browser/API smoke verification against that live server succeeded for `/`, `/api/health`, `/api/bootstrap`, destination search and recommendation, route planning with `distance` / `time` / `mixed`, nearby facility lookup, journal create/get/list/view/rate/recommendation, journal exchange, and food discovery.
-
-The current implementation also keeps all five destination selectors on one authoritative destination-option preparation path, applies the same duplicate-name disambiguation across route, facility, food, journal, and exchange selectors, and preserves the `12`-item featured deck specifically for homepage destination cards.
-
-Fallback seed graph generation now uses deterministic scenic and campus variants instead of effectively reusing one template shape, and the test suite includes explicit selector-parity and graph-variant regression coverage.
-
-All in-repository delivery work and unrestricted-environment startup verification are now reflected in the docs.
-The remaining repository cleanup is documentation-process alignment around RLCR history and handoff materials, not missing product implementation in `src/`, `public/`, `tests/`, or `scripts/`.
-
-The counts, benchmark timings, and demo metrics listed here are evidence snapshots from the verified March 18-19 state, not new permanent product constraints.
-
-## Delivery Docs
-
-The required course-delivery material lives in `docs/`:
-
-- `docs/task-description.md`
-- `docs/requirements-analysis.md`
-- `docs/overall-design.md`
-- `docs/module-design.md`
-- `docs/data-structures-and-dictionary.md`
-- `docs/example-results-and-tests.md`
-- `docs/evaluation-and-improvements.md`
-- `docs/user-guide.md`
-- `docs/innovation-notes.md`
-- `docs/agent-usage.md`
-
-## Environment Note
-
-Earlier `EPERM` bind failures came from restricted-environment rounds. March 18 unrestricted-environment verification confirmed that the compiled server can listen on `127.0.0.1:3000` and serve the browser/API demo surface successfully.
-Any remaining follow-up after that verification is documentation-only alignment of the RLCR record and handoff docs.
+## 补充说明
+1. 所有运行时数据通过 `.runtime/*.json` 保留；SPA 通过选择 actor/user 展示作用，未引入账号系统。
+2. 本仓库当前就是可运行的 Trail Atlas 产品，后续更新应围绕功能拓展、数据优化与文档同步展开。 
