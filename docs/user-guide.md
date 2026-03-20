@@ -32,7 +32,7 @@ npm run start
 - Journal create, browse, view, rate, and recommend flows
 - Journal exchange: exact-title lookup, full-text search, compression/decompression, and storyboard generation
 - Food recommendation and typo-tolerant search
-- Map-based routing anchors cohesive planning: origin/destination, segment details, and overlays are arranged in a single hierarchy, the legend semantics track the rendered traces, the copy guides the next action, and the route cards borrow the journal/feed treatment so everything feels connected.
+- Map-based routing anchors cohesive planning: origin/destination, segment details, and overlays are arranged in a single hierarchy, the map legend tracks the visible path types (outdoor route, indoor route, bike lane, shuttle lane) and marker cues (start, end, transition, turn) so the colors and labels match what is on-screen, the copy guides the next action, and the route cards borrow the journal/feed treatment so everything feels connected.
 
 ## Deterministic Demo
 

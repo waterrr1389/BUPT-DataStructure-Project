@@ -113,7 +113,7 @@ Do not:
 - The map canvas should dominate the composition.
 - Control density should stay low, with advanced route controls collapsed by default.
 - Routes, nodes, buildings, and turn cues should share one gentle visual system.
-- Map-based routing follows a cohesive hierarchy: origin and destination controls lead, segment details expand beneath, and overlays live in unified panels so the planner feels like a single journey. The legend semantics mirror the drawn traces (primary path, alternates, transit) so color and label always describe what is on-screen, the copy echoes the rest of the experience, and the route-summary cards borrow the same spacing and tone as the feed's journal cards so no surface feels orphaned.
+- Map-based routing follows a cohesive hierarchy: origin and destination controls lead, segment details expand beneath, and overlays live in unified panels so the planner feels like a single journey. The legend mirrors each rendered trace by type (outdoor route, indoor route, bike lane, shuttle lane) and the marker cues (start, end, transition, turn) so the copy matches the visible cues, and the route-summary cards borrow the same spacing and tone as the feed's journal cards so no surface feels orphaned.
 
 ### Feed
 
