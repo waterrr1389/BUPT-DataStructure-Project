@@ -348,17 +348,29 @@ function routeLegendItemMarkup(item) {
   `;
 }
 
-function buildRouteLegendItems(routeAnalysis, markerLayout, previewMarkers) {
+export function buildRouteLegendItems(routeAnalysis, markerLayout, previewMarkers) {
   if (routeAnalysis) {
     const renderedRoadTypes = new Set(
       routeAnalysis.stepDetails.map((step) => step.edge?.roadType || "walkway"),
     );
-    const activeMarkerSamples = new Map([
-      ["transition", markerLayout.transitionMarkers[0] || null],
-      ["turn", markerLayout.turnMarkers[0] || null],
-      ["start", markerLayout.endpointMarkers.find((marker) => marker.kind === "start") || null],
-      ["end", markerLayout.endpointMarkers.find((marker) => marker.kind === "end") || null],
-    ]);
+    const safeMarkerLayout = {
+      endpointMarkers: markerLayout?.endpointMarkers ?? [],
+      transitionMarkers: markerLayout?.transitionMarkers ?? [],
+      turnMarkers: markerLayout?.turnMarkers ?? [],
+    };
+    const startMarker =
+      safeMarkerLayout.endpointMarkers.find((marker) => marker.kind === "start") || null;
+    const endMarker = safeMarkerLayout.endpointMarkers.find((marker) => marker.kind === "end") || null;
+    const activeMarkerSamples = {
+      transition: safeMarkerLayout.transitionMarkers,
+      turn: safeMarkerLayout.turnMarkers,
+      start: startMarker ? [startMarker] : [],
+      end: endMarker ? [endMarker] : [],
+    };
+    const activeLegendMarkers = ACTIVE_MARKER_LEGEND_ORDER.reduce((markers, kind) => {
+      const entries = activeMarkerSamples[kind] ?? [];
+      return markers.concat(entries.filter(Boolean));
+    }, []);
 
     return [
       ...ROUTE_PATH_ORDER.filter((roadType) => renderedRoadTypes.has(roadType)).map((roadType) => ({
@@ -368,15 +380,13 @@ function buildRouteLegendItems(routeAnalysis, markerLayout, previewMarkers) {
         state: "active-route",
         type: "path",
       })),
-      ...ACTIVE_MARKER_LEGEND_ORDER.map((kind) => activeMarkerSamples.get(kind))
-        .filter(Boolean)
-        .map((marker) => ({
-          iconMarkup: routeMarkerLegendIconMarkup(marker),
-          label: marker.legendLabel,
-          semanticKey: marker.semanticKey || marker.kind,
-          state: marker.state || "active-route",
-          type: "marker",
-        })),
+      ...activeLegendMarkers.map((marker) => ({
+        iconMarkup: routeMarkerLegendIconMarkup(marker),
+        label: marker.legendLabel,
+        semanticKey: marker.semanticKey || marker.kind,
+        state: marker.state || "active-route",
+        type: "marker",
+      })),
     ];
   }
 

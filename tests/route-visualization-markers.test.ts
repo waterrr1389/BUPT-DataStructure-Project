@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
+import { importSpaModule } from "./support/spa-harness";
 
 type Point = {
   x: number;
@@ -21,6 +22,11 @@ type RouteAnalysis = {
   routeNodes: RouteNode[];
   transitionMarkers: MarkerInput[];
   turnMarkers: MarkerInput[];
+  stepDetails?: {
+    edge?: { roadType?: string };
+    fromNode: RouteNode;
+    toNode: RouteNode;
+  }[];
 };
 
 type Projection = {
@@ -45,6 +51,22 @@ type MarkerLayout = {
   endpointMarkers: MarkerOutput[];
   transitionMarkers: MarkerOutput[];
   turnMarkers: MarkerOutput[];
+};
+
+type LegendItem = {
+  iconMarkup: string;
+  label: string;
+  semanticKey: string;
+  state: string;
+  type: string;
+};
+
+type MapRenderingModule = {
+  buildRouteLegendItems(
+    routeAnalysis: RouteAnalysis,
+    markerLayout: MarkerLayout,
+    previewMarkers: MarkerOutput[],
+  ): LegendItem[];
 };
 
 type MarkerHelpersModule = {
@@ -187,6 +209,47 @@ test("transition legend badge follows non-indoor transition pills", () => {
   assert.equal(markerLayout.transitionMarkers[0].legendBadgeLabel, "Outdoor");
   assert.equal(markerLayout.transitionMarkers[0].legendLabel, "Indoor/outdoor change");
   assert.equal(markerLayout.transitionMarkers[0].semanticKey, "transition");
+});
+
+test("legend captures every contextual cue variant instead of collapsing them", async () => {
+  const { buildRouteLegendItems } = await importSpaModule<MapRenderingModule>("map-rendering.js");
+  const startNode = createNode("start", 0, 0);
+  const indoorTransition = createNode("transition-indoor", 40, 60);
+  const firstTurn = createNode("turn-first", 80, 90);
+  const outdoorTransition = createNode("transition-outdoor", 120, 130);
+  const secondTurn = createNode("turn-second", 160, 170);
+  const endNode = createNode("end", 200, 210);
+  const routeNodes = [startNode, indoorTransition, firstTurn, outdoorTransition, secondTurn, endNode];
+  const stepDetails = routeNodes.slice(0, -1).map((node, index) => ({
+    fromNode: node,
+    toNode: routeNodes[index + 1],
+    edge: { roadType: "walkway" },
+  }));
+
+  const routeAnalysis: RouteAnalysis = {
+    routeNodes,
+    stepDetails,
+    transitionMarkers: [
+      { label: "Indoor entry", node: indoorTransition, shortLabel: "Indoor" },
+      { label: "Open-air return", node: outdoorTransition, shortLabel: "Outdoor" },
+    ],
+    turnMarkers: [
+      { label: "Turn", node: firstTurn, shortLabel: "Turn" },
+      { label: "Level 2", node: secondTurn, shortLabel: "L2" },
+    ],
+  };
+
+  const markerLayout = createRouteMarkerLayout(routeAnalysis, createProjection());
+  const legendItems = buildRouteLegendItems(routeAnalysis, markerLayout, []);
+  const transitionEntries = legendItems.filter((item) => item.semanticKey === "transition");
+  const turnEntries = legendItems.filter((item) => item.semanticKey === "turn");
+
+  assert.equal(transitionEntries.length, 2);
+  assert.ok(transitionEntries.some((entry) => entry.iconMarkup.includes(">Indoor<")));
+  assert.ok(transitionEntries.some((entry) => entry.iconMarkup.includes(">Outdoor<")));
+  assert.equal(turnEntries.length, 2);
+  assert.ok(turnEntries.some((entry) => entry.iconMarkup.includes(">Turn<")));
+  assert.ok(turnEntries.some((entry) => entry.iconMarkup.includes(">L2<")));
 });
 
 test("preview markers stay separate from active route markers and expose preview semantics", () => {
