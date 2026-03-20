@@ -115,19 +115,24 @@ RULES:
 | 0 | Marked key AC-2/AC-3/AC-5 tasks as in_progress to signal the first implementation wave | First work started on legend semantics, control panel structure, and empty-state copy | AC-2, AC-3, AC-5 |
 | 0 | Set AC-1, AC-4, and AC-6 CSS/visual tasks to in_progress to record the CSS worker kickoff | Card radius work, advanced section/button restyle, and auxiliary label contrast all started | AC-1, AC-4, AC-6 |
 | 0 | Started final wave by marking docs sync and regression/test tasks in_progress | Documentation and regression coverage work now underway | AC-7, AC-8 |
+| 0 | Closed Round 0 after resolving radius/legend review findings and verifying all tests | New map shell, legend semantics, copy, docs, and tests proved complete via the provided commit evidence and `npm test` | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
-| Task | Target AC | Status | Notes |
-|------|-----------|--------|-------|
-| Audit right-hand map card, frame, and surrounding summary containers to adopt the shared card radius tokens, verify clipping relationships, and remove any bespoke corner values | AC-1 | in_progress | Will adjust CSS/classes so the map canvas shell matches other cards |
-| Centralize legend and route marker semantics (renderRouteVisualization + marker helpers) so legend items and SVG rendering draw from the same mapping and existing tests stay green | AC-2 | in_progress | Will reconcile Start/End/route swatches and keep `route-visualization-markers.test.ts` reliable |
-| Restructure the left control panel: promote `Route Planning` to the dominant title, demote auxiliary copy, and group `Destination`, `Start node`, and `End node` into a cohesive spatial context block | AC-3 | in_progress | Aimed at DOM/visual grouping changes in `public/spa/views/map.js` |
-| Restyle the Advanced routing section and action buttons so Advanced routing behaves like an accordion, Plan route stays primary, Clear route is ghost, and Return to Explore reads as navigation | AC-4 | in_progress | Includes updating map-side button hierarchy and any necessary hooks for regression tests |
-| Remove the `Calm Empty State` label, strip developer-focused deep-link copy from hero/body, and ensure the empty state helper only surfaces user-facing text | AC-5 | in_progress | Will touch empty state helper and verify no internal names reach the UI |
-| Improve auxiliary label contrast/weight for map-specific tags and ensure added styles reuse existing tokens without destabilizing other pages | AC-6 | in_progress | Requires CSS adjustments scoped to map context |
-| Update `docs/user-guide.md` and `docs/journal-social-design-style.md` (and others as needed) so the documentation matches the refreshed map layout, legend semantics, and copy | AC-7 | in_progress | Documentation changes must ship alongside code |
-| Expand regression coverage for map structure, legend semantics, empty state copy, and run `npm test` to confirm no behavior regressions | AC-8 | in_progress | Includes SPA regression assertions and marker/legend test checks |
+*No Active Tasks remain this round; all work is captured under Completed and Verified.*
+
+### Completed and Verified
+<!-- Only move tasks here after Codex verification -->
+| AC | Task | Completed Round | Verified Round | Evidence |
+|----|------|-----------------|----------------|----------|
+| AC-1 | Audit right-hand map card, frame, and surrounding summary containers to adopt shared radius tokens, verify clipping, and remove bespoke corner values | 0 | 0 | `ea75c25` reorganized the map route panel shell and `fa2d82a` locked down the radius scope |
+| AC-2 | Centralize legend and route marker semantics so legend items and SVG rendering share a single mapping | 0 | 0 | `cf9ef7a` aligned route legend semantics with rendered markers and `3b4a1e1` fixed transition badge mismatches |
+| AC-3 | Restructure the left control panel with clearer title hierarchy and grouped Destination/Start/End controls | 0 | 0 | `ea75c25` reshaped the route planning hierarchy and field grouping |
+| AC-4 | Restyle the Advanced routing section and action buttons to clarify primary/secondary roles | 0 | 0 | `055fafd` tightened the advanced panel styling and button hierarchy |
+| AC-5 | Remove the `Calm Empty State` label and developer deep-link copy while keeping user-facing text consistent | 0 | 0 | `b05b92e` updated the empty-state helper output |
+| AC-6 | Improve auxiliary label contrast/weight via map-scoped styles | 0 | 0 | `055fafd` refreshed label styles with stronger map-specific tokens |
+| AC-7 | Sync documentation (`docs/user-guide.md`, `docs/journal-social-design-style.md`, etc.) with the new map layout and copy | 0 | 0 | `f10738f` aligned docs with the refreshed interface |
+| AC-8 | Extend regression coverage for map structure, legend semantics, empty state copy, and confirm via `npm test` | 0 | 0 | `97b97d8` added SPA regression assertions and local `npm test` (73 passed/0 failed) confirms no regressions |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -143,5 +148,4 @@ RULES:
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| Map radius scope bug still leaves the right-hand map shell with conflicting corner curves | 0 | AC-1 | Audit the card/frame containers, consolidate radius tokens, and verify clipping relationships before finalizing styles |
-| Transition legend badge mismatch persists between legend swatches and rendered markers | 0 | AC-2 | Align legend semantics with `renderRouteVisualization`/marker helpers and ensure `route-visualization-markers.test.ts` catches any divergence |
+*No open issues remain this round; previous radius and legend mismatches were resolved and verified.*
