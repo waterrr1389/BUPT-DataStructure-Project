@@ -65,6 +65,7 @@ RULES:
 | 0 | Initial plan | - | - |
 | 0 | Marked key AC-2/AC-3/AC-5 tasks as in_progress to signal the first implementation wave | First work started on legend semantics, control panel structure, and empty-state copy | AC-2, AC-3, AC-5 |
 | 0 | Set AC-1, AC-4, and AC-6 CSS/visual tasks to in_progress to record the CSS worker kickoff | Card radius work, advanced section/button restyle, and auxiliary label contrast all started | AC-1, AC-4, AC-6 |
+| 0 | Started final wave by marking docs sync and regression/test tasks in_progress | Documentation and regression coverage work now underway | AC-7, AC-8 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
@@ -76,8 +77,8 @@ RULES:
 | Restyle the Advanced routing section and action buttons so Advanced routing behaves like an accordion, Plan route stays primary, Clear route is ghost, and Return to Explore reads as navigation | AC-4 | in_progress | Includes updating map-side button hierarchy and any necessary hooks for regression tests |
 | Remove the `Calm Empty State` label, strip developer-focused deep-link copy from hero/body, and ensure the empty state helper only surfaces user-facing text | AC-5 | in_progress | Will touch empty state helper and verify no internal names reach the UI |
 | Improve auxiliary label contrast/weight for map-specific tags and ensure added styles reuse existing tokens without destabilizing other pages | AC-6 | in_progress | Requires CSS adjustments scoped to map context |
-| Update `docs/user-guide.md` and `docs/journal-social-design-style.md` (and others as needed) so the documentation matches the refreshed map layout, legend semantics, and copy | AC-7 | pending | Documentation changes must ship alongside code |
-| Expand regression coverage for map structure, legend semantics, empty state copy, and run `npm test` to confirm no behavior regressions | AC-8 | pending | Includes SPA regression assertions and marker/legend test checks |
+| Update `docs/user-guide.md` and `docs/journal-social-design-style.md` (and others as needed) so the documentation matches the refreshed map layout, legend semantics, and copy | AC-7 | in_progress | Documentation changes must ship alongside code |
+| Expand regression coverage for map structure, legend semantics, empty state copy, and run `npm test` to confirm no behavior regressions | AC-8 | in_progress | Includes SPA regression assertions and marker/legend test checks |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
