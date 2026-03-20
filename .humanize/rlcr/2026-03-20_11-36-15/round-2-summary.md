@@ -30,4 +30,4 @@ Continue to rerun the regression suite when touching shell controls and keep an 
 - Update the plan evolution/evidence section so it records the shell-hook implementation, the responsive override fix, the regression assertions, and the final verification sweep that completed in round 2.
 
 ### Justification:
-The commits `63b3711`, `3f0279c`, `eabf343`, `06f941b`, and the regression guard `354ab23` deliver the shelf, styling, and tests the plan requested, the latest `npm test` plus the desktop/mobile map browser checks prove the radius contract and responsive token handling, and the independent review reported no findings, so the tracker can consider these items complete.
+The commits `63b3711`, `3f0279c`, `eabf343`, `06f941b`, and the regression guard `354ab23` deliver the shell, styling, and tests the plan requested, the latest `npm test` plus the desktop/mobile map browser checks prove the radius contract and responsive token handling, and the independent review reported no findings, so the tracker can consider these items complete.
