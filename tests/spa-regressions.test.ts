@@ -2127,12 +2127,15 @@ test("map renders planning controls and switches legend hooks from preview to ac
     const routeResult = requireElement(root, "#map-route-result");
     const routeResultEmptyShell = requireElement(routeResult, ".map-stage-empty-shell");
     assert.equal(routeResultEmptyShell.classList.contains("surface-card"), true);
+    assert.equal(routeResultEmptyShell.classList.contains("route-stage-shell"), true);
     assert.ok(routeResultEmptyShell.querySelector(".empty-state") !== null);
     assert.equal(compactText(routeResult).includes("Route summary appears after planning"), true);
     assert.equal(compactText(routeResult).includes("Calm Empty State"), false);
     assert.equal(routeResult.querySelector(".section-tag"), null);
 
     const visualization = requireElement(root, "#map-visualization");
+    const mapStageCard = requireElement(visualization, ".map-stage-card");
+    assert.equal(mapStageCard.classList.contains("route-stage-shell"), true);
     const previewMarkerSemantics = Array.from(new Set(
       visualization
         .querySelectorAll("[data-route-marker-state='preview']")
@@ -2154,6 +2157,9 @@ test("map renders planning controls and switches legend hooks from preview to ac
     assert.equal(compactText(routeResult).includes("Route summary appears after planning"), false);
     assert.equal(compactText(routeResult).includes("Route ready to follow."), true);
     assert.equal(routeResult.innerHTML.includes("Route details"), true);
+    const routeSummaryCards = Array.from(routeResult.querySelectorAll(".route-summary-card"));
+    assert.equal(routeSummaryCards.length, 2);
+    assert.equal(routeSummaryCards.every((card) => card.classList.contains("route-stage-shell")), true);
 
     const activeLegendKeys = visualization
       .querySelectorAll("[data-route-legend-state='active-route']")
