@@ -232,6 +232,7 @@ seed 顶层保持：
 - `destination` leg 只能包含 `local-edge` steps
 - `world` leg 只能包含 `world-edge` 与 `portal-transfer` steps
 - `portal` 不是独立 leg scope
+- 每个 leg 的 `steps` 顺序必须保持为规划产出的原始顺序，该顺序即 route explanation 的 canonical segment sequence
 
 `destination` leg 必填字段：
 
@@ -300,6 +301,7 @@ seed 顶层保持：
   - `[destination]`
   - `[destination, world]`
   - `[destination, world, destination]`
+- `scope = cross-map` 且 `reachable = false` 时，已返回的前缀 `legs` 与其 `steps` 仍是有效且权威的结果，用于 partial route explanation 与 handoff 渲染
 - `scope = cross-map` 时，只要存在 `world` leg，就必须提供 `entryPortalId` 与 `exitPortalId`
 - `scope = cross-map` 时，`world` leg 的第一个 step 必须是 `portal-transfer(local-to-world)`，最后一个 step 必须是 `portal-transfer(world-to-local)`
 - 当 `fromLocalNodeId` 缺失时，origin `destination` leg 边界固定在选中 `entryPortalId.localNodeId`
@@ -486,7 +488,7 @@ world 不可用时推荐返回：
 - `mode` 可为 `walk`、`bike`、`shuttle`、`mixed`
 - `mixed` 是规划模式，不是独立物理交通方式
 - `reachable = false` 时允许返回已成功规划出的前缀 `legs`
-- 本接口仅冻结 contract，不包含 backend 或 SPA 实现承诺
+- 当前仓库已落地 backend route planning 与 `/map?view=world` 的 route summary、local/world/local handoff、以及基于返回 steps 的有序 explanation 渲染；本节继续冻结该接口的请求与响应 contract
 
 请求体固定为以下二选一：
 

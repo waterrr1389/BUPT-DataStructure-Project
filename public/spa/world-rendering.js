@@ -448,6 +448,75 @@ function formatMetricValue(value) {
   return metric.toFixed(2);
 }
 
+function worldRouteExplanationSegments(itinerary) {
+  const segments = [];
+  safeArray(itinerary?.legs).forEach((leg, legIndex) => {
+    safeArray(leg?.steps).forEach((step, stepIndex) => {
+      const kind = text(step?.kind);
+      const order = segments.length + 1;
+
+      if (kind === "world-edge") {
+        const edgeId = text(step?.edgeId, `world-edge-${legIndex}-${stepIndex}`);
+        const fromWorldNodeId = text(step?.fromWorldNodeId, "unknown-world-node");
+        const toWorldNodeId = text(step?.toWorldNodeId, "unknown-world-node");
+        const roadType = text(step?.roadType, "unknown-road").replaceAll("-", " ");
+        const mode = text(step?.mode, "unknown-mode");
+        const distance = formatMetricValue(step?.distance);
+        const cost = formatMetricValue(step?.cost);
+        segments.push({
+          kind,
+          order,
+          summary: `Segment ${order} · world edge ${edgeId}: ${fromWorldNodeId} -> ${toWorldNodeId} · roadType ${roadType} · mode ${mode} · distance ${distance} m · cost ${cost}`,
+        });
+        return;
+      }
+
+      if (kind === "portal-transfer") {
+        const portalId = text(step?.portalId, `portal-transfer-${legIndex}-${stepIndex}`);
+        const destinationId = text(step?.destinationId, "unknown-destination");
+        const transferDirection = text(step?.transferDirection, "unknown-direction");
+        const localNodeId = text(step?.localNodeId, "unknown-local-node");
+        const worldNodeId = text(step?.worldNodeId, "unknown-world-node");
+        const fromEndpoint = transferDirection === "world-to-local" ? worldNodeId : localNodeId;
+        const toEndpoint = transferDirection === "world-to-local" ? localNodeId : worldNodeId;
+        const mode = text(step?.mode, "unknown-mode");
+        const transferDistance = formatMetricValue(step?.transferDistance);
+        const transferCost = formatMetricValue(step?.transferCost);
+        const distance = formatMetricValue(step?.distance);
+        const cost = formatMetricValue(step?.cost);
+        segments.push({
+          kind,
+          order,
+          summary: `Segment ${order} · portal transfer ${portalId}: ${fromEndpoint} -> ${toEndpoint} · destination ${destinationId} · direction ${transferDirection} · mode ${mode} · transfer ${transferDistance} m · transfer cost ${transferCost} · distance ${distance} m · cost ${cost}`,
+        });
+      }
+    });
+  });
+  return segments;
+}
+
+function worldRouteExplanationMarkup(itinerary) {
+  const segments = worldRouteExplanationSegments(itinerary);
+  if (!segments.length) {
+    return `
+      <p class="muted" data-route-world-explanation-empty="true">
+        No portal-transfer or world-edge steps were returned for explanation.
+      </p>
+    `;
+  }
+
+  return `
+    <ol class="world-route-explanation-list" data-route-world-explanation="true">
+      ${segments
+        .map(
+          (segment) =>
+            `<li data-route-world-explanation-segment="${escapeHtml(segment.kind)}" data-route-world-explanation-order="${segment.order}">${escapeHtml(segment.summary)}</li>`,
+        )
+        .join("")}
+    </ol>
+  `;
+}
+
 function createWorldRouteLocalHref(leg, itinerary, route) {
   const destinationId = text(leg?.destinationId);
   if (!destinationId) {
@@ -501,8 +570,12 @@ function worldRouteFailureMarkup(message) {
 function worldRouteResultMarkup(itinerary, route) {
   const legs = safeArray(itinerary?.legs);
   const worldViewHref = createRouteContextHref("/map", { view: "world" }, route);
-  const fromLocalLeg = text(itinerary?.scope) === "cross-map" ? legs[0] : null;
-  const toLocalLeg = text(itinerary?.scope) === "cross-map" ? legs[2] : null;
+  const destinationLegs = legs.filter((leg) => text(leg?.scope) === "destination");
+  const fromLocalLeg = text(itinerary?.scope) === "cross-map" ? destinationLegs[0] || null : null;
+  const toLocalLeg =
+    text(itinerary?.scope) === "cross-map" && destinationLegs.length > 1
+      ? destinationLegs[destinationLegs.length - 1]
+      : null;
   const fromLocalHref = fromLocalLeg ? createWorldRouteLocalHref(fromLocalLeg, itinerary, route) : "";
   const toLocalHref = toLocalLeg ? createWorldRouteLocalHref(toLocalLeg, itinerary, route) : "";
   const summary = itinerary?.summary;
@@ -565,6 +638,11 @@ function worldRouteResultMarkup(itinerary, route) {
             ? legTags.map((label) => `<span class="tag" data-route-world-leg="true">${escapeHtml(label)}</span>`).join("")
             : "<span class='tag'>No route legs returned.</span>"
         }
+      </div>
+      <div class="world-route-explanation-shell">
+        <p class="section-tag">Route explanation</p>
+        <h4>Ordered itinerary segments</h4>
+        ${worldRouteExplanationMarkup(itinerary)}
       </div>
     </article>
   `;

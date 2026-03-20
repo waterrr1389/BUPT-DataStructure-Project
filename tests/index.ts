@@ -9,4 +9,5 @@ import "./route-visualization-markers.test";
 import "./runtime-services.test";
 import "./spa-regressions.test";
 import "./spa-regressions/map-and-shell.test";
+import "./world-route-error-contracts.test";
 import "./world-route-invalid-request.test";

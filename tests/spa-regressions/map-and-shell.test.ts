@@ -916,8 +916,29 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
       [430, 620],
     ]);
     assert.equal(leaflet.records.polylines[0]?.bringToFrontCallCount, 1);
-    assert.equal(compactText(requireElement(root, "#world-route-result")).includes("Cross-map itinerary"), true);
-    assert.equal(compactText(requireElement(root, "#world-route-result")).includes("Route ready to follow."), true);
+    const worldRouteResult = requireElement(root, "#world-route-result");
+    assert.equal(compactText(worldRouteResult).includes("Cross-map itinerary"), true);
+    assert.equal(compactText(worldRouteResult).includes("Route ready to follow."), true);
+    assert.equal(compactText(worldRouteResult).includes("Ordered itinerary segments"), true);
+    const explanationSegments = Array.from(
+      worldRouteResult.querySelectorAll("[data-route-world-explanation-segment]"),
+    );
+    assert.equal(explanationSegments.length, 4);
+    assert.deepEqual(
+      explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
+      ["1", "2", "3", "4"],
+    );
+    assert.equal(worldRouteResult.innerHTML.includes("portal transfer portal-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("direction local-to-world"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("world edge world-edge-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("roadType road"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("roadType bridge"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("portal transfer portal-2"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("world-node-3"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("dest-2-node-a"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("direction world-to-local"), true);
     assert.equal(
       requireElement(root, "[data-route-handoff='local-origin']").getAttribute("href"),
       "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-b&strategy=distance&mode=walk&actor=user-2",
@@ -938,6 +959,357 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
         options: undefined,
       },
     ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+
+    assert.equal(leaflet.records.maps[0]?.removeCallCount, 1);
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
+    restore();
+  }
+});
+
+test("map world view explains unreachable cross-map prefix itineraries without requiring a full local-world-local chain", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: true,
+              destinationRouting: true,
+              worldView: true,
+            },
+            destinations: [
+              {
+                destinationId: "dest-1",
+                iconType: "campus-waterfront",
+                label: "Harbor Reach",
+                regionId: "region-river",
+                x: 180,
+                y: 240,
+              },
+              {
+                destinationId: "dest-2",
+                iconType: "scenic-harbor",
+                label: "Lantern Point",
+                regionId: "region-harbor",
+                x: 620,
+                y: 430,
+              },
+            ],
+            enabled: true,
+            regions: [
+              { id: "region-river", name: "River Arc" },
+              { id: "region-harbor", name: "Harbor Line" },
+            ],
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              width: 1024,
+            },
+          };
+        }
+
+        if (endpoint === "/api/world/details") {
+          return {
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              destinations: [
+                {
+                  destinationId: "dest-1",
+                  iconType: "campus-waterfront",
+                  label: "Harbor Reach",
+                  portalIds: ["portal-1"],
+                  radius: 18,
+                  regionId: "region-river",
+                  x: 180,
+                  y: 240,
+                },
+                {
+                  destinationId: "dest-2",
+                  iconType: "scenic-harbor",
+                  label: "Lantern Point",
+                  portalIds: ["portal-2"],
+                  radius: 22,
+                  regionId: "region-harbor",
+                  x: 620,
+                  y: 430,
+                },
+              ],
+              graph: {
+                edges: [
+                  {
+                    allowedModes: ["walk"],
+                    bidirectional: true,
+                    congestion: 0.2,
+                    distance: 220,
+                    from: "world-node-1",
+                    id: "world-edge-1",
+                    roadType: "tunnel",
+                    to: "world-node-2",
+                  },
+                ],
+                nodes: [
+                  {
+                    destinationId: "dest-1",
+                    id: "world-node-1",
+                    kind: "portal",
+                    label: "Harbor Gate",
+                    tags: ["portal"],
+                    x: 180,
+                    y: 240,
+                  },
+                  {
+                    id: "world-node-2",
+                    kind: "hub",
+                    label: "Axis Hub",
+                    tags: ["hub"],
+                    x: 420,
+                    y: 320,
+                  },
+                  {
+                    destinationId: "dest-2",
+                    id: "world-node-3",
+                    kind: "portal",
+                    label: "Lantern Bridge",
+                    tags: ["portal"],
+                    x: 620,
+                    y: 430,
+                  },
+                ],
+              },
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              portals: [
+                {
+                  allowedModes: ["walk"],
+                  destinationId: "dest-1",
+                  direction: "bidirectional",
+                  id: "portal-1",
+                  label: "Harbor Gate Lift",
+                  localNodeId: "dest-1-node-b",
+                  portalType: "gate",
+                  priority: 1,
+                  transferCost: 8,
+                  transferDistance: 12,
+                  worldNodeId: "world-node-1",
+                },
+                {
+                  allowedModes: ["walk"],
+                  destinationId: "dest-2",
+                  direction: "bidirectional",
+                  id: "portal-2",
+                  label: "Lantern Lift",
+                  localNodeId: "dest-2-node-a",
+                  portalType: "gate",
+                  priority: 1,
+                  transferCost: 6,
+                  transferDistance: 10,
+                  worldNodeId: "world-node-3",
+                },
+              ],
+              regions: [
+                {
+                  id: "region-river",
+                  name: "River Arc",
+                  polygon: [
+                    [80, 120],
+                    [320, 140],
+                    [300, 340],
+                    [120, 320],
+                  ],
+                  tags: [],
+                },
+                {
+                  id: "region-harbor",
+                  name: "Harbor Line",
+                  polygon: [
+                    [500, 240],
+                    [900, 260],
+                    [860, 520],
+                    [560, 540],
+                  ],
+                  tags: ["harbor"],
+                },
+              ],
+              width: 1024,
+            },
+          };
+        }
+
+        if (endpoint === "/api/world/routes/plan") {
+          assert.deepEqual(
+            JSON.parse(String((options as { body?: string } | undefined)?.body ?? "{}")),
+            {
+              fromDestinationId: "dest-1",
+              mode: "walk",
+              scope: "cross-map",
+              strategy: "distance",
+              toDestinationId: "dest-2",
+            },
+          );
+          return {
+            item: {
+              failure: {
+                blockedFrom: "dest-2-node-a",
+                blockedTo: "dest-2-node-b",
+                code: "world_route_local_unreachable",
+                reason: "local_graph_disconnected",
+                stage: "destination-leg",
+              },
+              legs: [
+                {
+                  cost: 18,
+                  destinationId: "dest-1",
+                  distance: 70,
+                  localNodeIds: ["dest-1-node-a", "dest-1-node-b"],
+                  scope: "destination",
+                  steps: [
+                    {
+                      cost: 18,
+                      destinationId: "dest-1",
+                      distance: 70,
+                      edgeId: "edge-local-a",
+                      fromLocalNodeId: "dest-1-node-a",
+                      kind: "local-edge",
+                      mode: "walk",
+                      toLocalNodeId: "dest-1-node-b",
+                    },
+                  ],
+                },
+                {
+                  cost: 272,
+                  distance: 232,
+                  entryPortalId: "portal-1",
+                  exitPortalId: "portal-2",
+                  scope: "world",
+                  steps: [
+                    {
+                      cost: 8,
+                      destinationId: "dest-1",
+                      distance: 12,
+                      kind: "portal-transfer",
+                      localNodeId: "dest-1-node-b",
+                      mode: "walk",
+                      portalId: "portal-1",
+                      transferCost: 8,
+                      transferDirection: "local-to-world",
+                      transferDistance: 12,
+                      worldNodeId: "world-node-1",
+                    },
+                    {
+                      congestion: 0.2,
+                      cost: 264,
+                      distance: 220,
+                      edgeId: "world-edge-1",
+                      fromWorldNodeId: "world-node-1",
+                      kind: "world-edge",
+                      mode: "walk",
+                      roadType: "tunnel",
+                      toWorldNodeId: "world-node-2",
+                    },
+                  ],
+                  worldNodeIds: ["world-node-1", "world-node-2"],
+                },
+              ],
+              mode: "walk",
+              portalSelection: {
+                candidatePairCount: 1,
+                entryPortalId: "portal-1",
+                exitPortalId: "portal-2",
+                ruleVersion: "v1",
+                tieBreakOrder: ["total-cost-asc"],
+              },
+              reachable: false,
+              scope: "cross-map",
+              strategy: "distance",
+              summary: {
+                destinationCost: 18,
+                destinationDistance: 70,
+                transferCost: 8,
+                transferDistance: 12,
+                worldCost: 264,
+                worldDistance: 220,
+              },
+              totalCost: 290,
+              totalDistance: 302,
+              usedModes: ["walk"],
+            },
+          };
+        }
+
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          mode: "walk",
+          strategy: "distance",
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    const scopeSelect = requireElement(root, "#world-route-scope");
+    scopeSelect.value = "cross-map";
+    dispatchDomEvent(scopeSelect, "change");
+    dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
+    await settleAsync();
+
+    assert.equal(leaflet.records.polylines.length, 1);
+    assert.deepEqual(leaflet.records.polylines[0]?.latlngs, [
+      [240, 180],
+      [320, 420],
+    ]);
+    const worldRouteResult = requireElement(root, "#world-route-result");
+    assert.equal(compactText(worldRouteResult).includes("Route returned an incomplete itinerary."), true);
+    assert.equal(compactText(worldRouteResult).includes("destination leg blocked due to local graph disconnected"), true);
+    const explanationSegments = Array.from(
+      worldRouteResult.querySelectorAll("[data-route-world-explanation-segment]"),
+    );
+    assert.equal(explanationSegments.length, 2);
+    assert.deepEqual(
+      explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
+      ["1", "2"],
+    );
+    assert.equal(worldRouteResult.innerHTML.includes("portal transfer portal-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("direction local-to-world"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("world edge world-edge-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("roadType tunnel"), true);
+    assert.equal(
+      requireElement(root, "[data-route-handoff='local-origin']").getAttribute("href"),
+      "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-b&strategy=distance&mode=walk",
+    );
+    assert.equal(
+      requireElement(root, "[data-route-handoff='world']").getAttribute("href"),
+      "/map?view=world",
+    );
+    const destinationHandoff = requireElement(root, "[data-route-handoff='local-destination']");
+    assert.equal(destinationHandoff.tagName, "span");
+    assert.equal(worldRouteResult.innerHTML.includes("Destination local map unavailable"), true);
 
     if (typeof cleanup === "function") {
       cleanup();
