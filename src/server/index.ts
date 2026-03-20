@@ -1,11 +1,19 @@
 import fs from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
-import { parseDestinationSortBy } from "../services/contracts";
+import { parseDestinationSortBy, type WorldRoutePlanInvalidRequestRecord } from "../services/contracts";
 import { createAppServices, type AppServices } from "../services/index";
 import { isWorldRouteServiceError } from "../services/world-route-service";
 
 const publicDir = path.resolve(process.cwd(), "public");
+const WORLD_ROUTE_INVALID_REQUEST_MESSAGE = "Invalid world route request.";
+
+class RequestBodyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RequestBodyError";
+  }
+}
 
 function json(
   response: ServerResponse,
@@ -86,7 +94,7 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     totalSize += buffer.length;
     if (totalSize > 1_000_000) {
-      throw new Error("Request body exceeds 1 MB.");
+      throw new RequestBodyError("Request body exceeds 1 MB.");
     }
     chunks.push(buffer);
   }
@@ -100,8 +108,19 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   try {
     return JSON.parse(raw);
   } catch {
-    throw new Error("Request body must be valid JSON.");
+    throw new RequestBodyError("Request body must be valid JSON.");
   }
+}
+
+function asWorldRouteInvalidRequest(error: unknown): WorldRoutePlanInvalidRequestRecord | null {
+  if (!(error instanceof RequestBodyError)) {
+    return null;
+  }
+  return {
+    error: WORLD_ROUTE_INVALID_REQUEST_MESSAGE,
+    code: "world_route_invalid_request",
+    issues: [error.message],
+  };
 }
 
 function asNumber(value: string | null): number | undefined {
@@ -183,6 +202,11 @@ async function handleApi(
     } catch (error) {
       if (isWorldRouteServiceError(error)) {
         json(response, error.statusCode, error.payload);
+        return true;
+      }
+      const invalidRequest = asWorldRouteInvalidRequest(error);
+      if (invalidRequest) {
+        json(response, 400, invalidRequest);
         return true;
       }
       throw error;

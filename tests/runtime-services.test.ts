@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
+import { WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER } from "../src/services/contracts";
 import { createAppServices, type AppServices } from "../src/services/index";
 import { deriveWorldRuntimeState } from "../src/services/runtime";
 import { isWorldRouteServiceError } from "../src/services/world-route-service";
@@ -320,7 +321,7 @@ test("world route service respects mode-restricted portal candidates during dete
       id: "portal-dest-002-bike-only-fast",
       label: "River Polytechnic Bike Connector",
       allowedModes: ["bike"],
-      priority: 1,
+      priority: 300,
       transferDistance: 2,
       transferCost: 1,
     },
@@ -329,7 +330,7 @@ test("world route service respects mode-restricted portal candidates during dete
       id: "portal-dest-002-walk-only-fast",
       label: "River Polytechnic Walk Connector",
       allowedModes: ["walk"],
-      priority: 2,
+      priority: 200,
       transferDistance: 2,
       transferCost: 1,
     },
@@ -338,7 +339,7 @@ test("world route service respects mode-restricted portal candidates during dete
       id: "portal-dest-004-bike-only-fast",
       label: "Summit Learning Hub Bike Connector",
       allowedModes: ["bike"],
-      priority: 1,
+      priority: 300,
       transferDistance: 2,
       transferCost: 1,
     },
@@ -347,7 +348,7 @@ test("world route service respects mode-restricted portal candidates during dete
       id: "portal-dest-004-walk-only-fast",
       label: "Summit Learning Hub Walk Connector",
       allowedModes: ["walk"],
-      priority: 2,
+      priority: 200,
       transferDistance: 2,
       transferCost: 1,
     },
@@ -368,6 +369,156 @@ test("world route service respects mode-restricted portal candidates during dete
   assert.equal(itinerary.reachable, true, format(itinerary));
   assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-walk-only-fast");
   assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-walk-only-fast");
+});
+
+test("world route service ranks portal priority ahead of cheaper transfer cost", async () => {
+  const app = await createIsolatedApp("world-routing-priority-before-transfer");
+  const world = cloneWorld(app);
+  const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+  const targetMain = world.portals.find((portal) => portal.id === "portal-dest-004-main");
+  if (!originMain || !targetMain) {
+    throw new Error(format({ originMain, targetMain }));
+  }
+
+  world.portals = world.portals.filter(
+    (portal) => portal.id !== originMain.id && portal.id !== targetMain.id,
+  );
+  world.portals.push(
+    {
+      ...originMain,
+      id: "portal-dest-002-priority-high-expensive",
+      label: "River Polytechnic High Priority Connector",
+      priority: 500,
+      transferDistance: 40,
+      transferCost: 120,
+    },
+    {
+      ...originMain,
+      id: "portal-dest-002-priority-low-cheap",
+      label: "River Polytechnic Low Priority Connector",
+      priority: 10,
+      transferDistance: 1,
+      transferCost: 1,
+    },
+    {
+      ...targetMain,
+      id: "portal-dest-004-priority-high-expensive",
+      label: "Summit Learning Hub High Priority Connector",
+      priority: 500,
+      transferDistance: 40,
+      transferCost: 120,
+    },
+    {
+      ...targetMain,
+      id: "portal-dest-004-priority-low-cheap",
+      label: "Summit Learning Hub Low Priority Connector",
+      priority: 10,
+      transferDistance: 1,
+      transferCost: 1,
+    },
+  );
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    summary: { transferCost: number };
+    portalSelection: {
+      entryPortalId: string;
+      exitPortalId: string;
+      tieBreakOrder: string[];
+    };
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-priority-high-expensive");
+  assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-priority-high-expensive");
+  assert.equal(itinerary.summary.transferCost, 240, format(itinerary.summary));
+  assert.deepEqual(itinerary.portalSelection.tieBreakOrder, WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER);
+});
+
+test("world route service returns empty cross-map prefix legs when origin portal direction blocks outbound transfer", async () => {
+  const app = await createIsolatedApp("world-routing-empty-prefix-legs");
+  const world = cloneWorld(app);
+  const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+  if (!originMain) {
+    throw new Error(format({ originMain }));
+  }
+
+  originMain.direction = "inbound";
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<Record<string, unknown>>;
+    failure?: { stage: string; code: string };
+  };
+
+  assert.equal(itinerary.reachable, false, format(itinerary));
+  assert.equal(itinerary.failure?.stage, "origin-portal", format(itinerary.failure));
+  assert.equal(itinerary.failure?.code, "origin_portal_unavailable", format(itinerary.failure));
+  assert.equal(itinerary.legs.length, 0, format(itinerary.legs));
+});
+
+test("world route service returns destination and world prefix legs when destination local traversal is unreachable", async () => {
+  const app = await createIsolatedApp("world-routing-destination-prefix-legs");
+  const targetDestination = app.runtime.seedData.destinations.find((destination) => destination.id === "dest-004");
+  if (!targetDestination) {
+    throw new Error(format({ targetDestination }));
+  }
+
+  const mutatedDestination = {
+    ...targetDestination,
+    graph: {
+      ...targetDestination.graph,
+      edges: targetDestination.graph.edges.filter(
+        (edge) => edge.from !== "dest-004-archive" && edge.to !== "dest-004-archive",
+      ),
+    },
+  };
+  app.runtime.seedData = {
+    ...app.runtime.seedData,
+    destinations: app.runtime.seedData.destinations.map((destination) =>
+      destination.id === mutatedDestination.id ? mutatedDestination : destination,
+    ),
+  };
+  const destinationById = new Map(app.runtime.lookups.destinationById);
+  destinationById.set(mutatedDestination.id, mutatedDestination);
+  app.runtime.lookups = {
+    ...app.runtime.lookups,
+    destinationById,
+  };
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    toLocalNodeId: "dest-004-archive",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<Record<string, unknown>>;
+    failure?: { stage: string; code: string };
+  };
+
+  assert.equal(itinerary.reachable, false, format(itinerary));
+  assert.equal(itinerary.failure?.stage, "destination-local", format(itinerary.failure));
+  assert.equal(itinerary.failure?.code, "destination_local_unreachable", format(itinerary.failure));
+  assert.equal(itinerary.legs.length, 2, format(itinerary.legs));
+  assert.equal(itinerary.legs[0]?.scope, "destination", format(itinerary.legs[0]));
+  assert.equal(itinerary.legs[1]?.scope, "world", format(itinerary.legs[1]));
 });
 
 test("world route service returns reachable=false with prefix legs when world traversal becomes disconnected", async () => {

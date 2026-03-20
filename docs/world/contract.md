@@ -291,11 +291,16 @@ seed 顶层保持：
 冻结边界：
 
 - `scope = world-only` 时，`legs` 必须且仅能为一个 `world` leg
-- `scope = cross-map` 时，`legs` 必须且仅能按顺序为：
+- `scope = cross-map` 且 `reachable = true` 时，`legs` 必须且仅能按顺序为：
   - 第一个 `destination` leg（origin local）
   - 一个 `world` leg
   - 第二个 `destination` leg（target local）
-- `scope = cross-map` 时，`world` leg 必须提供 `entryPortalId` 与 `exitPortalId`
+- `scope = cross-map` 且 `reachable = false` 时，`legs` 只允许以下前缀形状之一：
+  - `[]`
+  - `[destination]`
+  - `[destination, world]`
+  - `[destination, world, destination]`
+- `scope = cross-map` 时，只要存在 `world` leg，就必须提供 `entryPortalId` 与 `exitPortalId`
 - `scope = cross-map` 时，`world` leg 的第一个 step 必须是 `portal-transfer(local-to-world)`，最后一个 step 必须是 `portal-transfer(world-to-local)`
 - 当 `fromLocalNodeId` 缺失时，origin `destination` leg 边界固定在选中 `entryPortalId.localNodeId`
 - 当 `toLocalNodeId` 缺失时，target `destination` leg 边界固定在选中 `exitPortalId.localNodeId`
@@ -308,13 +313,15 @@ seed 顶层保持：
 1. 枚举所有可行 `(entryPortalId, exitPortalId)` 组合。可行条件：
    - portal `direction` 与 `mode` 允许对应方向穿越
    - 两 portal 在 world graph 上可连通
-2. 对每个组合计算总分：
-   - `totalCost = originLocalCost + entry.transferCost + worldCost + exit.transferCost + targetLocalCost`
+2. 对每个组合提取排序键：
+   - portal 优先级：`entry.priority` 与 `exit.priority`（数值越大优先级越高）
+   - local-leg 成本：`originLocalCost + targetLocalCost`
+   - transfer 成本：`entry.transferCost + exit.transferCost`
 3. 按如下稳定顺序排序并取第一项：
-   - `totalCost` 升序
-   - `worldCost` 升序
-   - `entry.priority` 升序
-   - `exit.priority` 升序
+   - `entry.priority` 降序
+   - `exit.priority` 降序
+   - `originLocalCost + targetLocalCost` 升序
+   - `entry.transferCost + exit.transferCost` 升序
    - `entry.id` 字典序升序
    - `exit.id` 字典序升序
 
@@ -328,10 +335,10 @@ seed 顶层保持：
 
 `tieBreakOrder` 固定值顺序：
 
-- `total-cost-asc`
-- `world-cost-asc`
-- `entry-priority-asc`
-- `exit-priority-asc`
+- `entry-priority-desc`
+- `exit-priority-desc`
+- `local-leg-cost-asc`
+- `transfer-cost-asc`
 - `entry-id-asc`
 - `exit-id-asc`
 

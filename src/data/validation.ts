@@ -19,6 +19,7 @@ import type {
   WorldRoadType,
   WorldRegionRecord,
 } from "../domain/models";
+import { WORLD_ROUTE_LIMITS } from "../services/contracts";
 
 export const MINIMUM_COUNTS = {
   destinations: 200,
@@ -268,6 +269,10 @@ function validateWorldEdge(
   }
   if (!isFiniteNumber(edge.distance) || edge.distance <= 0) {
     issues.push(`world edge "${edge.id}" must have a positive distance`);
+  } else if (edge.distance > WORLD_ROUTE_LIMITS.distance.max) {
+    issues.push(
+      `world edge "${edge.id}" exceeds distance max ${WORLD_ROUTE_LIMITS.distance.max}`,
+    );
   }
   if (!isFiniteNumber(edge.congestion) || edge.congestion < 0 || edge.congestion > 1) {
     issues.push(`world edge "${edge.id}" has invalid congestion ${edge.congestion}`);
@@ -314,9 +319,17 @@ function validateWorldPortal(
   }
   if (!isFiniteNumber(portal.transferDistance) || portal.transferDistance < 0) {
     issues.push(`world portal "${portal.id}" must use a non-negative transferDistance`);
+  } else if (portal.transferDistance > WORLD_ROUTE_LIMITS.transferDistance.max) {
+    issues.push(
+      `world portal "${portal.id}" exceeds transferDistance max ${WORLD_ROUTE_LIMITS.transferDistance.max}`,
+    );
   }
   if (!isFiniteNumber(portal.transferCost) || portal.transferCost < 0) {
     issues.push(`world portal "${portal.id}" must use a non-negative transferCost`);
+  } else if (portal.transferCost > WORLD_ROUTE_LIMITS.transferCost.max) {
+    issues.push(
+      `world portal "${portal.id}" exceeds transferCost max ${WORLD_ROUTE_LIMITS.transferCost.max}`,
+    );
   }
 
   const worldNode = worldNodeById.get(portal.worldNodeId);

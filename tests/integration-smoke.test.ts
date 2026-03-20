@@ -6,6 +6,7 @@ import test from "node:test";
 import { collectBenchmarkResults } from "../scripts/benchmark-support";
 import { createDemoReport } from "../scripts/demo-support";
 import { createServerHandler } from "../src/server/index";
+import { WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER } from "../src/services/contracts";
 import { createAppServices, type AppServices } from "../src/services/index";
 import { deriveWorldRuntimeState } from "../src/services/runtime";
 
@@ -463,6 +464,195 @@ test("server exposes world route planning for cross-map destination-to-destinati
     assert.equal(worldOnly.body.item.legs.length, 1, worldOnly.text);
     assert.equal(worldOnly.body.item.legs[0]?.scope, "world", worldOnly.text);
   });
+});
+
+test("server ranks portal priority ahead of cheaper transfer cost for cross-map route planning", async () => {
+  await withServer(
+    "world-routes-priority-before-transfer",
+    async ({ requestJson }) => {
+      const response = await requestJson<{
+        item: {
+          reachable: boolean;
+          summary: { transferCost: number };
+          portalSelection: {
+            entryPortalId: string;
+            exitPortalId: string;
+            tieBreakOrder: string[];
+          };
+        };
+      }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+
+      assert.equal(response.status, 200, response.text);
+      assert.equal(response.body.item.reachable, true, response.text);
+      assert.equal(response.body.item.portalSelection.entryPortalId, "portal-dest-002-priority-high-expensive");
+      assert.equal(response.body.item.portalSelection.exitPortalId, "portal-dest-004-priority-high-expensive");
+      assert.equal(response.body.item.summary.transferCost, 240, response.text);
+      assert.deepEqual(response.body.item.portalSelection.tieBreakOrder, WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER);
+    },
+    {
+      prepareServices: (services) => {
+        const world = cloneWorld(services);
+        const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+        const targetMain = world.portals.find((portal) => portal.id === "portal-dest-004-main");
+        if (!originMain || !targetMain) {
+          throw new Error(JSON.stringify({ originMain, targetMain }));
+        }
+
+        world.portals = world.portals.filter(
+          (portal) => portal.id !== originMain.id && portal.id !== targetMain.id,
+        );
+        world.portals.push(
+          {
+            ...originMain,
+            id: "portal-dest-002-priority-high-expensive",
+            label: "River Polytechnic High Priority Connector",
+            priority: 500,
+            transferDistance: 40,
+            transferCost: 120,
+          },
+          {
+            ...originMain,
+            id: "portal-dest-002-priority-low-cheap",
+            label: "River Polytechnic Low Priority Connector",
+            priority: 10,
+            transferDistance: 1,
+            transferCost: 1,
+          },
+          {
+            ...targetMain,
+            id: "portal-dest-004-priority-high-expensive",
+            label: "Summit Learning Hub High Priority Connector",
+            priority: 500,
+            transferDistance: 40,
+            transferCost: 120,
+          },
+          {
+            ...targetMain,
+            id: "portal-dest-004-priority-low-cheap",
+            label: "Summit Learning Hub Low Priority Connector",
+            priority: 10,
+            transferDistance: 1,
+            transferCost: 1,
+          },
+        );
+        applyWorld(services, world);
+      },
+    },
+  );
+});
+
+test("server returns empty cross-map prefix legs when origin portal direction blocks outbound transfer", async () => {
+  await withServer(
+    "world-routes-empty-prefix-legs",
+    async ({ requestJson }) => {
+      const response = await requestJson<{
+        item: {
+          reachable: boolean;
+          legs: Array<Record<string, unknown>>;
+          failure: { stage: string; code: string };
+        };
+      }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+
+      assert.equal(response.status, 200, response.text);
+      assert.equal(response.body.item.reachable, false, response.text);
+      assert.equal(response.body.item.failure.stage, "origin-portal", response.text);
+      assert.equal(response.body.item.failure.code, "origin_portal_unavailable", response.text);
+      assert.equal(response.body.item.legs.length, 0, response.text);
+    },
+    {
+      prepareServices: (services) => {
+        const world = cloneWorld(services);
+        const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+        if (!originMain) {
+          throw new Error(JSON.stringify({ originMain }));
+        }
+        originMain.direction = "inbound";
+        applyWorld(services, world);
+      },
+    },
+  );
+});
+
+test("server returns destination and world cross-map prefix legs when destination local traversal is unreachable", async () => {
+  await withServer(
+    "world-routes-destination-prefix-legs",
+    async ({ requestJson }) => {
+      const response = await requestJson<{
+        item: {
+          reachable: boolean;
+          legs: Array<Record<string, unknown>>;
+          failure: { stage: string; code: string };
+        };
+      }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          toLocalNodeId: "dest-004-archive",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+
+      assert.equal(response.status, 200, response.text);
+      assert.equal(response.body.item.reachable, false, response.text);
+      assert.equal(response.body.item.failure.stage, "destination-local", response.text);
+      assert.equal(response.body.item.failure.code, "destination_local_unreachable", response.text);
+      assert.equal(response.body.item.legs.length, 2, response.text);
+      assert.equal(response.body.item.legs[0]?.scope, "destination", response.text);
+      assert.equal(response.body.item.legs[1]?.scope, "world", response.text);
+    },
+    {
+      prepareServices: (services) => {
+        const targetDestination = services.runtime.seedData.destinations.find(
+          (destination) => destination.id === "dest-004",
+        );
+        if (!targetDestination) {
+          throw new Error(JSON.stringify({ targetDestination }));
+        }
+        const mutatedDestination = {
+          ...targetDestination,
+          graph: {
+            ...targetDestination.graph,
+            edges: targetDestination.graph.edges.filter(
+              (edge) => edge.from !== "dest-004-archive" && edge.to !== "dest-004-archive",
+            ),
+          },
+        };
+        services.runtime.seedData = {
+          ...services.runtime.seedData,
+          destinations: services.runtime.seedData.destinations.map((destination) =>
+            destination.id === mutatedDestination.id ? mutatedDestination : destination,
+          ),
+        };
+        const destinationById = new Map(services.runtime.lookups.destinationById);
+        destinationById.set(mutatedDestination.id, mutatedDestination);
+        services.runtime.lookups = {
+          ...services.runtime.lookups,
+          destinationById,
+        };
+      },
+    },
+  );
 });
 
 test("server returns reachable=false with world failure and prefix legs when world graph is disconnected", async () => {

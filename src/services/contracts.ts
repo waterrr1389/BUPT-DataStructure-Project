@@ -434,6 +434,14 @@ export type WorldRouteWorldLeg = WorldOnlyRouteWorldLeg | CrossMapRouteWorldLeg;
 
 export type WorldRouteLeg = WorldDestinationRouteLeg | WorldRouteWorldLeg;
 
+export type CrossMapRouteSuccessLegs = [WorldDestinationRouteLeg, CrossMapRouteWorldLeg, WorldDestinationRouteLeg];
+
+export type CrossMapRouteFailureLegs =
+  | []
+  | [WorldDestinationRouteLeg]
+  | [WorldDestinationRouteLeg, CrossMapRouteWorldLeg]
+  | CrossMapRouteSuccessLegs;
+
 export interface WorldRouteFailure {
   stage: WorldRouteFailureStage;
   reason: WorldRouteFailureReason;
@@ -452,10 +460,10 @@ export interface WorldRouteSummary {
 }
 
 export const WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER = [
-  "total-cost-asc",
-  "world-cost-asc",
-  "entry-priority-asc",
-  "exit-priority-asc",
+  "entry-priority-desc",
+  "exit-priority-desc",
+  "local-leg-cost-asc",
+  "transfer-cost-asc",
   "entry-id-asc",
   "exit-id-asc",
 ] as const;
@@ -483,19 +491,30 @@ export interface WorldOnlyRouteItinerary {
   failure?: WorldRouteFailure;
 }
 
-export interface CrossMapRouteItinerary {
-  reachable: boolean;
+interface CrossMapRouteItineraryBase {
   scope: "cross-map";
   strategy: RouteStrategy;
   mode: TravelMode;
-  legs: [WorldDestinationRouteLeg, CrossMapRouteWorldLeg, WorldDestinationRouteLeg];
   summary: WorldRouteSummary;
   totalDistance: WorldDistanceMeters;
   totalCost: WorldCostUnits;
   usedModes: TravelMode[];
   portalSelection: WorldRoutePortalSelection;
-  failure?: WorldRouteFailure;
 }
+
+export interface CrossMapRouteReachableItinerary extends CrossMapRouteItineraryBase {
+  reachable: true;
+  legs: CrossMapRouteSuccessLegs;
+  failure?: never;
+}
+
+export interface CrossMapRouteUnreachableItinerary extends CrossMapRouteItineraryBase {
+  reachable: false;
+  legs: CrossMapRouteFailureLegs;
+  failure: WorldRouteFailure;
+}
+
+export type CrossMapRouteItinerary = CrossMapRouteReachableItinerary | CrossMapRouteUnreachableItinerary;
 
 export type WorldRouteItinerary = WorldOnlyRouteItinerary | CrossMapRouteItinerary;
 

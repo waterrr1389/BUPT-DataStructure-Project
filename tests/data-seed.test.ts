@@ -10,6 +10,7 @@ import {
   worldData,
 } from "../src/data/seed";
 import { MINIMUM_COUNTS, validateSeedData } from "../src/data/validation";
+import { WORLD_ROUTE_LIMITS } from "../src/services/contracts";
 
 function requireWorld(): NonNullable<typeof seedData.world> {
   const world = seedData.world;
@@ -110,6 +111,14 @@ test("validateSeedData rejects invalid world references and portal semantics", (
       expectedIssue: /has unsupported roadType "hyperloop"/,
     },
     {
+      name: "world edge distance must stay within the frozen max",
+      mutate: (candidate) => {
+        const worldEdge = candidate.world!.graph.edges[0];
+        worldEdge.distance = WORLD_ROUTE_LIMITS.distance.max + 1;
+      },
+      expectedIssue: /exceeds distance max/,
+    },
+    {
       name: "world edge allowedModes must stay in the frozen domain",
       mutate: (candidate) => {
         const worldEdge = candidate.world!.graph.edges[0];
@@ -128,9 +137,26 @@ test("validateSeedData rejects invalid world references and portal semantics", (
     {
       name: "world portal direction must stay in the frozen domain",
       mutate: (candidate) => {
-        candidate.world!.portals[0].direction = "outbound-only";
+        const portal = candidate.world!.portals[0];
+        portal.direction = "outbound-only" as unknown as (typeof portal)["direction"];
       },
       expectedIssue: /has unsupported direction "outbound-only"/,
+    },
+    {
+      name: "world portal transferDistance must stay within the frozen max",
+      mutate: (candidate) => {
+        const portal = candidate.world!.portals[0];
+        portal.transferDistance = WORLD_ROUTE_LIMITS.transferDistance.max + 1;
+      },
+      expectedIssue: /exceeds transferDistance max/,
+    },
+    {
+      name: "world portal transferCost must stay within the frozen max",
+      mutate: (candidate) => {
+        const portal = candidate.world!.portals[0];
+        portal.transferCost = WORLD_ROUTE_LIMITS.transferCost.max + 1;
+      },
+      expectedIssue: /exceeds transferCost max/,
     },
   ];
 

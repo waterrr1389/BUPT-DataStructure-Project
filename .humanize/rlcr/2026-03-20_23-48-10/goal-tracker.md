@@ -43,37 +43,43 @@ RULES:
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0)
+### Plan Version: 2 (Updated: Round 1)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
+| 1 | Retired the stale routing deferment and reopened routing verification because Round 1 landed `/api/world/routes/plan`, world polyline UI, and handoff links, but the routing contract still has unresolved mismatches. | The tracker must reflect the actual repo state instead of keeping routing deferred after implementation landed. | Immutable AC text stays unchanged; AC-1, AC-2, and AC-3 evidence are refreshed, and AC-4 remains active until the routing contract and error surface are aligned. |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| None. | - | - | Round 0 implementation tasks were completed and verified below. |
+| Reconcile portal selection ranking across the Round 1 prompt, frozen docs, runtime contracts, service behavior, and regression coverage. | AC-4 | in_progress | Current docs and service sort by `totalCost` and `worldCost` before portal priority, and the required end-to-end ranking coverage is still missing. |
+| Enforce the frozen world-route numeric ranges in seed validation and tests. | AC-4 | pending | The docs freeze upper bounds for `distance`, `cost`, `transferDistance`, and `transferCost`, but validation still only checks positivity or non-negativity. |
+| Align cross-map route contracts with the documented `reachable = false` prefix-leg behavior and remove unsafe itinerary casts. | AC-4 | pending | Shared contracts still type cross-map `legs` as a fixed three-leg tuple even though failures legally return prefix legs. |
+| Normalize `POST /api/world/routes/plan` invalid-request error bodies, including malformed JSON input, to the frozen contract and add coverage. | AC-4 | pending | Malformed JSON currently falls through to a generic `400` response instead of the documented `world_route_invalid_request` payload. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
-| AC-1 | Extend seed loading, world modeling, validation, and runtime capability wiring for optional `world` data, including integrity checks for regions, destinations, portals, placements, and portal node semantics. | 0 | 0 | `npm run build` passed. `npm run validate:data` passed with `Seed data validation passed.` and the expected dataset counts. `npm test` passed `86/86`, including `validateSeedData keeps world optional for local-only seed data`, `validateSeedData rejects invalid world references and portal semantics`, and `world seed keeps the Boston-inspired structural constraints deterministic`. |
-| AC-2 | Implement the world service, contracts, runtime capability surface, and `GET /api/world` plus `GET /api/world/details`, while keeping `/api/bootstrap` lightweight and freezing unavailable behavior. | 0 | 0 | `npm test` passed `86/86`, including `server exposes read-only world summary and details while keeping bootstrap lightweight`, `server returns disabled world summary and a conflict for details when world mode is unavailable`, and `runtime derives read-only world capabilities and world service keeps summary and details separate`. |
-| AC-3 | Branch `/map` for `view=world`, load summary/details on demand, initialize `Leaflet + CRS.Simple`, render the read-only world surface, and preserve the existing SVG local-map flow. | 0 | 0 | `npm test` passed `86/86`, including `map world view renders Leaflet layers, preserves actor context, and removes the map on cleanup`, `map world view renders an unavailable state when the backend disables world mode`, `map world view falls back to an unavailable state when world details fail`, and `app shell parseRoute preserves the world view param alongside actor and destination context`. |
-| AC-4 | Add deterministic automated coverage for the read-only boundary and confirm the routing freeze remains documented without changing the frozen docs unnecessarily. | 0 | 0 | `npm run validate:data` passed and `npm test` passed `86/86`, covering validation, summary/details contracts, unavailable degradation, deep links, and local-map non-regression. `git diff --name-only -- docs/world` returned no output, so no doc patch was required: existing `docs/world/*.md` already matched the implemented read-only boundary and routing freeze. |
+| AC-1 | Extend seed loading, world modeling, validation, and runtime capability wiring for optional `world` data, including integrity checks for regions, destinations, portals, placements, portal node semantics, and the frozen world value domains. | 1 | 1 | `npm run build` passed. `npm run validate:data` passed with `Seed data validation passed.` and the expected dataset counts. `npm test` passed `99/99`, including `validateSeedData keeps world optional for local-only seed data`, `validateSeedData rejects invalid world references and portal semantics`, `validateSeedData accepts frozen world portal directions inbound and outbound`, and `world seed keeps the Boston-inspired structural constraints deterministic`. |
+| AC-2 | Implement the world service, contracts, runtime capability surface, and `GET /api/world` plus `GET /api/world/details`, while keeping `/api/bootstrap` lightweight and freezing unavailable behavior. | 0 | 1 | `npm test` passed `99/99`, including `server exposes read-only world summary and details while keeping bootstrap lightweight`, `server returns disabled world summary and a conflict for details when world mode is unavailable`, `server returns world_unavailable for world route planning and keeps bootstrap free of world payload`, and `runtime derives read-only world capabilities and world service keeps summary and details separate`. |
+| AC-3 | Branch `/map` for `view=world`, preserve the existing SVG local-map flow, and keep disabled, failed, or malformed world payloads recoverable instead of breaking the page. | 1 | 1 | `npm test` passed `99/99`, including `map world view renders an unavailable state when the backend disables world mode`, `map world view falls back to an unavailable state when world details fail`, `map world view downgrades to unavailable when world details payload is malformed`, `map local view keeps using local route planning endpoints after world route enhancements`, and `app shell parseRoute preserves the world view param alongside actor and destination context`. |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
 | Task | Original AC | Deferred Since | Justification | When to Reconsider |
 |------|-------------|----------------|---------------|-------------------|
-| Implement world routing, cross-map handoff controls, and any public `/api/world/routes/plan` surface. | AC-4 | 0 | The round delivered the frozen read-only boundary only. Existing `docs/world/*.md` already place routing behind a later contract freeze, so no documentation edit was required for this deferment. | Revisit after the step schema, enums, units/ranges, cost model, error contracts, portal selection rules, and local/world/local itinerary boundaries are frozen. |
+| None. | - | - | No work is currently deferred. The old routing deferment is stale because the routing surface has already landed and now needs contract corrections rather than another deferment. | - |
 
 ### Open Issues
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| None for the read-only delivery scope after Round 0 verification. | 0 | - | Keep future routing work isolated from `/api/bootstrap`, the local SVG map path, and the frozen unavailable semantics. |
+| Portal selection ranking in the docs and service does not match the Round 1 implementation plan, and the required end-to-end ranking regression is still missing. | 1 | AC-4 | Re-freeze the portal selection rule, update the service comparator to match it, and add integration coverage that proves ranking beyond simple mode filtering. |
+| Frozen world-route numeric ranges are documented but not enforced by seed validation. | 1 | AC-4 | Validate the documented upper bounds for world edge distance/cost inputs and portal transfer metrics, then add negative coverage for out-of-range values. |
+| Shared cross-map route contracts still type `legs` as a fixed three-leg tuple even though `reachable = false` responses legally return prefix legs. | 1 | AC-4 | Update the runtime contracts to represent prefix-leg failures directly and remove the unsafe casts from `world-route-service`. |
+| Malformed JSON route requests return a generic `400` body instead of the documented `world_route_invalid_request` payload. | 1 | AC-4 | Convert malformed JSON and other invalid request shapes into the frozen error contract and cover the behavior in integration tests. |

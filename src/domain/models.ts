@@ -154,7 +154,7 @@ export interface DestinationPortalRecord {
   label: string;
   priority: number;
   allowedModes: TravelMode[];
-  direction: DestinationPortalDirection | (string & {});
+  direction: DestinationPortalDirection;
   transferDistance: number;
   transferCost: number;
 }

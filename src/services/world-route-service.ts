@@ -1,7 +1,10 @@
 import { WeightedGraph, findShortestPath } from "../algorithms/graph";
 import type {
+  CrossMapRouteFailureLegs,
   CrossMapRouteItinerary,
   CrossMapRoutePlanRequest,
+  CrossMapRouteSuccessLegs,
+  CrossMapRouteUnreachableItinerary,
   CrossMapRouteWorldLeg,
   DestinationPortalRecord,
   DestinationRecord,
@@ -22,6 +25,7 @@ import type {
   WorldRoutePortalSelection,
   WorldRoutePortalEntryTransferStep,
   WorldRoutePortalExitTransferStep,
+  WorldRouteLocalStep,
   WorldRouteSummary,
   WorldRouteWorldEdgeStep,
   WorldUnavailableRecord,
@@ -66,7 +70,7 @@ interface PlannedLocalLeg {
     localNodeIds: string[];
     distance: number;
     cost: number;
-    steps: CrossMapRouteItinerary["legs"][0]["steps"];
+    steps: WorldRouteLocalStep[];
   };
 }
 
@@ -81,7 +85,6 @@ interface CandidateSuccess {
   originLocal: PlannedLocalLeg;
   destinationLocal: PlannedLocalLeg;
   worldPath: PlannedWorldPath;
-  totalCost: number;
 }
 
 interface CandidateDestinationFailure {
@@ -210,11 +213,39 @@ function compareString(left: string, right: string): number {
 }
 
 function comparePortal(left: DestinationPortalRecord, right: DestinationPortalRecord): number {
-  const priorityDiff = compareNumber(left.priority, right.priority);
+  const priorityDiff = compareNumber(right.priority, left.priority);
   if (priorityDiff !== 0) {
     return priorityDiff;
   }
   return compareString(left.id, right.id);
+}
+
+function comparePortalPairPriority(
+  leftEntry: ModePortal,
+  leftExit: ModePortal,
+  rightEntry: ModePortal,
+  rightExit: ModePortal,
+): number {
+  return (
+    compareNumber(rightEntry.portal.priority, leftEntry.portal.priority) ||
+    compareNumber(rightExit.portal.priority, leftExit.portal.priority)
+  );
+}
+
+function comparePortalPairId(
+  leftEntry: ModePortal,
+  leftExit: ModePortal,
+  rightEntry: ModePortal,
+  rightExit: ModePortal,
+): number {
+  return (
+    compareString(leftEntry.portal.id, rightEntry.portal.id) ||
+    compareString(leftExit.portal.id, rightExit.portal.id)
+  );
+}
+
+function portalTransferCost(entry: ModePortal, exit: ModePortal): number {
+  return entry.portal.transferCost + exit.portal.transferCost;
 }
 
 function uniqueModes(modes: Iterable<TravelMode>): TravelMode[] {
@@ -731,43 +762,39 @@ function planWorldOnlyRoute(world: WorldMapRecord, request: WorldOnlyRoutePlanRe
 }
 
 function compareSuccessCandidate(left: CandidateSuccess, right: CandidateSuccess): number {
+  const leftLocalCost = left.originLocal.leg.cost + left.destinationLocal.leg.cost;
+  const rightLocalCost = right.originLocal.leg.cost + right.destinationLocal.leg.cost;
   return (
-    compareNumber(left.totalCost, right.totalCost) ||
-    compareNumber(left.worldPath.cost, right.worldPath.cost) ||
-    compareNumber(left.entry.portal.priority, right.entry.portal.priority) ||
-    compareNumber(left.exit.portal.priority, right.exit.portal.priority) ||
-    compareString(left.entry.portal.id, right.entry.portal.id) ||
-    compareString(left.exit.portal.id, right.exit.portal.id)
+    comparePortalPairPriority(left.entry, left.exit, right.entry, right.exit) ||
+    compareNumber(leftLocalCost, rightLocalCost) ||
+    compareNumber(portalTransferCost(left.entry, left.exit), portalTransferCost(right.entry, right.exit)) ||
+    comparePortalPairId(left.entry, left.exit, right.entry, right.exit)
   );
 }
 
 function compareDestinationFailure(left: CandidateDestinationFailure, right: CandidateDestinationFailure): number {
   return (
-    compareNumber(left.worldPath.cost, right.worldPath.cost) ||
+    comparePortalPairPriority(left.entry, left.exit, right.entry, right.exit) ||
     compareNumber(left.originLocal.leg.cost, right.originLocal.leg.cost) ||
-    compareNumber(left.entry.portal.priority, right.entry.portal.priority) ||
-    compareNumber(left.exit.portal.priority, right.exit.portal.priority) ||
-    compareString(left.entry.portal.id, right.entry.portal.id) ||
-    compareString(left.exit.portal.id, right.exit.portal.id)
+    compareNumber(portalTransferCost(left.entry, left.exit), portalTransferCost(right.entry, right.exit)) ||
+    comparePortalPairId(left.entry, left.exit, right.entry, right.exit)
   );
 }
 
 function compareWorldFailure(left: CandidateWorldFailure, right: CandidateWorldFailure): number {
   return (
+    comparePortalPairPriority(left.entry, left.exit, right.entry, right.exit) ||
     compareNumber(left.originLocal.leg.cost, right.originLocal.leg.cost) ||
-    compareNumber(left.entry.portal.priority, right.entry.portal.priority) ||
-    compareNumber(left.exit.portal.priority, right.exit.portal.priority) ||
-    compareString(left.entry.portal.id, right.entry.portal.id) ||
-    compareString(left.exit.portal.id, right.exit.portal.id)
+    compareNumber(portalTransferCost(left.entry, left.exit), portalTransferCost(right.entry, right.exit)) ||
+    comparePortalPairId(left.entry, left.exit, right.entry, right.exit)
   );
 }
 
 function compareOriginFailure(left: CandidateOriginFailure, right: CandidateOriginFailure): number {
   return (
-    compareNumber(left.entry.portal.priority, right.entry.portal.priority) ||
-    compareNumber(left.exit.portal.priority, right.exit.portal.priority) ||
-    compareString(left.entry.portal.id, right.entry.portal.id) ||
-    compareString(left.exit.portal.id, right.exit.portal.id)
+    comparePortalPairPriority(left.entry, left.exit, right.entry, right.exit) ||
+    compareNumber(portalTransferCost(left.entry, left.exit), portalTransferCost(right.entry, right.exit)) ||
+    comparePortalPairId(left.entry, left.exit, right.entry, right.exit)
   );
 }
 
@@ -788,18 +815,18 @@ function fallbackPair(
 
 function crossMapFailure(
   request: CrossMapRoutePlanRequest,
-  legs: WorldRouteLeg[],
+  legs: CrossMapRouteFailureLegs,
   failure: WorldRouteFailure,
   portalSelection: WorldRoutePortalSelection,
   summary: WorldRouteSummary,
-): CrossMapRouteItinerary {
+): CrossMapRouteUnreachableItinerary {
   const totals = summaryTotals(summary);
   return {
     reachable: false,
     scope: "cross-map",
     strategy: request.strategy,
     mode: request.mode,
-    legs: legs as unknown as CrossMapRouteItinerary["legs"],
+    legs,
     summary,
     totalDistance: totals.totalDistance,
     totalCost: totals.totalCost,
@@ -938,20 +965,12 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
         continue;
       }
 
-      const totalCost = roundMetric(
-        originLocal.leg.cost +
-          entry.portal.transferCost +
-          worldPath.cost +
-          exit.portal.transferCost +
-          destinationLocal.leg.cost,
-      );
       successes.push({
         entry,
         exit,
         originLocal,
         destinationLocal,
         worldPath,
-        totalCost,
       });
     }
   }
@@ -959,7 +978,7 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
   if (successes.length > 0) {
     const selected = [...successes].sort(compareSuccessCandidate)[0];
     const worldLeg = buildCrossMapWorldLeg(selected.entry, selected.exit, selected.worldPath);
-    const legs = [selected.originLocal.leg, worldLeg, selected.destinationLocal.leg] as CrossMapRouteItinerary["legs"];
+    const legs: CrossMapRouteSuccessLegs = [selected.originLocal.leg, worldLeg, selected.destinationLocal.leg];
     const summary = createSummary(
       selected.originLocal.leg.distance + selected.destinationLocal.leg.distance,
       selected.worldPath.distance,
