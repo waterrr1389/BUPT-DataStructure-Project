@@ -308,12 +308,17 @@ button.ghost {
 }
 
 .route-surface-card {
+  --route-surface-radius: 24px;
+  --route-map-frame-radius: 20px;
+  --route-map-canvas-radius: 16px;
   padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(17, 32, 49, 0.1);
+  border-radius: var(--route-surface-radius);
+  border: 1px solid var(--shell-line, rgba(17, 32, 49, 0.1));
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 245, 226, 0.92)),
-    radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 36%);
+    linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(255, 247, 230, 0.92)),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 38%);
+  box-shadow: 0 16px 42px rgba(17, 32, 49, 0.08);
+  backdrop-filter: blur(8px);
 }
 
 .route-surface-head {
@@ -334,12 +339,16 @@ button.ghost {
 }
 
 .route-map-frame {
-  padding: 10px;
-  border-radius: 26px;
-  border: 1px solid rgba(17, 32, 49, 0.1);
-  background: rgba(255, 251, 244, 0.78);
+  padding: 8px;
+  border-radius: var(--route-map-frame-radius);
+  border: 1px solid rgba(17, 32, 49, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(249, 240, 222, 0.94)),
+    radial-gradient(circle at top right, rgba(217, 93, 30, 0.08), transparent 40%);
   overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 1px 0 rgba(17, 32, 49, 0.02);
 }
 
 .route-map {
@@ -347,6 +356,7 @@ button.ghost {
   width: 100%;
   height: auto;
   aspect-ratio: 18 / 11;
+  border-radius: var(--route-map-canvas-radius);
 }
 
 .map-canvas {
@@ -527,18 +537,140 @@ button.ghost {
 
 .route-legend {
   margin-top: 14px;
+  gap: 10px;
 }
 
 .route-legend-item,
 .route-cue {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 16px;
   border: 1px solid rgba(17, 32, 49, 0.08);
-  background: rgba(255, 251, 244, 0.82);
+  background: rgba(255, 253, 246, 0.86);
   font-size: 0.84rem;
+}
+
+.route-legend-item {
+  color: rgba(17, 32, 49, 0.84);
+}
+
+.route-legend-item[data-route-legend-state="active-route"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.route-legend-item[data-route-legend-state="preview"] {
+  border-style: dashed;
+  background: rgba(250, 247, 240, 0.9);
+  color: rgba(17, 32, 49, 0.74);
+}
+
+.route-legend-item[data-route-legend-type="marker"] {
+  padding-right: 16px;
+}
+
+.route-legend-item[data-route-legend-key="outdoor-route"] {
+  border-color: rgba(180, 35, 24, 0.16);
+}
+
+.route-legend-item[data-route-legend-key="indoor-route"] {
+  border-color: rgba(15, 118, 110, 0.2);
+}
+
+.route-legend-item[data-route-legend-key="bike-lane"] {
+  border-color: rgba(53, 89, 180, 0.2);
+}
+
+.route-legend-item[data-route-legend-key="shuttle-lane"] {
+  border-color: rgba(139, 90, 20, 0.2);
+}
+
+.route-legend-item[data-route-legend-key="start"] {
+  background: rgba(235, 248, 244, 0.9);
+  border-color: rgba(15, 118, 110, 0.2);
+}
+
+.route-legend-item[data-route-legend-key="end"] {
+  background: rgba(255, 246, 231, 0.92);
+  border-color: rgba(217, 93, 30, 0.22);
+}
+
+.route-legend-item[data-route-legend-key="transition"] {
+  background: rgba(238, 249, 246, 0.92);
+  border-color: rgba(15, 118, 110, 0.18);
+}
+
+.route-legend-item[data-route-legend-key="turn"] {
+  background: rgba(244, 238, 229, 0.94);
+  border-color: rgba(17, 32, 49, 0.14);
+}
+
+.route-legend-item[data-route-legend-key="preview-start"] {
+  border-color: rgba(15, 118, 110, 0.18);
+}
+
+.route-legend-item[data-route-legend-key="preview-end"] {
+  border-color: rgba(217, 93, 30, 0.2);
+}
+
+.route-legend-icon {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.route-legend-icon-path {
+  width: 56px;
+  height: 18px;
+}
+
+.route-legend-icon-path .route-segment-halo {
+  stroke-width: 14;
+}
+
+.route-legend-icon-path .route-segment-line {
+  stroke-width: 8;
+}
+
+.route-legend-icon-path[data-route-path-type="walkway"] {
+  filter: drop-shadow(0 1px 0 rgba(180, 35, 24, 0.08));
+}
+
+.route-legend-icon-path[data-route-path-type="indoor"] {
+  filter: drop-shadow(0 1px 0 rgba(15, 118, 110, 0.08));
+}
+
+.route-legend-icon-path[data-route-path-type="bike-lane"] {
+  filter: drop-shadow(0 1px 0 rgba(53, 89, 180, 0.08));
+}
+
+.route-legend-icon-path[data-route-path-type="shuttle-lane"] {
+  filter: drop-shadow(0 1px 0 rgba(139, 90, 20, 0.08));
+}
+
+.route-legend-icon-marker {
+  width: 96px;
+  height: 36px;
+}
+
+.route-legend-icon-marker .route-marker {
+  stroke-width: 2.5;
+}
+
+.route-legend-icon-marker .map-pill text {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.route-legend-icon-marker[data-route-marker-state="preview"] .route-marker,
+.route-marker-group[data-route-marker-state="preview"] .route-marker {
+  opacity: 0.9;
+}
+
+.route-legend-icon-marker[data-route-marker-state="preview"] .map-pill rect,
+.route-marker-group[data-route-marker-state="preview"] .map-pill rect {
+  fill: rgba(17, 32, 49, 0.68);
 }
 
 .route-legend-swatch {
@@ -602,7 +734,7 @@ button.ghost {
 
 .route-map-note {
   margin: 12px 0 0;
-  color: rgba(17, 32, 49, 0.66);
+  color: rgba(17, 32, 49, 0.76);
 }
 
 .result-card {
@@ -811,7 +943,7 @@ button.ghost {
 
   .route-map-frame {
     padding: 6px;
-    border-radius: 20px;
+    border-radius: 18px;
   }
 
   .back-to-top {
@@ -1145,6 +1277,79 @@ body {
   margin-bottom: 12px;
 }
 
+.route-hero-map .section-tag,
+.map-stage-card .section-tag,
+.route-summary-card .section-tag {
+  color: rgba(17, 32, 49, 0.74);
+  font-weight: 700;
+}
+
+.map-controls-card {
+  display: grid;
+  gap: 18px;
+}
+
+.map-controls-card .section-head {
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.map-controls-copy {
+  display: grid;
+  gap: 6px;
+  max-width: 34rem;
+}
+
+.map-controls-copy h2,
+.map-stage-head h2 {
+  margin: 0;
+}
+
+.map-controls-copy p {
+  margin: 0;
+  color: rgba(17, 32, 49, 0.78);
+}
+
+.map-controls-card > .control-grid,
+.map-controls-card form.control-grid {
+  margin-bottom: 0;
+  gap: 14px 16px;
+  align-items: start;
+}
+
+.map-controls-card .map-control-group {
+  display: grid;
+  gap: 10px;
+}
+
+.map-controls-card .map-node-pair {
+  gap: 14px 16px;
+}
+
+.map-controls-card label {
+  color: rgba(17, 32, 49, 0.84);
+}
+
+.map-controls-card .inline-link {
+  min-height: auto;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(17, 32, 49, 0.74);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+}
+
+.map-controls-card .inline-link:hover {
+  transform: none;
+  background: transparent;
+  color: var(--accent);
+}
+
 .advanced-panel {
   border: 1px dashed rgba(17, 32, 49, 0.18);
   border-radius: 18px;
@@ -1163,6 +1368,77 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.map-controls-card .advanced-panel {
+  margin-top: 2px;
+  padding: 0;
+  border-style: solid;
+  border-color: rgba(17, 32, 49, 0.12);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(250, 244, 231, 0.92)),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 42%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  overflow: hidden;
+}
+
+.map-controls-card .advanced-panel summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgba(17, 32, 49, 0.9);
+  list-style: none;
+}
+
+.map-controls-card .advanced-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.map-controls-card .advanced-panel summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid rgba(17, 32, 49, 0.56);
+  border-bottom: 2px solid rgba(17, 32, 49, 0.56);
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
+}
+
+.map-controls-card .advanced-panel[open] summary::after {
+  transform: rotate(225deg);
+}
+
+.map-controls-card .advanced-panel-grid {
+  margin-top: 0;
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(17, 32, 49, 0.08);
+}
+
+.map-controls-card .button-row {
+  margin-top: 2px;
+  align-items: stretch;
+}
+
+.map-controls-card .button-row > button[type="submit"] {
+  box-shadow: 0 12px 24px rgba(217, 93, 30, 0.22);
+}
+
+.map-controls-card .button-row > .ghost {
+  border: 1px solid rgba(17, 32, 49, 0.12);
+  background: rgba(255, 252, 246, 0.9);
+  color: rgba(17, 32, 49, 0.84);
+  box-shadow: none;
+}
+
+.map-stage-card .map-stage-meta span {
+  background: rgba(17, 32, 49, 0.06);
+  color: rgba(17, 32, 49, 0.74);
 }
 
 .notice-block {
@@ -1346,6 +1622,15 @@ body {
   .surface-card {
     padding: 16px;
     border-radius: 18px;
+  }
+
+  .map-controls-card .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .map-controls-card .inline-link {
+    justify-content: flex-start;
   }
 
   .advanced-panel-grid {
