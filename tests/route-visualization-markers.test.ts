@@ -156,6 +156,22 @@ test("turn and transition markers remain intact alongside endpoint markers", () 
   assert.equal(markerLayout.turnMarkers[0].variantClass, "is-turn");
 });
 
+test("floor-change turns surface the floor label on the legend badge", () => {
+  const floorNode = createNode("floor-change", 200, 220);
+  const routeAnalysis: RouteAnalysis = {
+    routeNodes: [createNode("start", 120, 80), floorNode, createNode("end", 320, 280)],
+    transitionMarkers: [],
+    turnMarkers: [{ label: "Move to L1", node: floorNode, shortLabel: "L1" }],
+  };
+
+  const markerLayout = createRouteMarkerLayout(routeAnalysis, createProjection());
+  assert.equal(markerLayout.turnMarkers.length, 1);
+  assert.equal(markerLayout.turnMarkers[0].nodeId, "floor-change");
+  assert.equal(markerLayout.turnMarkers[0].label, "L1");
+  assert.equal(markerLayout.turnMarkers[0].legendBadgeLabel, "L1");
+  assert.equal(markerLayout.turnMarkers[0].legendLabel, "Direction or route change");
+});
+
 test("transition legend badge follows non-indoor transition pills", () => {
   const transitionNode = createNode("transition", 120, 160);
   const routeAnalysis: RouteAnalysis = {
