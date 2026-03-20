@@ -121,6 +121,15 @@ function buildHref(pathname: string, params: Record<string, string | undefined> 
   return `${url.pathname}${url.search}`;
 }
 
+function compactText(node: { innerHTML?: string; textContent?: string | null }) {
+  const source = (node.textContent ?? "") || node.innerHTML || "";
+  return source
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] } = {}) {
   const bootstrap = {
     users: [
@@ -455,6 +464,7 @@ function createExploreFixture(overrides: {
 
 function createMapFixture(overrides: {
   ensureDestinationDetailsImpl?: (destinationId: string) => Promise<Record<string, unknown>>;
+  requestJsonImpl?: (endpoint: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>;
 } = {}) {
   const destinationOptions = [
     { id: "dest-1", name: "Harbor Reach" },
@@ -554,14 +564,25 @@ function createMapFixture(overrides: {
     navigate(href: string, options: Record<string, unknown>) {
       navigateCalls.push({ href, options });
     },
-    async requestJson(endpoint: string) {
+    async requestJson(endpoint: string, options?: Record<string, unknown>) {
       requestJsonCalls.push(endpoint);
+      if (overrides.requestJsonImpl) {
+        return overrides.requestJsonImpl(endpoint, options);
+      }
       return {
         item: {
           destinationId: "dest-1",
+          destinationName: "Harbor Reach",
+          mode: "walk",
+          nodeNames: [
+            { id: "dest-1-node-a", name: "Atrium" },
+            { id: "dest-1-node-b", name: "Bridge" },
+          ],
           nodeIds: ["dest-1-node-a", "dest-1-node-b"],
           reachable: true,
-          steps: [],
+          steps: [{ from: "dest-1-node-a", mode: "walk", to: "dest-1-node-b" }],
+          strategy: "distance",
+          totalCost: 1,
           totalDistance: 40,
         },
       };
@@ -2012,6 +2033,115 @@ test("map keeps clean URLs when no actor is present during renderless rewrites",
         },
       },
     ]);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    restore();
+  }
+});
+
+test("map renders planning controls and switches legend hooks from preview to active route", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
+  };
+  const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
+
+  try {
+    globals.RouteVisualizationMarkers = require(path.join(
+      process.cwd(),
+      "public",
+      "route-visualization-markers.js",
+    ));
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    requireElement(root, ".map-controls-copy");
+    assert.equal(root.innerHTML.includes("<div class=\"map-controls-copy\">"), true);
+    assert.equal(root.innerHTML.includes("<h2>Route Planning</h2>"), true);
+    assert.equal(root.innerHTML.includes("Choose the spatial context first, then set the route start and end nodes."), true);
+    assert.equal(root.querySelectorAll(".map-control-group").length, 2);
+
+    const nodePair = requireElement(root, ".map-node-pair");
+    assert.equal(nodePair.classList.contains("map-control-group"), true);
+    assert.ok(nodePair.querySelector("#map-start") !== null);
+    assert.ok(nodePair.querySelector("#map-end") !== null);
+    assert.equal(nodePair.querySelector("#map-destination"), null);
+
+    const returnLink = requireElement(root, ".section-head a[data-nav='true']");
+    assert.equal(returnLink.getAttribute("href"), "/explore?actor=user-2");
+    assert.equal(root.innerHTML.includes("Return to Explore"), true);
+
+    const buttonRow = requireElement(root, ".button-row");
+    assert.equal(root.innerHTML.includes("Plan route"), true);
+    assert.equal(requireElement(buttonRow, "#map-reset-route").getAttribute("type"), "button");
+    assert.equal(buttonRow.querySelector("a[data-nav='true']"), null);
+
+    const viewText = compactText(root).toLowerCase();
+    assert.equal(viewText.includes("deep link"), false);
+    assert.equal(viewText.includes("deep-link"), false);
+    assert.equal(viewText.includes("query parameter"), false);
+
+    const routeResult = requireElement(root, "#map-route-result");
+    assert.equal(compactText(routeResult).includes("Route summary appears after planning"), true);
+    assert.equal(compactText(routeResult).includes("Calm Empty State"), false);
+    assert.equal(routeResult.querySelector(".section-tag"), null);
+
+    const visualization = requireElement(root, "#map-visualization");
+    const previewMarkerSemantics = Array.from(new Set(
+      visualization
+        .querySelectorAll("[data-route-marker-state='preview']")
+        .map((element) => element.getAttribute("data-route-marker-semantic")),
+    )).sort();
+    assert.deepEqual(previewMarkerSemantics, ["preview-end", "preview-start"]);
+
+    const previewLegendKeys = visualization
+      .querySelectorAll("[data-route-legend-state='preview']")
+      .map((element) => element.getAttribute("data-route-legend-key"))
+      .sort();
+    assert.deepEqual(previewLegendKeys, ["preview-end", "preview-start"]);
+    assert.equal(visualization.querySelector("[data-route-legend-type='path']"), null);
+
+    dispatchDomEvent(requireElement(root, "#map-route-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/routes/plan"]);
+    assert.equal(compactText(routeResult).includes("Route summary appears after planning"), false);
+    assert.equal(compactText(routeResult).includes("Reachable route returned."), true);
+
+    const activeLegendKeys = visualization
+      .querySelectorAll("[data-route-legend-state='active-route']")
+      .map((element) => element.getAttribute("data-route-legend-key"))
+      .sort();
+    assert.deepEqual(activeLegendKeys, ["end", "outdoor-route", "start"]);
+    assert.ok(visualization.querySelector("[data-route-path-type='walkway']") !== null);
+    assert.deepEqual(
+      Array.from(new Set(
+        visualization
+          .querySelectorAll("[data-route-marker-state='active-route']")
+          .map((element) => element.getAttribute("data-route-marker-semantic")),
+      )).sort(),
+      ["end", "start"],
+    );
+    assert.equal(visualization.querySelector("[data-route-marker-state='preview']"), null);
+    assert.equal(visualization.querySelector("[data-route-legend-state='preview']"), null);
 
     if (typeof cleanup === "function") {
       cleanup();
