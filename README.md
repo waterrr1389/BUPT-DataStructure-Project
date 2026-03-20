@@ -1,7 +1,7 @@
 # Trail Atlas
 
 ## 项目简介
-`Trail Atlas` 是一个零依赖、纯 TypeScript 实现的出行与探索产品，不只是教学脚手架，而是具备完整功能的课程项目。仓库内包含目的地探索、推荐、路线规划、周边设施查找、餐饮推荐以及日记与交换机制，配套 SPA 界面与 JSON API，且依赖 `tsc` 全局编译。
+`Trail Atlas` 是一个纯 TypeScript 实现的出行与探索产品，不只是教学脚手架，而是具备完整功能的课程项目。仓库内包含目的地探索、推荐、路线规划、周边设施查找、餐饮推荐以及日记与交换机制，配套 SPA 界面与 JSON API，且依赖 `tsc` 全局编译。
 
 ## 当前能力
 - 目的地探索与推荐：通过自定义排名和全文索引，对目的地与推荐结果提供搜索与排序。
@@ -17,7 +17,7 @@
 
 ## 环境要求
 - Node `>=20`。
-- `package.json` 中无 `dependencies` 与 `devDependencies`，仅依赖全局 `tsc`。
+- `package.json` 当前包含 `Leaflet` 相关依赖，仍依赖全局 `tsc`。
 - 脚本包括：`build`、`validate:data`、`test`、`benchmark`、`demo`、`start`，其中 `start` 默认监听 `127.0.0.1:3000`。
 
 ## 快速开始
@@ -39,6 +39,7 @@
 - 用户指南：`docs/user-guide.md`。
 - 示例结果与测试：`docs/example-results-and-tests.md`。
 - 设计文档：`docs/overall-design.md`、`docs/module-design.md`。
+- World mode 交接文档：`docs/world/README.md`。
 - 数据结构与字典：`docs/data-structures-and-dictionary.md`。
 - 其他参考：任务/需求/评估/创新文档（可在 `docs/` 下查找相应文件）。
 

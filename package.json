@@ -2,10 +2,16 @@
   "name": "ds-ts",
   "version": "0.1.0",
   "private": true,
-  "description": "Zero-dependency TypeScript scaffold for a personalized travel system course project.",
+  "description": "TypeScript scaffold for a personalized travel system course project.",
   "type": "commonjs",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.20"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
