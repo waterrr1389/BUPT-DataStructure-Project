@@ -307,9 +307,14 @@ button.ghost {
   gap: 14px;
 }
 
-.route-surface-card,
-.map-stage-card {
+.route-surface-card {
   --route-card-radius-outer: 24px;
+  --route-card-radius-frame: 20px;
+  --route-card-radius-canvas: 16px;
+}
+
+.map-stage-card {
+  --route-card-radius-outer: var(--route-stage-shell-radius);
   --route-card-radius-frame: 20px;
   --route-card-radius-canvas: 16px;
 }
@@ -948,8 +953,13 @@ button.ghost {
     padding: 14px;
   }
 
+  .route-stage-shell,
+  #map-visualization > .empty-state,
+  #map-route-result > .empty-state {
+    --route-stage-shell-radius: 20px;
+  }
+
   .map-stage-card {
-    --route-card-radius-outer: 20px;
     --route-card-radius-frame: 18px;
     --route-card-radius-canvas: 14px;
   }
@@ -1281,6 +1291,19 @@ body {
   background: var(--shell-paper-strong);
 }
 
+.route-stage-shell,
+#map-visualization > .empty-state,
+#map-route-result > .empty-state {
+  --route-stage-shell-radius: 24px;
+}
+
+.route-stage-shell,
+.surface-card.route-stage-shell,
+#map-visualization > .empty-state,
+#map-route-result > .empty-state {
+  border-radius: var(--route-stage-shell-radius);
+}
+
 .map-stage-card {
   padding: 20px;
   border-radius: var(--route-card-radius-outer);
@@ -1293,7 +1316,7 @@ body {
 #map-visualization > .empty-state,
 #map-route-result > .empty-state {
   padding: 20px;
-  border-radius: var(--route-card-radius-outer, 24px);
+  border-radius: var(--route-stage-shell-radius);
   border: 1px solid var(--shell-line);
   background:
     linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(255, 247, 230, 0.92)),
