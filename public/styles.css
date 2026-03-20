@@ -307,12 +307,16 @@ button.ghost {
   gap: 14px;
 }
 
+.route-surface-card,
+.map-stage-card {
+  --route-card-radius-outer: 24px;
+  --route-card-radius-frame: 20px;
+  --route-card-radius-canvas: 16px;
+}
+
 .route-surface-card {
-  --route-surface-radius: 24px;
-  --route-map-frame-radius: 20px;
-  --route-map-canvas-radius: 16px;
   padding: 18px;
-  border-radius: var(--route-surface-radius);
+  border-radius: var(--route-card-radius-outer);
   border: 1px solid var(--shell-line, rgba(17, 32, 49, 0.1));
   background:
     linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(255, 247, 230, 0.92)),
@@ -340,7 +344,7 @@ button.ghost {
 
 .route-map-frame {
   padding: 8px;
-  border-radius: var(--route-map-frame-radius);
+  border-radius: var(--route-card-radius-frame);
   border: 1px solid rgba(17, 32, 49, 0.08);
   background:
     linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(249, 240, 222, 0.94)),
@@ -356,7 +360,7 @@ button.ghost {
   width: 100%;
   height: auto;
   aspect-ratio: 18 / 11;
-  border-radius: var(--route-map-canvas-radius);
+  border-radius: var(--route-card-radius-canvas);
 }
 
 .map-canvas {
@@ -938,12 +942,20 @@ button.ghost {
   }
 
   .route-surface-card {
+    --route-card-radius-outer: 20px;
+    --route-card-radius-frame: 18px;
+    --route-card-radius-canvas: 14px;
     padding: 14px;
+  }
+
+  .map-stage-card {
+    --route-card-radius-outer: 20px;
+    --route-card-radius-frame: 18px;
+    --route-card-radius-canvas: 14px;
   }
 
   .route-map-frame {
     padding: 6px;
-    border-radius: 18px;
   }
 
   .back-to-top {
@@ -1267,6 +1279,14 @@ body {
 .map-stage-card,
 .route-summary-card {
   background: var(--shell-paper-strong);
+}
+
+.map-stage-card {
+  padding: 20px;
+  border-radius: var(--route-card-radius-outer);
+  border: 1px solid var(--shell-line);
+  box-shadow: 0 16px 42px rgba(17, 32, 49, 0.08);
+  backdrop-filter: blur(8px);
 }
 
 .map-stage-head {
