@@ -16,7 +16,7 @@ Local `npm test` completed with 73 passes/0 fails, covering the new SPA regressi
 No open issues remain for this round; continue running `npm test` after future Map-area tweaks and monitor for style drift if shared helpers change.
 
 ## Files Modified
-- `public/spa/views/map.js`, `public/spa/lib.js`, `public/map-rendering.js`, and `public/styles.css` (map structure, cards, legend, and style updates).
+- `public/spa/views/map.js`, `public/spa/lib.js`, `public/spa/map-rendering.js`, and `public/styles.css` (map structure, cards, legend, and style updates).
 - `public/route-visualization-markers.js`, `tests/route-visualization-markers.test.ts`, and `tests/spa-regressions.test.ts` (legend semantics, markers, and regression coverage).
 - `docs/user-guide.md` and `docs/journal-social-design-style.md` (docs sync).
 - `.humanize/rlcr/.../goal-tracker.md` and `round-0-summary.md` (RLCR runtime updates).

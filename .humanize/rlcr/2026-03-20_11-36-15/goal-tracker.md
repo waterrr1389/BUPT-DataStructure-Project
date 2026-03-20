@@ -134,11 +134,6 @@ RULES:
 | AC-7 | Sync documentation (`docs/user-guide.md`, `docs/journal-social-design-style.md`, etc.) with the new map layout and copy | 0 | 0 | `f10738f` aligned docs with the refreshed interface |
 | AC-8 | Extend regression coverage for map structure, legend semantics, empty state copy, and confirm via `npm test` | 0 | 0 | `97b97d8` added SPA regression assertions and local `npm test` (73 passed/0 failed) confirms no regressions |
 
-### Completed and Verified
-<!-- Only move tasks here after Codex verification -->
-| AC | Task | Completed Round | Verified Round | Evidence |
-|----|------|-----------------|----------------|----------|
-
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
 | Task | Original AC | Deferred Since | Justification | When to Reconsider |
