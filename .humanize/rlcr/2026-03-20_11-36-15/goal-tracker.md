@@ -105,7 +105,7 @@ RULES:
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 1)
+### Plan Version: 1 (Updated: Round 2)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -117,10 +117,11 @@ RULES:
 | 0 | Started final wave by marking docs sync and regression/test tasks in_progress | Documentation and regression coverage work now underway | AC-7, AC-8 |
 | 0 | Closed Round 0 after resolving radius/legend review findings and verifying all tests | New map shell, legend semantics, copy, docs, and tests proved complete via the provided commit evidence and `npm test` | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8 |
 | 1 | Reopened the right-stage shell alignment follow-up after review found a narrow-screen radius mismatch between the map stage and the route-result and summary shells | Round 1 landed the remaining copy, docs, and regression updates, but the mobile CSS still mixes the map-stage radius with the shared surface-card radius | AC-1 |
+| 2 | Closed the right-column shell mismatch, but kept AC-1 open after review found the left map control panel still follows the generic mobile surface radius instead of the shared map shell radius | Round 2 aligned `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card`, yet `.map-controls-card` still resolves through the generic `.surface-card` 18px mobile path on narrow screens | AC-1 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
-- AC-1: Align `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card` to one responsive radius token on narrow screens, then re-check the right-stage clipping and result shells at desktop and mobile widths.
+- AC-1: Align `.map-controls-card` with the same responsive shell radius contract as `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card`, extend regression coverage for that shared shell language, and then re-check desktop/mobile Map shell alignment across both columns.
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -143,4 +144,4 @@ RULES:
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| The right-stage map card and the route-result shells still diverge on narrow screens: `.map-stage-card` resolves to a 20px outer radius at `max-width: 640px`, while `.map-stage-empty-shell` and `.route-summary-card` still follow the shared `.surface-card` 18px radius path. | 1 | AC-1 | Move the right-column map and result shells onto one responsive radius token, verify the empty-state wrapper and planned-route summary cards use it, and re-run the desktop/mobile `/map` checks before closing the round. |
+| The narrow-screen Map shell language still diverges across columns: `.map-controls-card` remains on the generic `.surface-card` 18px radius path at `max-width: 760px`, while `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card` resolve to the shared 20px map-shell radius at `max-width: 640px`. | 2 | AC-1 | Move the left control panel onto the same map-local radius contract, add regression coverage that ties the control shell to the shared Map shell language, and re-run the `1280×900` plus `390×844` `/map` checks before closing AC-1. |
