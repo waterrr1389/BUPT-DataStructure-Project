@@ -105,7 +105,7 @@ RULES:
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 2)
+### Plan Version: 1 (Updated: Round 3)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -118,10 +118,11 @@ RULES:
 | 0 | Closed Round 0 after resolving radius/legend review findings and verifying all tests | New map shell, legend semantics, copy, docs, and tests proved complete via the provided commit evidence and `npm test` | AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8 |
 | 1 | Reopened the right-stage shell alignment follow-up after review found a narrow-screen radius mismatch between the map stage and the route-result and summary shells | Round 1 landed the remaining copy, docs, and regression updates, but the mobile CSS still mixes the map-stage radius with the shared surface-card radius | AC-1 |
 | 2 | Closed the right-column shell mismatch, but kept AC-1 open after review found the left map control panel still follows the generic mobile surface radius instead of the shared map shell radius | Round 2 aligned `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card`, yet `.map-controls-card` still resolves through the generic `.surface-card` 18px mobile path on narrow screens | AC-1 |
+| 3 | Closed AC-1 after `.map-controls-card` adopted `route-stage-shell`, regression coverage expanded for the shared shell contract, and verification reconfirmed shell consistency | Round 3 removed the last shell-radius divergence and validated the shared map-shell contract with code/test evidence | AC-1 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
-- AC-1: Align `.map-controls-card` with the same responsive shell radius contract as `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card`, extend regression coverage for that shared shell language, and then re-check desktop/mobile Map shell alignment across both columns.
+- None.
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -134,6 +135,7 @@ RULES:
 | AC-6 | Improve auxiliary label contrast/weight via map-scoped styles | 0 | 1 | `055fafd` refreshed label styles with stronger map-specific tokens, and the Round 1 verification notes recorded desktop `1280×900` plus mobile `390×844` checks on `/map` |
 | AC-7 | Sync documentation (`docs/user-guide.md`, `docs/journal-social-design-style.md`, etc.) with the new map layout and copy | 0 | 1 | `f10738f` and `b200ac5` aligned the user guide and map-experience guidance with the shipped legend semantics and planner hierarchy |
 | AC-8 | Extend regression coverage for map structure, legend semantics, empty state copy, and confirm via `npm test` | 0 | 1 | `97b97d8`, `988f145`, and `8e6b34d` added the Map DOM and copy regressions, and local `npm test` still passes with 73/73 |
+| AC-1 | Align `.map-controls-card` with the shared `route-stage-shell` radius contract, lock the cross-column shell language in regression checks, and confirm no behavior regressions | 3 | 3 | `c80b52f` moved `.map-controls-card` onto `route-stage-shell`, `2f9ff02` extended regression coverage for the shared shell contract, and local `npm test` passed 73/73 |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
@@ -142,6 +144,4 @@ RULES:
 
 ### Open Issues
 <!-- Issues discovered during implementation -->
-| Issue | Discovered Round | Blocking AC | Resolution Path |
-|-------|-----------------|-------------|-----------------|
-| The narrow-screen Map shell language still diverges across columns: `.map-controls-card` remains on the generic `.surface-card` 18px radius path at `max-width: 760px`, while `.map-stage-card`, `.map-stage-empty-shell`, and `.route-summary-card` resolve to the shared 20px map-shell radius at `max-width: 640px`. | 2 | AC-1 | Move the left control panel onto the same map-local radius contract, add regression coverage that ties the control shell to the shared Map shell language, and re-run the `1280×900` plus `390×844` `/map` checks before closing AC-1. |
+- None.
