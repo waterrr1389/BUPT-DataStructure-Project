@@ -2103,6 +2103,10 @@ test("map renders planning controls and switches legend hooks from preview to ac
     const advancedPanel = requireElement(root, "#map-advanced");
     assert.equal(advancedPanel.tagName, "details");
     requireElement(advancedPanel, "summary");
+    assert.equal(
+      requireElement(root, "#map-waypoints").getAttribute("placeholder"),
+      "Waypoint node IDs, comma-separated",
+    );
 
     const returnLink = requireElement(root, ".section-head a[data-nav='true']");
     assert.equal(returnLink.getAttribute("href"), "/explore?actor=user-2");

@@ -86,7 +86,11 @@ export async function render(app, route, root) {
             <div class="advanced-panel-grid">
               <label>
                 Waypoints
-                <input id="map-waypoints" type="text" placeholder="Optional stops, separated by commas" />
+                <input
+                  id="map-waypoints"
+                  type="text"
+                  placeholder="Waypoint node IDs, comma-separated"
+                />
               </label>
               <label>
                 Strategy
