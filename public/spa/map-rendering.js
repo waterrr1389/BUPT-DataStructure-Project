@@ -13,13 +13,28 @@ const ROAD_TYPE_META = {
   indoor: { label: "Indoor corridor", className: "is-indoor" },
 };
 
+const ROUTE_PATH_SEMANTICS = {
+  walkway: { legendLabel: "Outdoor route", semanticKey: "outdoor-route" },
+  indoor: { legendLabel: "Indoor route", semanticKey: "indoor-route" },
+  "bike-lane": { legendLabel: "Bike lane", semanticKey: "bike-lane" },
+  "shuttle-lane": { legendLabel: "Shuttle lane", semanticKey: "shuttle-lane" },
+};
+
+const ROUTE_PATH_ORDER = ["walkway", "indoor", "bike-lane", "shuttle-lane"];
+const ACTIVE_MARKER_LEGEND_ORDER = ["transition", "turn", "start", "end"];
+const PREVIEW_MARKER_LEGEND_ORDER = ["preview-start", "preview-end"];
+
 const markerHelpers = globalThis.RouteVisualizationMarkers;
 
-if (!markerHelpers || typeof markerHelpers.createRouteMarkerLayout !== "function") {
+if (
+  !markerHelpers ||
+  typeof markerHelpers.createPreviewMarkers !== "function" ||
+  typeof markerHelpers.createRouteMarkerLayout !== "function"
+) {
   throw new Error("Route visualization helpers failed to load.");
 }
 
-const { createRouteMarkerLayout } = markerHelpers;
+const { createPreviewMarkers, createRouteMarkerLayout } = markerHelpers;
 
 function edgeKey(left, right) {
   return [left, right].sort().join("::");
@@ -234,31 +249,146 @@ function pillLabelMarkup(point, label, variantClass) {
   `;
 }
 
-function routeMarkerShapeMarkup(marker) {
+function legendPillMarkup(label, variantClass) {
+  const safeLabel = escapeHtml(label);
+  const width = Math.max(38, text(label).length * 6 + 16);
+  return `
+    <g class="map-pill ${escapeHtml(variantClass)}" transform="translate(28 6)">
+      <rect width="${width}" height="24" rx="12"></rect>
+      <text x="${width / 2}" y="16" text-anchor="middle">${safeLabel}</text>
+    </g>
+  `;
+}
+
+function routeMarkerShapeMarkup(marker, point = marker.point) {
   if (marker.kind === "start") {
-    return `<circle class="route-marker route-marker-start" cx="${marker.point.x}" cy="${marker.point.y}" r="11"></circle>`;
+    return `<circle class="route-marker route-marker-start" cx="${point.x}" cy="${point.y}" r="11"></circle>`;
   }
   if (marker.kind === "end") {
-    return `<rect class="route-marker route-marker-end" x="${marker.point.x - 10}" y="${marker.point.y - 10}" width="20" height="20" rx="6"></rect>`;
+    return `<rect class="route-marker route-marker-end" x="${point.x - 10}" y="${point.y - 10}" width="20" height="20" rx="6"></rect>`;
   }
   if (marker.kind === "transition") {
-    return `<path class="route-marker route-marker-transition" d="M ${marker.point.x} ${marker.point.y - 12} L ${marker.point.x + 11} ${marker.point.y + 8} L ${marker.point.x - 11} ${marker.point.y + 8} Z"></path>`;
+    return `<path class="route-marker route-marker-transition" d="M ${point.x} ${point.y - 12} L ${point.x + 11} ${point.y + 8} L ${point.x - 11} ${point.y + 8} Z"></path>`;
   }
-  return `<rect class="route-marker route-marker-turn" x="${marker.point.x - 7}" y="${marker.point.y - 7}" width="14" height="14" rx="4" transform="rotate(45 ${marker.point.x} ${marker.point.y})"></rect>`;
+  if (marker.kind === "preview-start" || marker.kind === "preview-end") {
+    return `<circle class="route-marker route-marker-${marker.kind}" cx="${point.x}" cy="${point.y}" r="10"></circle>`;
+  }
+  return `<rect class="route-marker route-marker-turn" x="${point.x - 7}" y="${point.y - 7}" width="14" height="14" rx="4" transform="rotate(45 ${point.x} ${point.y})"></rect>`;
 }
 
 function routeMarkerMarkup(marker) {
   return `
-    ${routeMarkerShapeMarkup(marker)}
-    ${pillLabelMarkup(marker.point, marker.label, marker.variantClass)}
+    <g
+      class="route-marker-group ${escapeHtml(marker.variantClass)}"
+      data-route-marker-kind="${escapeHtml(marker.kind)}"
+      data-route-marker-semantic="${escapeHtml(marker.semanticKey || marker.kind)}"
+      data-route-marker-state="${escapeHtml(marker.state || "active-route")}"
+    >
+      ${routeMarkerShapeMarkup(marker)}
+      ${pillLabelMarkup(marker.point, marker.label, marker.variantClass)}
+    </g>
   `;
 }
 
-function activeRouteMarkerMarkup(routeAnalysis, projection) {
-  const markerLayout = createRouteMarkerLayout(routeAnalysis, projection);
-  return [...markerLayout.endpointMarkers, ...markerLayout.transitionMarkers, ...markerLayout.turnMarkers]
+function markerLayoutToList(markerLayout) {
+  return [...markerLayout.endpointMarkers, ...markerLayout.transitionMarkers, ...markerLayout.turnMarkers];
+}
+
+function activeRouteMarkerMarkup(markerLayout) {
+  return markerLayoutToList(markerLayout)
     .map((marker) => routeMarkerMarkup(marker))
     .join("");
+}
+
+function previewRouteMarkerMarkup(previewMarkers) {
+  return previewMarkers
+    .map((marker) => routeMarkerMarkup(marker))
+    .join("");
+}
+
+function routePathLegendIconMarkup(roadType) {
+  const roadTypeMeta = getRoadTypeMeta(roadType);
+  return `
+    <svg class="route-legend-icon route-legend-icon-path" viewBox="0 0 56 18" width="56" height="18" aria-hidden="true" data-route-path-type="${escapeHtml(roadType)}">
+      <line class="route-segment route-segment-halo" x1="6" y1="9" x2="50" y2="9"></line>
+      <line class="route-segment route-segment-line ${escapeHtml(roadTypeMeta.className)}" x1="6" y1="9" x2="50" y2="9"></line>
+    </svg>
+  `;
+}
+
+function routeMarkerLegendIconMarkup(marker) {
+  return `
+    <svg
+      class="route-legend-icon route-legend-icon-marker"
+      viewBox="0 0 96 36"
+      width="96"
+      height="36"
+      aria-hidden="true"
+      data-route-marker-kind="${escapeHtml(marker.kind)}"
+      data-route-marker-semantic="${escapeHtml(marker.semanticKey || marker.kind)}"
+      data-route-marker-state="${escapeHtml(marker.state || "active-route")}"
+    >
+      ${routeMarkerShapeMarkup(marker, { x: 14, y: 18 })}
+      ${legendPillMarkup(marker.legendBadgeLabel || marker.label, marker.variantClass)}
+    </svg>
+  `;
+}
+
+function routeLegendItemMarkup(item) {
+  return `
+    <span
+      class="route-legend-item"
+      data-route-legend-key="${escapeHtml(item.semanticKey)}"
+      data-route-legend-type="${escapeHtml(item.type)}"
+      data-route-legend-state="${escapeHtml(item.state)}"
+    >
+      ${item.iconMarkup}
+      ${escapeHtml(item.label)}
+    </span>
+  `;
+}
+
+function buildRouteLegendItems(routeAnalysis, markerLayout, previewMarkers) {
+  if (routeAnalysis) {
+    const renderedRoadTypes = new Set(
+      routeAnalysis.stepDetails.map((step) => step.edge?.roadType || "walkway"),
+    );
+    const activeMarkerSamples = new Map([
+      ["transition", markerLayout.transitionMarkers[0] || null],
+      ["turn", markerLayout.turnMarkers[0] || null],
+      ["start", markerLayout.endpointMarkers.find((marker) => marker.kind === "start") || null],
+      ["end", markerLayout.endpointMarkers.find((marker) => marker.kind === "end") || null],
+    ]);
+
+    return [
+      ...ROUTE_PATH_ORDER.filter((roadType) => renderedRoadTypes.has(roadType)).map((roadType) => ({
+        iconMarkup: routePathLegendIconMarkup(roadType),
+        label: ROUTE_PATH_SEMANTICS[roadType].legendLabel,
+        semanticKey: ROUTE_PATH_SEMANTICS[roadType].semanticKey,
+        state: "active-route",
+        type: "path",
+      })),
+      ...ACTIVE_MARKER_LEGEND_ORDER.map((kind) => activeMarkerSamples.get(kind))
+        .filter(Boolean)
+        .map((marker) => ({
+          iconMarkup: routeMarkerLegendIconMarkup(marker),
+          label: marker.legendLabel,
+          semanticKey: marker.semanticKey || marker.kind,
+          state: marker.state || "active-route",
+          type: "marker",
+        })),
+    ];
+  }
+
+  return PREVIEW_MARKER_LEGEND_ORDER.map((kind) => previewMarkers.find((marker) => marker.kind === kind))
+    .filter(Boolean)
+    .map((marker) => ({
+      iconMarkup: routeMarkerLegendIconMarkup(marker),
+      label: marker.legendLabel,
+      semanticKey: marker.semanticKey || marker.kind,
+      state: marker.state || "preview",
+      type: "marker",
+    }));
 }
 
 function createScene(details) {
@@ -306,16 +436,21 @@ export function renderRouteVisualization(options) {
 
   const { projection, lookups, outdoorBounds, buildingOverlays } = scene;
   const routeAnalysis = analyzeRoute(details, route);
+  const activeMarkerLayout = routeAnalysis ? createRouteMarkerLayout(routeAnalysis, projection) : null;
   const routeNodeSet = new Set(routeAnalysis ? routeAnalysis.routeNodes.map((node) => node.id) : []);
   const previewStart = !routeAnalysis ? lookups.nodeById.get(previewStartId) : null;
   const previewEnd = !routeAnalysis ? lookups.nodeById.get(previewEndId) : null;
+  const previewMarkers = !routeAnalysis
+    ? createPreviewMarkers({ endNode: previewEnd, startNode: previewStart }, projection)
+    : [];
+  const legendItems = buildRouteLegendItems(routeAnalysis, activeMarkerLayout, previewMarkers);
   const routeDistance = routeAnalysis
     ? `${route.totalDistance} m highlighted`
     : route?.reachable === false
       ? "No reachable path"
       : "Graph preview";
   const routeNote = routeAnalysis
-    ? `${routeAnalysis.turnMarkers.length} key turns, ${routeAnalysis.transitionMarkers.length} indoor or outdoor transitions, ${route.totalDistance} m total.`
+    ? `${routeAnalysis.turnMarkers.length} direction or route changes, ${routeAnalysis.transitionMarkers.length} indoor or outdoor transitions, ${route.totalDistance} m total.`
     : route?.reachable === false
       ? "Planner could not connect the selected nodes with the current settings. The destination graph remains visible for adjustment."
       : previewStart && previewEnd
@@ -423,21 +558,17 @@ export function renderRouteVisualization(options) {
           <g class="map-marker-layer">
             ${
               routeAnalysis
-                ? activeRouteMarkerMarkup(routeAnalysis, projection)
-                : `${previewStart ? `<circle class="route-marker route-marker-preview-start" cx="${projection.point(previewStart).x}" cy="${projection.point(previewStart).y}" r="10"></circle>${pillLabelMarkup(projection.point(previewStart), "Start", "is-preview")}` : ""}
-                   ${previewEnd ? `<circle class="route-marker route-marker-preview-end" cx="${projection.point(previewEnd).x}" cy="${projection.point(previewEnd).y}" r="10"></circle>${pillLabelMarkup(projection.point(previewEnd), "End", "is-preview")}` : ""}`
+                ? activeRouteMarkerMarkup(activeMarkerLayout)
+                : previewRouteMarkerMarkup(previewMarkers)
             }
           </g>
         </svg>
       </div>
-      <div class="route-legend">
-        <span class="route-legend-item"><span class="route-legend-swatch outdoor-path"></span>Outdoor route</span>
-        <span class="route-legend-item"><span class="route-legend-swatch indoor-path"></span>Indoor route</span>
-        <span class="route-legend-item"><span class="route-legend-swatch transition"></span>Indoor or outdoor cue</span>
-        <span class="route-legend-item"><span class="route-legend-swatch turn"></span>Key turn</span>
-        <span class="route-legend-item"><span class="route-legend-swatch start"></span>Start</span>
-        <span class="route-legend-item"><span class="route-legend-swatch end"></span>End</span>
-      </div>
+      ${
+        legendItems.length
+          ? `<div class="route-legend">${legendItems.map((item) => routeLegendItemMarkup(item)).join("")}</div>`
+          : ""
+      }
       ${routeCueMarkup}
       <p class="route-map-note">${escapeHtml(routeNote)}</p>
     </article>

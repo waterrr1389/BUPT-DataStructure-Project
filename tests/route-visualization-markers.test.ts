@@ -28,12 +28,16 @@ type Projection = {
 };
 
 type MarkerOutput = {
-  kind: "end" | "start" | "transition" | "turn";
+  kind: "end" | "preview-end" | "preview-start" | "start" | "transition" | "turn";
   label: string;
+  legendBadgeLabel: string;
+  legendLabel: string;
   logicalPoint: Point;
   nodeId: string;
   point: Point;
+  semanticKey: string;
   sharedLogicalNode?: boolean;
+  state: "active-route" | "preview";
   variantClass: string;
 };
 
@@ -44,10 +48,14 @@ type MarkerLayout = {
 };
 
 type MarkerHelpersModule = {
+  createPreviewMarkers(
+    previewSelection: { endNode?: RouteNode; startNode?: RouteNode },
+    projection: Projection,
+  ): MarkerOutput[];
   createRouteMarkerLayout(routeAnalysis: RouteAnalysis, projection: Projection): MarkerLayout;
 };
 
-const { createRouteMarkerLayout } = require(path.join(
+const { createPreviewMarkers, createRouteMarkerLayout } = require(path.join(
   process.cwd(),
   "public",
   "route-visualization-markers.js",
@@ -91,8 +99,12 @@ test("closed-loop routes offset start and end markers while preserving the share
   assert.ok(
     startMarker.point.x !== endMarker.point.x || startMarker.point.y !== endMarker.point.y,
   );
+  assert.equal(startMarker.semanticKey, "start");
+  assert.equal(endMarker.semanticKey, "end");
   assert.equal(startMarker.sharedLogicalNode, true);
   assert.equal(endMarker.sharedLogicalNode, true);
+  assert.equal(startMarker.state, "active-route");
+  assert.equal(endMarker.state, "active-route");
 });
 
 test("non-loop routes keep exactly one start and one end marker at their node positions", () => {
@@ -110,6 +122,8 @@ test("non-loop routes keep exactly one start and one end marker at their node po
   assert.equal(endMarkers.length, 1);
   assert.deepEqual(startMarkers[0].point, startMarkers[0].logicalPoint);
   assert.deepEqual(endMarkers[0].point, endMarkers[0].logicalPoint);
+  assert.equal(startMarkers[0].legendLabel, "Start");
+  assert.equal(endMarkers[0].legendLabel, "End");
   assert.equal(startMarkers[0].sharedLogicalNode, false);
   assert.equal(endMarkers[0].sharedLogicalNode, false);
 });
@@ -130,8 +144,38 @@ test("turn and transition markers remain intact alongside endpoint markers", () 
   assert.equal(markerLayout.turnMarkers.length, 1);
   assert.equal(markerLayout.transitionMarkers[0].nodeId, "transition");
   assert.equal(markerLayout.transitionMarkers[0].label, "Indoor");
+  assert.equal(markerLayout.transitionMarkers[0].legendLabel, "Indoor/outdoor change");
+  assert.equal(markerLayout.transitionMarkers[0].legendBadgeLabel, "Indoor");
+  assert.equal(markerLayout.transitionMarkers[0].semanticKey, "transition");
   assert.equal(markerLayout.transitionMarkers[0].variantClass, "is-transition");
   assert.equal(markerLayout.turnMarkers[0].nodeId, "turn");
   assert.equal(markerLayout.turnMarkers[0].label, "Turn");
+  assert.equal(markerLayout.turnMarkers[0].legendLabel, "Direction or route change");
+  assert.equal(markerLayout.turnMarkers[0].legendBadgeLabel, "Turn");
+  assert.equal(markerLayout.turnMarkers[0].semanticKey, "turn");
   assert.equal(markerLayout.turnMarkers[0].variantClass, "is-turn");
+});
+
+test("preview markers stay separate from active route markers and expose preview semantics", () => {
+  const previewMarkers = createPreviewMarkers(
+    {
+      endNode: createNode("end", 200, 260),
+      startNode: createNode("start", 120, 160),
+    },
+    createProjection(),
+  );
+
+  assert.equal(previewMarkers.length, 2);
+  assert.equal(previewMarkers[0].kind, "preview-start");
+  assert.equal(previewMarkers[0].label, "Start");
+  assert.equal(previewMarkers[0].legendLabel, "Preview start");
+  assert.equal(previewMarkers[0].semanticKey, "preview-start");
+  assert.equal(previewMarkers[0].state, "preview");
+  assert.equal(previewMarkers[0].variantClass, "is-preview");
+  assert.equal(previewMarkers[1].kind, "preview-end");
+  assert.equal(previewMarkers[1].label, "End");
+  assert.equal(previewMarkers[1].legendLabel, "Preview end");
+  assert.equal(previewMarkers[1].semanticKey, "preview-end");
+  assert.equal(previewMarkers[1].state, "preview");
+  assert.equal(previewMarkers[1].variantClass, "is-preview");
 });

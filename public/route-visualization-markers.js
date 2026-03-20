@@ -6,6 +6,50 @@
   root.RouteVisualizationMarkers = api
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
   const CLOSED_LOOP_ENDPOINT_OFFSET = 14
+  const MARKER_SEMANTICS = {
+    start: {
+      legendBadgeLabel: "Start",
+      legendLabel: "Start",
+      semanticKey: "start",
+      state: "active-route",
+      variantClass: "is-start",
+    },
+    end: {
+      legendBadgeLabel: "End",
+      legendLabel: "End",
+      semanticKey: "end",
+      state: "active-route",
+      variantClass: "is-end",
+    },
+    transition: {
+      legendBadgeLabel: "Indoor",
+      legendLabel: "Indoor/outdoor change",
+      semanticKey: "transition",
+      state: "active-route",
+      variantClass: "is-transition",
+    },
+    turn: {
+      legendBadgeLabel: "Turn",
+      legendLabel: "Direction or route change",
+      semanticKey: "turn",
+      state: "active-route",
+      variantClass: "is-turn",
+    },
+    "preview-start": {
+      legendBadgeLabel: "Start",
+      legendLabel: "Preview start",
+      semanticKey: "preview-start",
+      state: "preview",
+      variantClass: "is-preview",
+    },
+    "preview-end": {
+      legendBadgeLabel: "End",
+      legendLabel: "Preview end",
+      semanticKey: "preview-end",
+      state: "preview",
+      variantClass: "is-preview",
+    },
+  }
 
   function projectPoint(projection, node) {
     const point = projection.point(node)
@@ -22,6 +66,20 @@
     }
   }
 
+  function createMarker(kind, point, overrides = {}) {
+    const semantic = MARKER_SEMANTICS[kind]
+    return {
+      kind,
+      legendBadgeLabel: semantic.legendBadgeLabel,
+      legendLabel: semantic.legendLabel,
+      semanticKey: semantic.semanticKey,
+      state: semantic.state,
+      variantClass: semantic.variantClass,
+      ...overrides,
+      point,
+    }
+  }
+
   function createEndpointMarkers(routeNodes, projection) {
     if (!routeNodes.length) {
       return []
@@ -34,43 +92,72 @@
     const sharedLogicalNode = startNode.id === endNode.id
 
     return [
-      {
-        kind: "start",
-        label: "Start",
-        logicalPoint: startLogicalPoint,
-        nodeId: startNode.id,
-        point: sharedLogicalNode
+      createMarker(
+        "start",
+        sharedLogicalNode
           ? offsetPoint(startLogicalPoint, -CLOSED_LOOP_ENDPOINT_OFFSET, -CLOSED_LOOP_ENDPOINT_OFFSET)
           : startLogicalPoint,
-        sharedLogicalNode,
-        variantClass: "is-start",
-      },
-      {
-        kind: "end",
-        label: "End",
-        logicalPoint: endLogicalPoint,
-        nodeId: endNode.id,
-        point: sharedLogicalNode
+        {
+          label: "Start",
+          logicalPoint: startLogicalPoint,
+          nodeId: startNode.id,
+          sharedLogicalNode,
+        },
+      ),
+      createMarker(
+        "end",
+        sharedLogicalNode
           ? offsetPoint(endLogicalPoint, CLOSED_LOOP_ENDPOINT_OFFSET, CLOSED_LOOP_ENDPOINT_OFFSET)
           : endLogicalPoint,
-        sharedLogicalNode,
-        variantClass: "is-end",
-      },
+        {
+          label: "End",
+          logicalPoint: endLogicalPoint,
+          nodeId: endNode.id,
+          sharedLogicalNode,
+        },
+      ),
     ]
   }
 
-  function createContextMarkers(markers, projection, kind, variantClass) {
+  function createContextMarkers(markers, projection, kind) {
     return markers.map((marker) => {
       const point = projectPoint(projection, marker.node)
-      return {
-        kind,
+      return createMarker(kind, point, {
         label: marker.shortLabel,
         logicalPoint: point,
         nodeId: marker.node.id,
-        point,
-        variantClass,
-      }
+      })
     })
+  }
+
+  function createPreviewMarkers(previewSelection, projection) {
+    const previewMarkers = []
+
+    if (previewSelection?.startNode) {
+      const point = projectPoint(projection, previewSelection.startNode)
+      previewMarkers.push(
+        createMarker("preview-start", point, {
+          label: "Start",
+          logicalPoint: point,
+          nodeId: previewSelection.startNode.id,
+          sharedLogicalNode: false,
+        }),
+      )
+    }
+
+    if (previewSelection?.endNode) {
+      const point = projectPoint(projection, previewSelection.endNode)
+      previewMarkers.push(
+        createMarker("preview-end", point, {
+          label: "End",
+          logicalPoint: point,
+          nodeId: previewSelection.endNode.id,
+          sharedLogicalNode: false,
+        }),
+      )
+    }
+
+    return previewMarkers
   }
 
   function createRouteMarkerLayout(routeAnalysis, projection) {
@@ -84,13 +171,14 @@
 
     return {
       endpointMarkers: createEndpointMarkers(routeAnalysis.routeNodes, projection),
-      transitionMarkers: createContextMarkers(routeAnalysis.transitionMarkers, projection, "transition", "is-transition"),
-      turnMarkers: createContextMarkers(routeAnalysis.turnMarkers, projection, "turn", "is-turn"),
+      transitionMarkers: createContextMarkers(routeAnalysis.transitionMarkers, projection, "transition"),
+      turnMarkers: createContextMarkers(routeAnalysis.turnMarkers, projection, "turn"),
     }
   }
 
   return {
     createEndpointMarkers,
+    createPreviewMarkers,
     createRouteMarkerLayout,
   }
 })
