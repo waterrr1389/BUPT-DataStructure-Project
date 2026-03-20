@@ -367,10 +367,9 @@ export function buildRouteLegendItems(routeAnalysis, markerLayout, previewMarker
       start: startMarker ? [startMarker] : [],
       end: endMarker ? [endMarker] : [],
     };
-    const activeLegendMarkers = ACTIVE_MARKER_LEGEND_ORDER.reduce((markers, kind) => {
-      const entries = activeMarkerSamples[kind] ?? [];
-      return markers.concat(entries.filter(Boolean));
-    }, []);
+    const activeLegendMarkers = ACTIVE_MARKER_LEGEND_ORDER.flatMap((kind) =>
+      (activeMarkerSamples[kind] ?? []).filter(Boolean),
+    );
 
     return [
       ...ROUTE_PATH_ORDER.filter((roadType) => renderedRoadTypes.has(roadType)).map((roadType) => ({
