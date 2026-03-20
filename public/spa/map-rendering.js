@@ -470,7 +470,7 @@ export function renderRouteVisualization(options) {
       : "";
 
   return `
-    <article class="map-stage-card">
+    <article class="map-stage-card route-stage-shell">
       <div class="map-stage-head">
         <div>
           <p class="section-tag">Spatial context</p>
@@ -583,7 +583,7 @@ export function renderRouteResult(item, details) {
   const nodeNameById = new Map(safeArray(item.nodeNames).map((entry) => [entry.id, entry.name]));
 
   return `
-    <article class="surface-card route-summary-card">
+    <article class="surface-card route-summary-card route-stage-shell">
       <p class="section-tag">Route summary</p>
       <h3>${escapeHtml(item.destinationName)}</h3>
       ${resultMetaMarkup([
@@ -595,7 +595,7 @@ export function renderRouteResult(item, details) {
       <p>${escapeHtml(item.reachable ? "Route ready to follow." : "No route could be found.")}</p>
       <p class="muted">${summarizeSteps(item.nodeNames)}</p>
     </article>
-    <article class="surface-card route-summary-card">
+    <article class="surface-card route-summary-card route-stage-shell">
       <p class="section-tag">Route details</p>
       <h3>Step sequence</h3>
       <div class="tag-row">
