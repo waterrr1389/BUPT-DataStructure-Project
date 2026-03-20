@@ -84,10 +84,12 @@ export function emptyStateMarkup(options = {}) {
   const actionMarkup = actionHref
     ? `<a class="inline-link" href="${escapeHtml(actionHref)}" data-nav="true">${actionLabel}</a>`
     : "";
+  const tagText = text(options.tag ?? options.sectionTag ?? "");
+  const tagMarkup = tagText ? `<p class="section-tag">${escapeHtml(tagText)}</p>` : "";
 
   return `
     <article class="empty-state">
-      <p class="section-tag">Calm Empty State</p>
+      ${tagMarkup}
       <h3>${title}</h3>
       <p>${body}</p>
       ${actionMarkup}
