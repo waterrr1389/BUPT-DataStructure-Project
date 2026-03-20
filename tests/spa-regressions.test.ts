@@ -2152,7 +2152,8 @@ test("map renders planning controls and switches legend hooks from preview to ac
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/routes/plan"]);
     assert.equal(compactText(routeResult).includes("Route summary appears after planning"), false);
-    assert.equal(compactText(routeResult).includes("Reachable route returned."), true);
+    assert.equal(compactText(routeResult).includes("Route ready to follow."), true);
+    assert.equal(routeResult.innerHTML.includes("Route details"), true);
 
     const activeLegendKeys = visualization
       .querySelectorAll("[data-route-legend-state='active-route']")
