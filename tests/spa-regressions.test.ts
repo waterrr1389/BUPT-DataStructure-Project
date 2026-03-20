@@ -959,6 +959,13 @@ test("post detail keeps the initial comments request bounded and appends older c
       { cursor: "", journalId: "journal-1", limit: 5 },
     ]);
     assert.equal(root.querySelectorAll(".comment-card").length, 5);
+    const mapContextEmptyState = requireElement(root, "#post-map-context .empty-state");
+    assert.equal(root.innerHTML.includes("Map context is secondary"), true);
+    assert.equal(
+      root.innerHTML.includes("Open the supporting destination graph only when spatial detail is useful for this note."),
+      true,
+    );
+    assert.equal(mapContextEmptyState.querySelector(".section-tag"), null);
 
     const loadMoreButton = requireElement(root, "#post-comments-more");
     dispatchDomEvent(loadMoreButton, "click");
@@ -2079,27 +2086,48 @@ test("map renders planning controls and switches legend hooks from preview to ac
     assert.equal(root.innerHTML.includes("Choose the spatial context first, then set the route start and end nodes."), true);
     assert.equal(root.querySelectorAll(".map-control-group").length, 2);
 
+    const routeForm = requireElement(root, "#map-route-form");
+    const destinationGroup = requireElement(root, "#map-destination").closest(".map-control-group");
+    assert.ok(destinationGroup !== null);
+
     const nodePair = requireElement(root, ".map-node-pair");
     assert.equal(nodePair.classList.contains("map-control-group"), true);
     assert.ok(nodePair.querySelector("#map-start") !== null);
     assert.ok(nodePair.querySelector("#map-end") !== null);
     assert.equal(nodePair.querySelector("#map-destination"), null);
+    assert.ok(
+      Array.from(routeForm.children).indexOf(destinationGroup as (typeof routeForm.children)[number]) <
+        Array.from(routeForm.children).indexOf(nodePair),
+    );
+
+    const advancedPanel = requireElement(root, "#map-advanced");
+    assert.equal(advancedPanel.tagName, "details");
+    requireElement(advancedPanel, "summary");
 
     const returnLink = requireElement(root, ".section-head a[data-nav='true']");
     assert.equal(returnLink.getAttribute("href"), "/explore?actor=user-2");
     assert.equal(root.innerHTML.includes("Return to Explore"), true);
+    assert.equal(returnLink.closest(".button-row"), null);
 
     const buttonRow = requireElement(root, ".button-row");
     assert.equal(root.innerHTML.includes("Plan route"), true);
-    assert.equal(requireElement(buttonRow, "#map-reset-route").getAttribute("type"), "button");
+    const resetRouteButton = requireElement(buttonRow, "#map-reset-route");
+    assert.equal(resetRouteButton.getAttribute("type"), "button");
+    assert.equal(resetRouteButton.classList.contains("ghost"), true);
     assert.equal(buttonRow.querySelector("a[data-nav='true']"), null);
 
     const viewText = compactText(root).toLowerCase();
     assert.equal(viewText.includes("deep link"), false);
     assert.equal(viewText.includes("deep-link"), false);
     assert.equal(viewText.includes("query parameter"), false);
+    assert.equal(root.innerHTML.includes("/map?destinationId="), false);
+    assert.equal(root.innerHTML.includes("&from="), false);
+    assert.equal(root.innerHTML.includes("&to="), false);
 
     const routeResult = requireElement(root, "#map-route-result");
+    const routeResultEmptyShell = requireElement(routeResult, ".map-stage-empty-shell");
+    assert.equal(routeResultEmptyShell.classList.contains("surface-card"), true);
+    assert.ok(routeResultEmptyShell.querySelector(".empty-state") !== null);
     assert.equal(compactText(routeResult).includes("Route summary appears after planning"), true);
     assert.equal(compactText(routeResult).includes("Calm Empty State"), false);
     assert.equal(routeResult.querySelector(".section-tag"), null);
