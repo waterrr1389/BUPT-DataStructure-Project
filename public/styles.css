@@ -953,12 +953,6 @@ button.ghost {
     padding: 14px;
   }
 
-  .route-stage-shell,
-  #map-visualization > .empty-state,
-  #map-route-result > .empty-state {
-    --route-stage-shell-radius: 20px;
-  }
-
   .map-stage-card {
     --route-card-radius-frame: 18px;
     --route-card-radius-canvas: 14px;
@@ -1302,6 +1296,14 @@ body {
 #map-visualization > .empty-state,
 #map-route-result > .empty-state {
   border-radius: var(--route-stage-shell-radius);
+}
+
+@media (max-width: 640px) {
+  .route-stage-shell,
+  #map-visualization > .empty-state,
+  #map-route-result > .empty-state {
+    --route-stage-shell-radius: 20px;
+  }
 }
 
 .map-stage-card {
