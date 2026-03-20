@@ -56,14 +56,13 @@ RULES:
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 1)
+### Plan Version: 1 (Updated: Round 0)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
-| 1 | Added concrete Active Tasks | Preparing tracker for implementation work | Ensures each AC has a corresponding task |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
