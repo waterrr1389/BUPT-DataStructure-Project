@@ -56,7 +56,7 @@ export async function render(app, route, root) {
     </section>
 
     <section class="map-view-grid">
-      <article class="surface-card map-controls-card">
+      <article class="surface-card map-controls-card route-stage-shell">
         <div class="section-head">
           <div class="map-controls-copy">
             <h2>Route Planning</h2>
