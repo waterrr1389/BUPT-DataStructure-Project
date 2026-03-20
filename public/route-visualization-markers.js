@@ -126,6 +126,7 @@
         label: marker.shortLabel,
         logicalPoint: point,
         nodeId: marker.node.id,
+        ...(kind === "transition" ? { legendBadgeLabel: marker.shortLabel } : {}),
       })
     })
   }

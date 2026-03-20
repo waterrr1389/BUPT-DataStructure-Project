@@ -156,6 +156,23 @@ test("turn and transition markers remain intact alongside endpoint markers", () 
   assert.equal(markerLayout.turnMarkers[0].variantClass, "is-turn");
 });
 
+test("transition legend badge follows non-indoor transition pills", () => {
+  const transitionNode = createNode("transition", 120, 160);
+  const routeAnalysis: RouteAnalysis = {
+    routeNodes: [createNode("start", 80, 80), transitionNode, createNode("end", 260, 260)],
+    transitionMarkers: [{ label: "Open-air return", node: transitionNode, shortLabel: "Outdoor" }],
+    turnMarkers: [],
+  };
+
+  const markerLayout = createRouteMarkerLayout(routeAnalysis, createProjection());
+
+  assert.equal(markerLayout.transitionMarkers.length, 1);
+  assert.equal(markerLayout.transitionMarkers[0].label, "Outdoor");
+  assert.equal(markerLayout.transitionMarkers[0].legendBadgeLabel, "Outdoor");
+  assert.equal(markerLayout.transitionMarkers[0].legendLabel, "Indoor/outdoor change");
+  assert.equal(markerLayout.transitionMarkers[0].semanticKey, "transition");
+});
+
 test("preview markers stay separate from active route markers and expose preview semantics", () => {
   const previewMarkers = createPreviewMarkers(
     {
