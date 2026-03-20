@@ -448,13 +448,13 @@ export function renderRouteVisualization(options) {
     ? `${route.totalDistance} m highlighted`
     : route?.reachable === false
       ? "No reachable path"
-      : "Graph preview";
+      : "Map preview available";
   const routeNote = routeAnalysis
     ? `${routeAnalysis.turnMarkers.length} direction or route changes, ${routeAnalysis.transitionMarkers.length} indoor or outdoor transitions, ${route.totalDistance} m total.`
     : route?.reachable === false
-      ? "Planner could not connect the selected nodes with the current settings. The destination graph remains visible for adjustment."
+      ? "The routing tool could not connect the selected nodes with the current settings. The map stays visible so you can adjust the start or end point."
       : previewStart && previewEnd
-        ? `Previewing ${text(previewStart.name)} to ${text(previewEnd.name)}. Submit the planner to render the active route overlay.`
+        ? `Previewing ${text(previewStart.name)} to ${text(previewEnd.name)}. Click "Plan route" to draw that path on the map.`
         : "Select start and end nodes, then plan a route to highlight it on the destination map.";
 
   const routeCueMarkup =
