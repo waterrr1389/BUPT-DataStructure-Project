@@ -592,11 +592,11 @@ export function renderRouteResult(item, details) {
         `${item.totalDistance} m`,
         `cost ${item.totalCost}`,
       ])}
-      <p>${escapeHtml(item.reachable ? "Reachable route returned." : "No route could be found.")}</p>
+      <p>${escapeHtml(item.reachable ? "Route ready to follow." : "No route could be found.")}</p>
       <p class="muted">${summarizeSteps(item.nodeNames)}</p>
     </article>
     <article class="surface-card route-summary-card">
-      <p class="section-tag">Supporting trace</p>
+      <p class="section-tag">Route details</p>
       <h3>Step sequence</h3>
       <div class="tag-row">
         ${
