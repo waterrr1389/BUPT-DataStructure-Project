@@ -1322,6 +1322,169 @@ test("map world view explains unreachable cross-map prefix itineraries without r
   }
 });
 
+test("map world view accepts zero-distance world edges in world details payload", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: true,
+              destinationRouting: true,
+              worldView: true,
+            },
+            destinations: [
+              {
+                destinationId: "dest-1",
+                iconType: "campus-waterfront",
+                label: "Harbor Reach",
+                regionId: "region-river",
+                x: 180,
+                y: 240,
+              },
+            ],
+            enabled: true,
+            regions: [{ id: "region-river", name: "River Arc" }],
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              width: 1024,
+            },
+          };
+        }
+
+        if (endpoint === "/api/world/details") {
+          return {
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              destinations: [
+                {
+                  destinationId: "dest-1",
+                  iconType: "campus-waterfront",
+                  label: "Harbor Reach",
+                  portalIds: ["portal-1"],
+                  radius: 18,
+                  regionId: "region-river",
+                  x: 180,
+                  y: 240,
+                },
+              ],
+              graph: {
+                edges: [
+                  {
+                    allowedModes: ["walk"],
+                    bidirectional: true,
+                    congestion: 0.2,
+                    distance: 0,
+                    from: "world-node-1",
+                    id: "world-edge-1",
+                    roadType: "road",
+                    to: "world-node-2",
+                  },
+                ],
+                nodes: [
+                  {
+                    destinationId: "dest-1",
+                    id: "world-node-1",
+                    kind: "portal",
+                    label: "Harbor Gate",
+                    tags: ["portal"],
+                    x: 180,
+                    y: 240,
+                  },
+                  {
+                    id: "world-node-2",
+                    kind: "hub",
+                    label: "Axis Hub",
+                    tags: ["hub"],
+                    x: 420,
+                    y: 320,
+                  },
+                ],
+              },
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              portals: [
+                {
+                  allowedModes: ["walk"],
+                  destinationId: "dest-1",
+                  direction: "bidirectional",
+                  id: "portal-1",
+                  label: "Harbor Gate Lift",
+                  localNodeId: "dest-1-node-b",
+                  portalType: "gate",
+                  priority: 1,
+                  transferCost: 8,
+                  transferDistance: 12,
+                  worldNodeId: "world-node-1",
+                },
+              ],
+              regions: [
+                {
+                  id: "region-river",
+                  name: "River Arc",
+                  polygon: [
+                    [80, 120],
+                    [320, 140],
+                    [300, 340],
+                  ],
+                  tags: [],
+                },
+              ],
+              width: 1024,
+            },
+          };
+        }
+
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
+    assert.equal(root.innerHTML.includes("World routing surface"), true);
+    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("World details unavailable"), false);
+    assert.equal(leaflet.records.maps.length, 1);
+    assert.equal(
+      fixture.statuses.some(
+        (status) =>
+          status.tone === "error" && status.message.startsWith("World details are malformed:"),
+      ),
+      false,
+    );
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
+    restore();
+  }
+});
+
 test("map world view downgrades to unavailable when world details payload is malformed", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();

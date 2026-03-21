@@ -267,8 +267,10 @@ function validateWorldEdge(
   if (!nodeIds.has(edge.to)) {
     issues.push(`world edge "${edge.id}" references missing to node "${edge.to}"`);
   }
-  if (!isFiniteNumber(edge.distance) || edge.distance <= 0) {
-    issues.push(`world edge "${edge.id}" must have a positive distance`);
+  if (!isFiniteNumber(edge.distance) || edge.distance < WORLD_ROUTE_LIMITS.distance.min) {
+    issues.push(
+      `world edge "${edge.id}" must use a distance >= ${WORLD_ROUTE_LIMITS.distance.min}`,
+    );
   } else if (edge.distance > WORLD_ROUTE_LIMITS.distance.max) {
     issues.push(
       `world edge "${edge.id}" exceeds distance max ${WORLD_ROUTE_LIMITS.distance.max}`,

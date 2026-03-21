@@ -171,6 +171,15 @@ test("validateSeedData rejects invalid world references and portal semantics", (
   }
 });
 
+test("validateSeedData accepts world edge distance at the frozen min", () => {
+  const candidate = structuredClone(seedData);
+  candidate.world!.graph.edges[0].distance = WORLD_ROUTE_LIMITS.distance.min;
+
+  const result = validateSeedData(candidate);
+
+  assert.equal(result.ok, true, result.issues.join("\n"));
+});
+
 test("validateSeedData accepts frozen world portal directions inbound and outbound", () => {
   const candidate = structuredClone(seedData);
   candidate.world!.portals[0].direction = "inbound";

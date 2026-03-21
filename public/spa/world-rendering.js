@@ -279,7 +279,7 @@ function collectWorldDetailsIssues(world) {
       issues.push(`world edge "${edgeId}" references an unknown node.`);
     }
     const distance = toFiniteNumber(edge?.distance);
-    if (distance == null || distance <= 0) {
+    if (distance == null || distance < 0) {
       issues.push(`world edge "${edgeId}" has invalid distance.`);
     }
     const congestion = toFiniteNumber(edge?.congestion);
