@@ -132,14 +132,10 @@ function validateStringArray(
   values: readonly string[],
   label: string,
   issues: string[],
-  minLength = 1,
+  allowEmpty = false,
 ): void {
-  if (!Array.isArray(values) || values.length < minLength) {
-    const shortageMessage =
-      minLength === 0
-        ? `${label} must be an array`
-        : `${label} must include at least ${minLength} value${minLength === 1 ? "" : "s"}`;
-    issues.push(shortageMessage);
+  if (!Array.isArray(values) || (!allowEmpty && values.length === 0)) {
+    issues.push(allowEmpty ? `${label} must be an array` : `${label} must include at least one value`);
     return;
   }
   if (!values.every(isNonEmptyString)) {
@@ -193,7 +189,7 @@ function validateWorldRegion(
       );
     }
   }
-  validateStringArray(region.tags, `world region "${region.id}" tags`, issues, 0);
+  validateStringArray(region.tags, `world region "${region.id}" tags`, issues, true);
 }
 
 function validateWorldPlacement(
@@ -252,7 +248,7 @@ function validateWorldNode(
     issues.push(`world node "${node.id}" has unsupported kind "${node.kind}"`);
   }
   validateWorldCoordinates(node.x, node.y, world.width, world.height, `world node "${node.id}"`, issues);
-  validateStringArray(node.tags, `world node "${node.id}" tags`, issues, 0);
+  validateStringArray(node.tags, `world node "${node.id}" tags`, issues, true);
   if (node.destinationId && !destinationIds.has(node.destinationId)) {
     issues.push(`world node "${node.id}" references unknown destination "${node.destinationId}"`);
   }
