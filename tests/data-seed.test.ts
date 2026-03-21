@@ -190,6 +190,16 @@ test("validateSeedData accepts frozen world portal directions inbound and outbou
   assert.equal(result.ok, true, result.issues.join("\n"));
 });
 
+test("validateSeedData accepts empty world region and node tags", () => {
+  const candidate = structuredClone(seedData);
+  candidate.world!.regions[0].tags = [];
+  candidate.world!.graph.nodes[0].tags = [];
+
+  const result = validateSeedData(candidate);
+
+  assert.equal(result.ok, true, result.issues.join("\n"));
+});
+
 test("world seed keeps the Boston-inspired structural constraints deterministic", () => {
   const world = requireWorld();
 

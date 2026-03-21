@@ -939,6 +939,59 @@ test("world route service keeps origin-local failure portal selection on a conne
   assert.equal(itinerary.legs.length, 0, format(itinerary.legs));
 });
 
+test("world route service excludes mode-rejected portal pairs from candidatePairCount", async () => {
+  const app = await createIsolatedApp("world-routing-candidate-pair-count-request-mode");
+  const world = cloneWorld(app);
+  const targetMain = world.portals.find((portal) => portal.id === "portal-dest-004-main");
+  if (!targetMain) {
+    throw new Error(format({ targetMain }));
+  }
+
+  world.graph.nodes.push({
+    id: "world-node-dest-004-shuttle-only",
+    kind: "portal",
+    label: "Shuttle-only Portal",
+    tags: [],
+    destinationId: "dest-004",
+    x: 640,
+    y: 1480,
+  });
+  world.graph.edges.push({
+    id: "world-edge-dest-002-to-shuttle-only",
+    from: "world-node-dest-002-main",
+    to: "world-node-dest-004-shuttle-only",
+    distance: 60,
+    roadType: "rail",
+    allowedModes: ["shuttle", "mixed"],
+    congestion: 0,
+    bidirectional: true,
+  });
+  world.portals.push({
+    ...targetMain,
+    id: "portal-dest-004-shuttle-only",
+    label: "Summit Learning Hub Shuttle-only Connector",
+    worldNodeId: "world-node-dest-004-shuttle-only",
+    priority: 50,
+  });
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    portalSelection: { entryPortalId: string; exitPortalId: string; candidatePairCount: number };
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-main");
+  assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-main");
+  assert.equal(itinerary.portalSelection.candidatePairCount, 1, format(itinerary.portalSelection));
+});
+
 test("world route service ranks portal priority ahead of cheaper transfer cost", async () => {
   const app = await createIsolatedApp("world-routing-priority-before-transfer");
   const world = cloneWorld(app);

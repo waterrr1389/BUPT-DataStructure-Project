@@ -1103,7 +1103,7 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
         request.mode,
       );
       const worldConnected = worldPath.reachable || worldPath.modeRejected;
-      if (worldConnected) {
+      if (worldPath.reachable) {
         worldConnectedPairCount += 1;
       }
 
