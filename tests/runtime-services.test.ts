@@ -860,6 +860,85 @@ test("world route service ignores an unused misconfigured lower-priority portal 
   assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-main");
 });
 
+test("world route service keeps origin-local failure portal selection on a connected portal pair", async () => {
+  const app = await createIsolatedApp("world-routing-origin-failure-connected-pair");
+  const originDestination = app.runtime.seedData.destinations.find((destination) => destination.id === "dest-002");
+  if (!originDestination) {
+    throw new Error(format({ originDestination }));
+  }
+
+  const mutatedOrigin = {
+    ...originDestination,
+    graph: {
+      ...originDestination.graph,
+      edges: originDestination.graph.edges.filter(
+        (edge) => edge.from !== "dest-002-archive" && edge.to !== "dest-002-archive",
+      ),
+    },
+  };
+  app.runtime.seedData = {
+    ...app.runtime.seedData,
+    destinations: app.runtime.seedData.destinations.map((destination) =>
+      destination.id === mutatedOrigin.id ? mutatedOrigin : destination,
+    ),
+  };
+  const destinationById = new Map(app.runtime.lookups.destinationById);
+  destinationById.set(mutatedOrigin.id, mutatedOrigin);
+  app.runtime.lookups = {
+    ...app.runtime.lookups,
+    destinationById,
+  };
+
+  const world = cloneWorld(app);
+  const targetMain = world.portals.find((portal) => portal.id === "portal-dest-004-main");
+  if (!targetMain) {
+    throw new Error(format({ targetMain }));
+  }
+
+  world.portals = world.portals.filter(
+    (portal) => portal.id === "portal-dest-002-main" || portal.id === "portal-dest-004-main",
+  );
+  world.graph.nodes.push({
+    id: "world-node-dest-004-disconnected-high",
+    kind: "portal",
+    label: "Disconnected High Priority Portal",
+    tags: ["test-only"],
+    destinationId: "dest-004",
+    x: 4,
+    y: 4,
+  });
+  world.portals.push({
+    ...targetMain,
+    id: "portal-dest-004-disconnected-high",
+    label: "Summit Learning Hub Disconnected Connector",
+    worldNodeId: "world-node-dest-004-disconnected-high",
+    priority: 999,
+  });
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    fromLocalNodeId: "dest-002-archive",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<Record<string, unknown>>;
+    failure?: { stage: string; code: string };
+    portalSelection: { entryPortalId: string; exitPortalId: string; candidatePairCount: number };
+  };
+
+  assert.equal(itinerary.reachable, false, format(itinerary));
+  assert.equal(itinerary.failure?.stage, "origin-portal", format(itinerary.failure));
+  assert.equal(itinerary.failure?.code, "origin_local_unreachable", format(itinerary.failure));
+  assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-main");
+  assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-main");
+  assert.equal(itinerary.portalSelection.candidatePairCount, 1, format(itinerary.portalSelection));
+  assert.equal(itinerary.legs.length, 0, format(itinerary.legs));
+});
+
 test("world route service ranks portal priority ahead of cheaper transfer cost", async () => {
   const app = await createIsolatedApp("world-routing-priority-before-transfer");
   const world = cloneWorld(app);

@@ -389,3 +389,55 @@ test("world route plan returns world_route_portal_misconfigured with frozen 409 
     },
   );
 });
+
+test("world route plan returns world_route_portal_misconfigured for a higher-priority invalid portal", async () => {
+  await withServer(
+    "portal-misconfigured-high-priority",
+    async (requestJson) => {
+      const response = await requestJson<{ error: string; code: string; portalId: string }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+
+      assert.equal(response.status, 409, response.text);
+      assert.deepEqual(response.body, {
+        error: "Portal binding is misconfigured.",
+        code: "world_route_portal_misconfigured",
+        portalId: "portal-dest-002-high-bad",
+      });
+    },
+    {
+      prepareServices: (services) => {
+        const world = cloneWorld(services);
+        const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+        if (!originMain) {
+          throw new Error("Expected the seeded world to include portal-dest-002-main.");
+        }
+
+        world.portals = world.portals.filter((portal) => portal.destinationId !== "dest-002");
+        world.portals.push(
+          {
+            ...originMain,
+            id: "portal-dest-002-high-bad",
+            label: "River Polytechnic Broken High Priority Connector",
+            localNodeId: "dest-002-missing-node",
+            priority: 500,
+          },
+          {
+            ...originMain,
+            id: "portal-dest-002-low-good",
+            label: "River Polytechnic Low Priority Connector",
+            priority: 1,
+          },
+        );
+        applyWorld(services, world);
+      },
+    },
+  );
+});

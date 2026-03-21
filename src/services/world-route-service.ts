@@ -983,27 +983,24 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
     throw new WorldRouteServiceError(422, createModeNotAllowedRecord(request.mode, collectAllowedModes(targetDirectional)));
   }
 
-  const invalidCandidatePortalIds: string[] = [];
-  const validOriginModePortals = originModePortals.filter((entry) => {
-    const valid = hasValidPortalBinding(entry.portal, worldNodeById, destinationNodeIds);
-    if (!valid) {
-      invalidCandidatePortalIds.push(entry.portal.id);
-    }
-    return valid;
-  });
-  const validTargetModePortals = targetModePortals.filter((entry) => {
-    const valid = hasValidPortalBinding(entry.portal, worldNodeById, destinationNodeIds);
-    if (!valid) {
-      invalidCandidatePortalIds.push(entry.portal.id);
-    }
-    return valid;
-  });
+  const orderedOriginModePortals = [...originModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
+  const orderedTargetModePortals = [...targetModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
 
-  if (validOriginModePortals.length === 0 || validTargetModePortals.length === 0) {
-    if (invalidCandidatePortalIds.length > 0) {
-      throw new WorldRouteServiceError(409, createPortalMisconfiguredRecord(invalidCandidatePortalIds[0]));
-    }
+  const highestPriorityOrigin = orderedOriginModePortals[0];
+  if (highestPriorityOrigin && !hasValidPortalBinding(highestPriorityOrigin.portal, worldNodeById, destinationNodeIds)) {
+    throw new WorldRouteServiceError(409, createPortalMisconfiguredRecord(highestPriorityOrigin.portal.id));
   }
+  const highestPriorityTarget = orderedTargetModePortals[0];
+  if (highestPriorityTarget && !hasValidPortalBinding(highestPriorityTarget.portal, worldNodeById, destinationNodeIds)) {
+    throw new WorldRouteServiceError(409, createPortalMisconfiguredRecord(highestPriorityTarget.portal.id));
+  }
+
+  const validOriginModePortals = orderedOriginModePortals.filter((entry) =>
+    hasValidPortalBinding(entry.portal, worldNodeById, destinationNodeIds),
+  );
+  const validTargetModePortals = orderedTargetModePortals.filter((entry) =>
+    hasValidPortalBinding(entry.portal, worldNodeById, destinationNodeIds),
+  );
 
   const originLocalByPortalId = new Map<string, PlannedLocalLeg>();
   for (const entry of validOriginModePortals) {
@@ -1037,8 +1034,8 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
     );
   }
 
-  const orderedEntries = [...validOriginModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
-  const orderedExits = [...validTargetModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
+  const orderedEntries = [...validOriginModePortals];
+  const orderedExits = [...validTargetModePortals];
 
   const successes: CandidateSuccess[] = [];
   const destinationFailures: CandidateDestinationFailure[] = [];
@@ -1050,11 +1047,6 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
   for (const entry of orderedEntries) {
     const originLocal = originLocalByPortalId.get(entry.portal.id)!;
     for (const exit of orderedExits) {
-      if (!originLocal.reachable) {
-        originFailures.push({ entry, exit });
-        continue;
-      }
-
       const worldPath = buildWorldPath(
         world,
         entry.portal.worldNodeId,
@@ -1062,6 +1054,23 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
         request.strategy,
         request.mode,
       );
+      const worldConnected = worldPath.reachable || worldPath.modeRejected;
+      if (worldConnected) {
+        worldConnectedPairCount += 1;
+      }
+
+      if (!originLocal.reachable) {
+        if (worldConnected) {
+          originFailures.push({ entry, exit });
+        }
+        continue;
+      }
+
+      if (!worldConnected) {
+        worldFailures.push({ entry, exit, originLocal });
+        continue;
+      }
+
       if (!worldPath.reachable) {
         if (worldPath.modeRejected) {
           worldModeFailures.push({
@@ -1078,8 +1087,6 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
         }
         continue;
       }
-
-      worldConnectedPairCount += 1;
       const destinationLocal = targetLocalByPortalId.get(exit.portal.id)!;
       if (!destinationLocal.reachable) {
         destinationFailures.push({ entry, exit, originLocal, worldPath });
