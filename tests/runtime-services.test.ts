@@ -86,6 +86,49 @@ function applyWorld(app: AppServices, world: NonNullable<AppServices["runtime"][
   app.runtime.world = deriveWorldRuntimeState(app.runtime.seedData);
 }
 
+function addWorldStrategyFork(world: NonNullable<AppServices["runtime"]["seedData"]["world"]>): void {
+  world.graph.nodes.push({
+    id: "world-node-strategy-fork",
+    x: 890,
+    y: 1160,
+    kind: "junction",
+    label: "Strategy Fork Junction",
+    tags: ["strategy", "test-only"],
+  });
+  world.graph.edges.push(
+    {
+      id: "world-edge-strategy-distance-1",
+      from: "world-node-dest-002-main",
+      to: "world-node-strategy-fork",
+      distance: 200,
+      roadType: "road",
+      allowedModes: ["walk", "bike", "shuttle", "mixed"],
+      congestion: 0.9,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-strategy-distance-2",
+      from: "world-node-strategy-fork",
+      to: "world-node-dest-004-main",
+      distance: 200,
+      roadType: "road",
+      allowedModes: ["walk", "bike", "shuttle", "mixed"],
+      congestion: 0.9,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-strategy-mixed-direct",
+      from: "world-node-dest-002-main",
+      to: "world-node-dest-004-main",
+      distance: 500,
+      roadType: "road",
+      allowedModes: ["walk", "bike", "shuttle", "mixed"],
+      congestion: 0.01,
+      bidirectional: true,
+    },
+  );
+}
+
 function destinationIds(items: Array<{ id: string }>): string[] {
   return items.map((item) => item.id);
 }
@@ -109,6 +152,19 @@ function nodePosition(app: AppServices, destinationId: string, suffix: string) {
 
 function edgeIds(app: AppServices, destinationId: string): string[] {
   return destinationById(app, destinationId).graph.edges.map((edge) => edge.id).sort();
+}
+
+function worldEdgeIdsFromLeg(leg: Record<string, unknown> | undefined): string[] {
+  return (Array.isArray(leg?.steps) ? leg.steps : [])
+    .filter((step): step is { edgeId: string; kind: string } =>
+      Boolean(step) &&
+      typeof step === "object" &&
+      "kind" in step &&
+      "edgeId" in step &&
+      (step as { kind?: unknown }).kind === "world-edge" &&
+      typeof (step as { edgeId?: unknown }).edgeId === "string",
+    )
+    .map((step) => step.edgeId);
 }
 
 test("createAppServices resolves the real seed with external algorithms", async () => {
@@ -269,6 +325,68 @@ test("world route service plans world-only routes from world node to world node"
   );
 });
 
+test("world route service applies strategy-specific world weighting for world-only routes", async () => {
+  const app = await createIsolatedApp("world-routing-world-only-strategy-weighting");
+  const world = cloneWorld(app);
+  addWorldStrategyFork(world);
+  applyWorld(app, world);
+
+  const distanceItinerary = app.worldRouting.plan({
+    scope: "world-only",
+    fromWorldNodeId: "world-node-dest-002-main",
+    toWorldNodeId: "world-node-dest-004-main",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<{
+      steps: Array<{ edgeId: string }>;
+      distance: number;
+      cost: number;
+    }>;
+    summary: {
+      worldDistance: number;
+      worldCost: number;
+    };
+  };
+
+  const mixedItinerary = app.worldRouting.plan({
+    scope: "world-only",
+    fromWorldNodeId: "world-node-dest-002-main",
+    toWorldNodeId: "world-node-dest-004-main",
+    strategy: "mixed",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<{
+      steps: Array<{ edgeId: string }>;
+      distance: number;
+      cost: number;
+    }>;
+    summary: {
+      worldDistance: number;
+      worldCost: number;
+    };
+  };
+
+  assert.equal(distanceItinerary.reachable, true, format(distanceItinerary));
+  assert.equal(mixedItinerary.reachable, true, format(mixedItinerary));
+  assert.deepEqual(
+    distanceItinerary.legs[0]?.steps.map((step) => step.edgeId),
+    ["world-edge-strategy-distance-1", "world-edge-strategy-distance-2"],
+    format(distanceItinerary.legs[0]),
+  );
+  assert.deepEqual(
+    mixedItinerary.legs[0]?.steps.map((step) => step.edgeId),
+    ["world-edge-strategy-mixed-direct"],
+    format(mixedItinerary.legs[0]),
+  );
+  assert.equal(distanceItinerary.summary.worldDistance, 400, format(distanceItinerary.summary));
+  assert.equal(distanceItinerary.summary.worldCost, 760, format(distanceItinerary.summary));
+  assert.equal(mixedItinerary.summary.worldDistance, 500, format(mixedItinerary.summary));
+  assert.equal(mixedItinerary.summary.worldCost, 505, format(mixedItinerary.summary));
+});
+
 test("world route service returns world_route_mode_not_allowed when world-only traversal is blocked by world edges", async () => {
   const app = await createIsolatedApp("world-routing-world-only-mode-not-allowed");
   const world = cloneWorld(app);
@@ -303,6 +421,149 @@ test("world route service returns world_route_mode_not_allowed when world-only t
   }
 
   throw new Error("Expected world-only planning to fail with world_route_mode_not_allowed.");
+});
+
+test("world route service respects strategy weighting for world-only and cross-map routes", async () => {
+  const app = await createIsolatedApp("world-routing-strategy-weighting");
+  const world = cloneWorld(app);
+
+  world.graph.nodes = world.graph.nodes.filter(
+    (node) => node.id === "world-node-dest-002-main" || node.id === "world-node-dest-004-main",
+  );
+  world.graph.nodes.push({
+    id: "world-node-strategy-detour",
+    kind: "junction",
+    label: "Strategy Detour",
+    tags: ["detour"],
+    x: 300,
+    y: 280,
+  });
+  world.graph.edges = [
+    {
+      id: "world-edge-strategy-direct",
+      from: "world-node-dest-002-main",
+      to: "world-node-dest-004-main",
+      distance: 100,
+      roadType: "road",
+      allowedModes: ["walk"],
+      congestion: 1,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-strategy-detour-a",
+      from: "world-node-dest-002-main",
+      to: "world-node-strategy-detour",
+      distance: 80,
+      roadType: "road",
+      allowedModes: ["walk"],
+      congestion: 0,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-strategy-detour-b",
+      from: "world-node-strategy-detour",
+      to: "world-node-dest-004-main",
+      distance: 80,
+      roadType: "road",
+      allowedModes: ["walk"],
+      congestion: 0,
+      bidirectional: true,
+    },
+  ];
+  applyWorld(app, world);
+
+  const worldOnlyDistance = app.worldRouting.plan({
+    scope: "world-only",
+    fromWorldNodeId: "world-node-dest-002-main",
+    toWorldNodeId: "world-node-dest-004-main",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    legs: Array<Record<string, unknown>>;
+    reachable: boolean;
+  };
+  const worldOnlyTime = app.worldRouting.plan({
+    scope: "world-only",
+    fromWorldNodeId: "world-node-dest-002-main",
+    toWorldNodeId: "world-node-dest-004-main",
+    strategy: "time",
+    mode: "walk",
+  }) as unknown as {
+    legs: Array<Record<string, unknown>>;
+    reachable: boolean;
+  };
+  const crossMapDistance = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    legs: Array<Record<string, unknown>>;
+    reachable: boolean;
+  };
+  const crossMapMixed = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "mixed",
+    mode: "walk",
+  }) as unknown as {
+    legs: Array<Record<string, unknown>>;
+    reachable: boolean;
+  };
+
+  assert.equal(worldOnlyDistance.reachable, true, format(worldOnlyDistance));
+  assert.equal(worldOnlyTime.reachable, true, format(worldOnlyTime));
+  assert.equal(crossMapDistance.reachable, true, format(crossMapDistance));
+  assert.equal(crossMapMixed.reachable, true, format(crossMapMixed));
+  assert.deepEqual(worldEdgeIdsFromLeg(worldOnlyDistance.legs[0]), ["world-edge-strategy-direct"]);
+  assert.deepEqual(
+    worldEdgeIdsFromLeg(worldOnlyTime.legs[0]),
+    ["world-edge-strategy-detour-a", "world-edge-strategy-detour-b"],
+  );
+  assert.deepEqual(worldEdgeIdsFromLeg(crossMapDistance.legs[1]), ["world-edge-strategy-direct"]);
+  assert.deepEqual(
+    worldEdgeIdsFromLeg(crossMapMixed.legs[1]),
+    ["world-edge-strategy-detour-a", "world-edge-strategy-detour-b"],
+  );
+});
+
+test("world route service supports zero-distance world edges during routing", async () => {
+  const app = await createIsolatedApp("world-routing-zero-distance");
+  const world = cloneWorld(app);
+
+  world.graph.nodes = world.graph.nodes.filter(
+    (node) => node.id === "world-node-dest-002-main" || node.id === "world-node-dest-004-main",
+  );
+  world.graph.edges = [
+    {
+      id: "world-edge-zero-distance",
+      from: "world-node-dest-002-main",
+      to: "world-node-dest-004-main",
+      distance: 0,
+      roadType: "road",
+      allowedModes: ["walk"],
+      congestion: 0,
+      bidirectional: true,
+    },
+  ];
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "world-only",
+    fromWorldNodeId: "world-node-dest-002-main",
+    toWorldNodeId: "world-node-dest-004-main",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    legs: Array<Record<string, unknown>>;
+    reachable: boolean;
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.deepEqual(worldEdgeIdsFromLeg(itinerary.legs[0]), ["world-edge-zero-distance"]);
+  assert.equal(itinerary.legs[0]?.distance, 0, format(itinerary.legs[0]));
 });
 
 test("world route service plans cross-map routes between explicit local nodes", async () => {
@@ -340,6 +601,88 @@ test("world route service plans cross-map routes between explicit local nodes", 
   );
   assert.equal((originLocalLeg?.steps as unknown[]).length > 0, true, format(originLocalLeg));
   assert.equal((targetLocalLeg?.steps as unknown[]).length > 0, true, format(targetLocalLeg));
+});
+
+test("world route service applies strategy-specific world weighting for cross-map routes", async () => {
+  const app = await createIsolatedApp("world-routing-cross-map-strategy-weighting");
+  const world = cloneWorld(app);
+  addWorldStrategyFork(world);
+  applyWorld(app, world);
+
+  const distanceItinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<{
+      scope: string;
+      steps: Array<{ kind: string; edgeId?: string }>;
+      distance: number;
+      cost: number;
+    }>;
+    summary: {
+      worldDistance: number;
+      worldCost: number;
+    };
+    portalSelection: {
+      entryPortalId: string;
+      exitPortalId: string;
+    };
+  };
+
+  const mixedItinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "mixed",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    legs: Array<{
+      scope: string;
+      steps: Array<{ kind: string; edgeId?: string }>;
+      distance: number;
+      cost: number;
+    }>;
+    summary: {
+      worldDistance: number;
+      worldCost: number;
+    };
+    portalSelection: {
+      entryPortalId: string;
+      exitPortalId: string;
+    };
+  };
+
+  assert.equal(distanceItinerary.reachable, true, format(distanceItinerary));
+  assert.equal(mixedItinerary.reachable, true, format(mixedItinerary));
+  assert.equal(distanceItinerary.legs[1]?.scope, "world", format(distanceItinerary.legs[1]));
+  assert.equal(mixedItinerary.legs[1]?.scope, "world", format(mixedItinerary.legs[1]));
+  assert.deepEqual(
+    distanceItinerary.legs[1]?.steps
+      .filter((step) => step.kind === "world-edge")
+      .map((step) => step.edgeId),
+    ["world-edge-strategy-distance-1", "world-edge-strategy-distance-2"],
+    format(distanceItinerary.legs[1]),
+  );
+  assert.deepEqual(
+    mixedItinerary.legs[1]?.steps
+      .filter((step) => step.kind === "world-edge")
+      .map((step) => step.edgeId),
+    ["world-edge-strategy-mixed-direct"],
+    format(mixedItinerary.legs[1]),
+  );
+  assert.equal(distanceItinerary.summary.worldDistance, 400, format(distanceItinerary.summary));
+  assert.equal(distanceItinerary.summary.worldCost, 760, format(distanceItinerary.summary));
+  assert.equal(mixedItinerary.summary.worldDistance, 500, format(mixedItinerary.summary));
+  assert.equal(mixedItinerary.summary.worldCost, 505, format(mixedItinerary.summary));
+  assert.equal(distanceItinerary.portalSelection.entryPortalId, "portal-dest-002-main");
+  assert.equal(distanceItinerary.portalSelection.exitPortalId, "portal-dest-004-main");
+  assert.equal(mixedItinerary.portalSelection.entryPortalId, "portal-dest-002-main");
+  assert.equal(mixedItinerary.portalSelection.exitPortalId, "portal-dest-004-main");
 });
 
 test("world route service respects mode-restricted portal candidates during deterministic selection", async () => {

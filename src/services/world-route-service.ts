@@ -205,6 +205,17 @@ function worldEdgeCost(distance: number, congestion: number): number {
   return roundMetric(distance * (1 + congestion));
 }
 
+function graphEdgeWeight(value: number): number {
+  return value > 0 ? value : 0.000001;
+}
+
+function worldEdgeWeight(distance: number, congestion: number, strategy: RouteStrategy): number {
+  if (strategy === "distance") {
+    return graphEdgeWeight(roundMetric(distance));
+  }
+  return graphEdgeWeight(worldEdgeCost(distance, congestion));
+}
+
 function compareNumber(left: number, right: number): number {
   if (left < right) {
     return -1;
@@ -446,7 +457,13 @@ function allowsPortalDirection(portal: DestinationPortalRecord, direction: "loca
   return portal.direction === "inbound";
 }
 
-function buildWorldPath(world: WorldMapRecord, fromWorldNodeId: string, toWorldNodeId: string, mode: TravelMode): PlannedWorldPath {
+function buildWorldPath(
+  world: WorldMapRecord,
+  fromWorldNodeId: string,
+  toWorldNodeId: string,
+  strategy: RouteStrategy,
+  mode: TravelMode,
+): PlannedWorldPath {
   if (fromWorldNodeId === toWorldNodeId) {
     return {
       reachable: true,
@@ -472,7 +489,7 @@ function buildWorldPath(world: WorldMapRecord, fromWorldNodeId: string, toWorldN
       from: edge.from,
       to: edge.to,
       bidirectional: edge.bidirectional,
-      distance: worldEdgeCost(edge.distance, edge.congestion),
+      distance: worldEdgeWeight(edge.distance, edge.congestion, strategy),
       metadata: {
         edgeId: edge.id,
         roadType: edge.roadType,
@@ -494,7 +511,7 @@ function buildWorldPath(world: WorldMapRecord, fromWorldNodeId: string, toWorldN
         from: edge.from,
         to: edge.to,
         bidirectional: edge.bidirectional,
-        distance: worldEdgeCost(edge.distance, edge.congestion),
+        distance: graphEdgeWeight(roundMetric(edge.distance)),
         metadata: { allowedModes: [...edge.allowedModes] },
       });
     }
@@ -753,7 +770,7 @@ function planWorldOnlyRoute(world: WorldMapRecord, request: WorldOnlyRoutePlanRe
     throw new WorldRouteServiceError(400, createInvalidRequestRecord(issues));
   }
 
-  const path = buildWorldPath(world, request.fromWorldNodeId, request.toWorldNodeId, request.mode);
+  const path = buildWorldPath(world, request.fromWorldNodeId, request.toWorldNodeId, request.strategy, request.mode);
   if (!path.reachable) {
     if (path.modeRejected) {
       throw new WorldRouteServiceError(422, createModeNotAllowedRecord(request.mode, path.allowedModes));
@@ -1031,7 +1048,13 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
         continue;
       }
 
-      const worldPath = buildWorldPath(world, entry.portal.worldNodeId, exit.portal.worldNodeId, request.mode);
+      const worldPath = buildWorldPath(
+        world,
+        entry.portal.worldNodeId,
+        exit.portal.worldNodeId,
+        request.strategy,
+        request.mode,
+      );
       if (!worldPath.reachable) {
         if (worldPath.modeRejected) {
           worldModeFailures.push({ entry, exit, originLocal, allowedModes: worldPath.allowedModes });
