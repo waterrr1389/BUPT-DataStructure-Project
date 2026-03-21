@@ -129,6 +129,55 @@ function addWorldStrategyFork(world: NonNullable<AppServices["runtime"]["seedDat
   );
 }
 
+function replaceWorldWithAlternativeModeRoutes(world: NonNullable<AppServices["runtime"]["seedData"]["world"]>): void {
+  world.portals = world.portals.filter(
+    (portal) => portal.id === "portal-dest-002-main" || portal.id === "portal-dest-004-main",
+  );
+  world.graph.nodes = world.graph.nodes.filter(
+    (node) => node.id === "world-node-dest-002-main" || node.id === "world-node-dest-004-main",
+  );
+  world.graph.nodes.push({
+    id: "world-node-mode-detour",
+    kind: "junction",
+    label: "Mode Detour Junction",
+    tags: ["mode", "test-only"],
+    x: 300,
+    y: 280,
+  });
+  world.graph.edges = [
+    {
+      id: "world-edge-mode-shuttle-direct",
+      from: "world-node-dest-002-main",
+      to: "world-node-dest-004-main",
+      distance: 10,
+      roadType: "road",
+      allowedModes: ["shuttle"],
+      congestion: 0,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-mode-bike-a",
+      from: "world-node-dest-002-main",
+      to: "world-node-mode-detour",
+      distance: 100,
+      roadType: "road",
+      allowedModes: ["bike"],
+      congestion: 0,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-mode-bike-b",
+      from: "world-node-mode-detour",
+      to: "world-node-dest-004-main",
+      distance: 100,
+      roadType: "road",
+      allowedModes: ["bike"],
+      congestion: 0,
+      bidirectional: true,
+    },
+  ];
+}
+
 function destinationIds(items: Array<{ id: string }>): string[] {
   return items.map((item) => item.id);
 }
@@ -387,14 +436,10 @@ test("world route service applies strategy-specific world weighting for world-on
   assert.equal(mixedItinerary.summary.worldCost, 505, format(mixedItinerary.summary));
 });
 
-test("world route service returns world_route_mode_not_allowed when world-only traversal is blocked by world edges", async () => {
+test("world route service reports all feasible retry modes when world-only traversal is blocked by world edges", async () => {
   const app = await createIsolatedApp("world-routing-world-only-mode-not-allowed");
   const world = cloneWorld(app);
-  world.graph.edges = world.graph.edges.map((edge) =>
-    edge.id === "world-edge-west-to-crossing" || edge.id === "world-edge-west-to-central"
-      ? { ...edge, allowedModes: ["shuttle", "mixed"] }
-      : edge,
-  );
+  replaceWorldWithAlternativeModeRoutes(world);
   applyWorld(app, world);
 
   try {
@@ -415,12 +460,44 @@ test("world route service returns world_route_mode_not_allowed when world-only t
       error: "Route mode is not allowed by selected edges or portals.",
       code: "world_route_mode_not_allowed",
       mode: "walk",
-      allowedModes: ["shuttle", "mixed"],
+      allowedModes: ["bike", "shuttle", "mixed"],
     });
     return;
   }
 
   throw new Error("Expected world-only planning to fail with world_route_mode_not_allowed.");
+});
+
+test("world route service reports all feasible retry modes when cross-map traversal is blocked by world edges", async () => {
+  const app = await createIsolatedApp("world-routing-cross-map-mode-not-allowed");
+  const world = cloneWorld(app);
+  replaceWorldWithAlternativeModeRoutes(world);
+  applyWorld(app, world);
+
+  try {
+    app.worldRouting.plan({
+      scope: "cross-map",
+      fromDestinationId: "dest-002",
+      toDestinationId: "dest-004",
+      strategy: "distance",
+      mode: "walk",
+    });
+  } catch (error) {
+    assert.equal(isWorldRouteServiceError(error), true, format(error));
+    if (!isWorldRouteServiceError(error)) {
+      throw error;
+    }
+    assert.equal(error.statusCode, 422, format(error.payload));
+    assert.deepEqual(error.payload, {
+      error: "Route mode is not allowed by selected edges or portals.",
+      code: "world_route_mode_not_allowed",
+      mode: "walk",
+      allowedModes: ["bike", "shuttle", "mixed"],
+    });
+    return;
+  }
+
+  throw new Error("Expected cross-map planning to fail with world_route_mode_not_allowed.");
 });
 
 test("world route service respects strategy weighting for world-only and cross-map routes", async () => {

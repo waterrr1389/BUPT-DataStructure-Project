@@ -122,10 +122,6 @@ interface WorldGraphStepMeta {
   mode: TravelMode;
 }
 
-interface WorldReachabilityStepMeta {
-  allowedModes: TravelMode[];
-}
-
 export class WorldRouteServiceError extends Error {
   readonly payload: WorldRouteErrorPayload;
   readonly statusCode: number;
@@ -290,9 +286,28 @@ function collectAllowedModes(portals: DestinationPortalRecord[]): TravelMode[] {
   return uniqueModes(modes);
 }
 
-function collectPathAllowedModes(pathStepAllowedModes: Array<readonly TravelMode[]>): TravelMode[] {
-  return uniqueModes(
-    TRAVEL_MODE_VALUES.filter((mode) => pathStepAllowedModes.every((allowedModes) => allowedModes.includes(mode))),
+function buildWorldReachabilityGraph(world: WorldMapRecord, mode: TravelMode): WeightedGraph<TravelMode> {
+  const graph = new WeightedGraph<TravelMode>();
+  for (const node of world.graph.nodes) {
+    graph.addNode({ id: node.id });
+  }
+  for (const edge of world.graph.edges) {
+    if (!resolveMode(edge.allowedModes, mode)) {
+      continue;
+    }
+    graph.addEdge({
+      from: edge.from,
+      to: edge.to,
+      bidirectional: edge.bidirectional,
+      distance: graphEdgeWeight(roundMetric(edge.distance)),
+    });
+  }
+  return graph;
+}
+
+function collectReachableWorldModes(world: WorldMapRecord, fromWorldNodeId: string, toWorldNodeId: string): TravelMode[] {
+  return TRAVEL_MODE_VALUES.filter((candidateMode) =>
+    findShortestPath(buildWorldReachabilityGraph(world, candidateMode), fromWorldNodeId, toWorldNodeId).reachable,
   );
 }
 
@@ -502,27 +517,8 @@ function buildWorldPath(
 
   const result = findShortestPath(graph, fromWorldNodeId, toWorldNodeId);
   if (!result.reachable) {
-    const fullReachabilityGraph = new WeightedGraph<TravelMode, undefined, WorldReachabilityStepMeta>();
-    for (const node of world.graph.nodes) {
-      fullReachabilityGraph.addNode({ id: node.id });
-    }
-    for (const edge of world.graph.edges) {
-      fullReachabilityGraph.addEdge({
-        from: edge.from,
-        to: edge.to,
-        bidirectional: edge.bidirectional,
-        distance: graphEdgeWeight(roundMetric(edge.distance)),
-        metadata: { allowedModes: [...edge.allowedModes] },
-      });
-    }
-
-    const fullReachability = findShortestPath(fullReachabilityGraph, fromWorldNodeId, toWorldNodeId);
-    const modeRejected = fullReachability.reachable;
-    const allowedModes = modeRejected
-      ? collectPathAllowedModes(
-          fullReachability.steps.map((step) => (step.metadata as WorldReachabilityStepMeta).allowedModes),
-        )
-      : [];
+    const allowedModes = collectReachableWorldModes(world, fromWorldNodeId, toWorldNodeId);
+    const modeRejected = allowedModes.length > 0;
     return {
       reachable: false,
       worldNodeIds: [],
