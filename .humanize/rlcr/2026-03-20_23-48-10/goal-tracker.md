@@ -43,7 +43,7 @@ RULES:
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 4 (Updated: Round 3)
+### Plan Version: 5 (Updated: Round 4)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -53,14 +53,13 @@ RULES:
 | 1 | Retired the stale routing deferment and reopened routing verification because Round 1 landed `/api/world/routes/plan`, world polyline UI, and handoff links, but the routing contract still has unresolved mismatches. | The tracker must reflect the actual repo state instead of keeping routing deferred after implementation landed. | Immutable AC text stays unchanged; AC-1, AC-2, and AC-3 evidence are refreshed, and AC-4 remains active until the routing contract and error surface are aligned. |
 | 2 | Verified the Round 1 routing mismatches as closed in code, docs, and automated coverage, while keeping tracking open for one remaining status-artifact cleanup task. | Round 2 aligned portal ranking, prefix-leg typing, numeric validation bounds, and invalid-request normalization, but the required cleanup of stale Round 1 summary claims was not completed. | AC-1 evidence is refreshed with the numeric-bound checks. AC-4 code and contract work is verified, but AC-4 remains active until the Round 1 summary stops overstating completion. |
 | 3 | Closed the stale Round 1 summary issue, but reopened the original routing follow-on milestone because final review found the route-explanation surface, route-specific error verification, and routing docs alignment still incomplete. | The corrected `round-1-summary.md` now matches the reviewed record, yet the original plan still requires route explanation and aligned verification/docs for the shipped routing surface. | AC-4 remains active until the world-routing follow-on is fully explained in the SPA, the frozen route-error branches are verified, and the docs match the implemented scope. |
+| 4 | Closed the remaining AC-4 routing follow-on tasks after verifying the explanation UI, route-error contract tests, and routing docs alignment in the current worktree. | Round 4 implemented the three open items from the Round 3 review, and the full suite now passes `115/115`. | AC-4 is fully addressed, so the remaining Active Tasks and Open Issues can be cleared without changing the immutable AC text. |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Complete the original-plan `World Routing Follow-On` explanation surface in `/map?view=world` by rendering itinerary step details from `world-edge` and `portal-transfer` steps instead of stopping at summary cards, leg tags, and handoff links. | AC-4 | pending | `public/spa/world-rendering.js` uses route steps to derive the polyline, but the current result UI does not surface step-level explanation, road-type explanation, or portal-transfer explanation even though `docs/world/plan.md`, `docs/world/spec.md`, and `docs/world/contract.md` reserve those fields for explanatory routing output. |
-| Add deterministic verification for the remaining frozen `POST /api/world/routes/plan` error contracts. | AC-4 | pending | The service and server implement `world_route_destination_not_found`, `world_route_local_node_not_found`, `world_route_mode_not_allowed`, and `world_route_portal_misconfigured`, but the current test set does not exercise those API branches end-to-end. |
-| Align the world docs with the shipped routing surface once the explanation UI is complete. | AC-4 | pending | `docs/world/contract.md` still says the route-planning endpoint only freezes the contract and does not imply backend or SPA implementation, which no longer matches the implemented routing service and world-map UI. |
+| None. | - | - | All tracked AC-scoped work is now verified in `Completed and Verified`. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -74,6 +73,9 @@ RULES:
 | AC-4 | Enforce the frozen world-route numeric ranges in seed validation and regression coverage. | 2 | 2 | `npm test` passed `110/110`, including the max-plus-one validation failures for world edge distance, portal transferDistance, and portal transferCost in `tests/data-seed.test.ts`. |
 | AC-4 | Normalize `POST /api/world/routes/plan` invalid-request handling to the frozen `world_route_invalid_request` contract. | 2 | 2 | `npm test` passed `110/110`, including `world route plan maps malformed JSON to world_route_invalid_request`, `world route plan maps non-object payloads to world_route_invalid_request`, `world route plan keeps schema validation failures in world_route_invalid_request`, and `world route plan maps oversized payloads to world_route_invalid_request`. |
 | AC-4 | Correct the stale Round 1 summary so its scope, tracker request, and remaining-risk sections match the reviewed routing record. | 3 | 3 | Cross-artifact review confirmed that `round-1-summary.md` no longer claims the routing contract freeze or portal direction typing were already complete in Round 1, and it now records the remaining routing mismatches as Round 2 follow-up work. This matches `round-1-review-result.md`, `round-2-summary.md`, and `round-3-summary.md`. |
+| AC-4 | Complete the original-plan `World Routing Follow-On` explanation surface in `/map?view=world` by rendering ordered itinerary explanation from `world-edge` and `portal-transfer` steps. | 4 | 4 | `public/spa/world-rendering.js` now renders `Ordered itinerary segments` via `worldRouteExplanationMarkup`, including segment order, endpoints, direction, mode, `roadType`, distance, and cost for `world-edge` and `portal-transfer` steps. `npm test` passed `115/115`, including `map world view plans cross-map itineraries, renders polyline and handoff links, and preserves marker click-through` plus `map world view explains unreachable cross-map prefix itineraries without requiring a full local-world-local chain` in `tests/spa-regressions/map-and-shell.test.ts`. |
+| AC-4 | Add deterministic verification for the remaining frozen `POST /api/world/routes/plan` error contracts. | 4 | 4 | `tests/world-route-error-contracts.test.ts` is wired through `tests/index.ts`, and `npm test` passed `115/115`, including `world route plan returns world_route_destination_not_found with frozen 404 payload`, `world route plan returns world_route_local_node_not_found with frozen 404 payload`, `world route plan returns world_route_mode_not_allowed with frozen 422 payload`, and `world route plan returns world_route_portal_misconfigured with frozen 409 payload`. |
+| AC-4 | Align the world docs with the shipped routing surface once the explanation UI is complete. | 4 | 4 | Cross-artifact review confirmed that `docs/world/contract.md` now states that the repository ships backend route planning plus `/map?view=world` route summary, local/world/local handoff, and ordered explanation rendering, while also freezing canonical step order and reachable-false prefix-leg semantics. The same `npm test` `115/115` baseline keeps the aligned routing surface verified. |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
@@ -85,6 +87,4 @@ RULES:
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| The world routing UI still stops at high-level summary cards and handoff links, so the original-plan route-explanation deliverable is not fully implemented. | 3 | AC-4 | Render step-level explanation in `public/spa/world-rendering.js` using the existing `world-edge` and `portal-transfer` step data, then add SPA regression coverage for the explanatory output. |
-| The frozen route-specific error contracts for destination lookup, local-node lookup, mode filtering, and portal binding are not covered by deterministic endpoint tests. | 3 | AC-4 | Add server-level regressions that exercise the documented `404`, `422`, and `409` routing error bodies. |
-| `docs/world/contract.md` still describes `/api/world/routes/plan` as contract-only despite the implemented backend route planning and world-map routing UI. | 3 | AC-4 | Update the routing docs after the explanation UI lands so the documentation reflects the shipped scope and verification surface. |
+| None. | - | - | No open issues remain after Round 4 verification. |
