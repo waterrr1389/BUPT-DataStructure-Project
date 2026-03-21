@@ -169,6 +169,28 @@ test("world route plan maps oversized payloads to world_route_invalid_request", 
   });
 });
 
+test("world route plan rejects same-destination cross-map requests", async () => {
+  await withServer("same-destination-cross-map", async (requestJson) => {
+    const response = await requestJson<{ error: string; code: string; issues: string[] }>("/api/world/routes/plan", {
+      method: "POST",
+      body: {
+        scope: "cross-map",
+        fromDestinationId: "dest-002",
+        toDestinationId: "dest-002",
+        strategy: "distance",
+        mode: "walk",
+      },
+    });
+
+    assert.equal(response.status, 400, response.text);
+    assert.deepEqual(response.body, {
+      error: "Invalid world route request.",
+      code: "world_route_invalid_request",
+      issues: ['"fromDestinationId" and "toDestinationId" must be different for "cross-map" routes.'],
+    });
+  });
+});
+
 test("unrelated endpoint keeps generic malformed JSON handling", async () => {
   await withServer("generic-endpoint", async (requestJson) => {
     const response = await requestJson<{ error: string; code?: string }>("/api/routes/plan", {

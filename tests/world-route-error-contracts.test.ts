@@ -126,6 +126,55 @@ function applyWorld(services: AppServices, world: NonNullable<AppServices["runti
   services.runtime.world = deriveWorldRuntimeState(services.runtime.seedData);
 }
 
+function replaceWorldWithAlternativeModeRoutes(world: NonNullable<AppServices["runtime"]["seedData"]["world"]>): void {
+  world.portals = world.portals.filter(
+    (portal) => portal.id === "portal-dest-002-main" || portal.id === "portal-dest-004-main",
+  );
+  world.graph.nodes = world.graph.nodes.filter(
+    (node) => node.id === "world-node-dest-002-main" || node.id === "world-node-dest-004-main",
+  );
+  world.graph.nodes.push({
+    id: "world-node-mode-detour",
+    kind: "junction",
+    label: "Mode Detour Junction",
+    tags: ["mode", "test-only"],
+    x: 300,
+    y: 280,
+  });
+  world.graph.edges = [
+    {
+      id: "world-edge-mode-shuttle-direct",
+      from: "world-node-dest-002-main",
+      to: "world-node-dest-004-main",
+      distance: 10,
+      roadType: "road",
+      allowedModes: ["shuttle"],
+      congestion: 0,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-mode-bike-a",
+      from: "world-node-dest-002-main",
+      to: "world-node-mode-detour",
+      distance: 100,
+      roadType: "road",
+      allowedModes: ["bike"],
+      congestion: 0,
+      bidirectional: true,
+    },
+    {
+      id: "world-edge-mode-bike-b",
+      from: "world-node-mode-detour",
+      to: "world-node-dest-004-main",
+      distance: 100,
+      roadType: "road",
+      allowedModes: ["bike"],
+      congestion: 0,
+      bidirectional: true,
+    },
+  ];
+}
+
 test("world route plan returns world_route_destination_not_found with frozen 404 payload", async () => {
   await withServer("destination-not-found", async (requestJson) => {
     const response = await requestJson<{ error: string; code: string; destinationId: string }>("/api/world/routes/plan", {
@@ -261,6 +310,44 @@ test("world route plan returns world_route_mode_not_allowed when world edges rej
           worldNodeId: "world-node-dest-002-detached",
           priority: 10,
         });
+        applyWorld(services, world);
+      },
+    },
+  );
+});
+
+test("world route plan restricts world_route_mode_not_allowed to portal-compatible retry modes", async () => {
+  await withServer(
+    "mode-not-allowed-portal-compatible",
+    async (requestJson) => {
+      const response = await requestJson<{ error: string; code: string; mode: string; allowedModes: string[] }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+
+      assert.equal(response.status, 422, response.text);
+      assert.deepEqual(response.body, {
+        error: "Route mode is not allowed by selected edges or portals.",
+        code: "world_route_mode_not_allowed",
+        mode: "walk",
+        allowedModes: ["mixed"],
+      });
+    },
+    {
+      prepareServices: (services) => {
+        const world = cloneWorld(services);
+        replaceWorldWithAlternativeModeRoutes(world);
+        world.portals = world.portals.map((portal) =>
+          portal.id === "portal-dest-002-main" || portal.id === "portal-dest-004-main"
+            ? { ...portal, allowedModes: ["walk"] }
+            : portal,
+        );
         applyWorld(services, world);
       },
     },

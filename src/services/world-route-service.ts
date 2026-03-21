@@ -286,6 +286,14 @@ function collectAllowedModes(portals: DestinationPortalRecord[]): TravelMode[] {
   return uniqueModes(modes);
 }
 
+function collectSharedAllowedModes(portals: readonly DestinationPortalRecord[]): TravelMode[] {
+  return TRAVEL_MODE_VALUES.filter((mode) => portals.every((portal) => resolveMode(portal.allowedModes, mode) !== null));
+}
+
+function filterAllowedModes(allowedModes: readonly TravelMode[], supportedModes: readonly TravelMode[]): TravelMode[] {
+  return TRAVEL_MODE_VALUES.filter((mode) => allowedModes.includes(mode) && supportedModes.includes(mode));
+}
+
 function buildWorldReachabilityGraph(world: WorldMapRecord, mode: TravelMode): WeightedGraph<TravelMode> {
   const graph = new WeightedGraph<TravelMode>();
   for (const node of world.graph.nodes) {
@@ -421,6 +429,9 @@ function parseWorldRoutePlanRequest(input: unknown): ParsedWorldRouteRequest {
     const toLocalNodeId = readOptionalStringField(body, "toLocalNodeId", issues);
     const strategy = readStrategyField(body, "strategy", issues);
     const mode = readModeField(body, "mode", issues);
+    if (fromDestinationId && toDestinationId && fromDestinationId === toDestinationId) {
+      issues.push(`"fromDestinationId" and "toDestinationId" must be different for "cross-map" routes.`);
+    }
     if (issues.length > 0 || !fromDestinationId || !toDestinationId || !strategy || !mode) {
       return { issues };
     }
@@ -1053,7 +1064,15 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
       );
       if (!worldPath.reachable) {
         if (worldPath.modeRejected) {
-          worldModeFailures.push({ entry, exit, originLocal, allowedModes: worldPath.allowedModes });
+          worldModeFailures.push({
+            entry,
+            exit,
+            originLocal,
+            allowedModes: filterAllowedModes(
+              worldPath.allowedModes,
+              collectSharedAllowedModes([entry.portal, exit.portal]),
+            ),
+          });
         } else {
           worldFailures.push({ entry, exit, originLocal });
         }
