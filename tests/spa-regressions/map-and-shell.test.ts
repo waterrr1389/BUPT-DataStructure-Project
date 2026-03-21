@@ -2083,6 +2083,151 @@ test("map world view falls back to an unavailable state when world details fail"
   }
 });
 
+test("map world view ignores stale async detail loads after the render token changes", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+  const deferredWorldDetails = createDeferred<Record<string, unknown>>();
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: true,
+              destinationRouting: true,
+              worldView: true,
+            },
+            destinations: [
+              {
+                destinationId: "dest-1",
+                iconType: "campus-waterfront",
+                label: "Harbor Reach",
+                regionId: "region-river",
+                x: 180,
+                y: 240,
+              },
+            ],
+            enabled: true,
+            regions: [{ id: "region-river", name: "River Arc" }],
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              width: 1024,
+            },
+          };
+        }
+
+        if (endpoint === "/api/world/details") {
+          return deferredWorldDetails.promise;
+        }
+
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const renderPromise = module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    await settleAsync();
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
+
+    fixture.app.state.renderToken = 1;
+    deferredWorldDetails.resolve({
+      world: {
+        backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+        destinations: [
+          {
+            destinationId: "dest-1",
+            iconType: "campus-waterfront",
+            label: "Harbor Reach",
+            portalIds: ["portal-1"],
+            radius: 18,
+            regionId: "region-river",
+            x: 180,
+            y: 240,
+          },
+        ],
+        graph: {
+          edges: [],
+          nodes: [
+            {
+              destinationId: "dest-1",
+              id: "world-node-1",
+              kind: "portal",
+              label: "Harbor Gate",
+              tags: ["portal"],
+              x: 180,
+              y: 240,
+            },
+          ],
+        },
+        height: 768,
+        id: "world-1",
+        name: "Atlas Overworld",
+        portals: [
+          {
+            allowedModes: ["walk"],
+            destinationId: "dest-1",
+            direction: "bidirectional",
+            id: "portal-1",
+            label: "Harbor Gate Lift",
+            localNodeId: "dest-1-node-b",
+            portalType: "gate",
+            priority: 1,
+            transferCost: 8,
+            transferDistance: 12,
+            worldNodeId: "world-node-1",
+          },
+        ],
+        regions: [
+          {
+            id: "region-river",
+            name: "River Arc",
+            polygon: [
+              [80, 120],
+              [320, 140],
+              [300, 340],
+            ],
+            tags: [],
+          },
+        ],
+        width: 1024,
+      },
+    });
+
+    const cleanup = await renderPromise;
+    await settleAsync();
+
+    assert.equal(leaflet.records.maps.length, 0);
+    assert.deepEqual(fixture.statuses, []);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
+    restore();
+  }
+});
+
 test("feed fallback preserves viewer context when the social feed endpoint is unavailable", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();

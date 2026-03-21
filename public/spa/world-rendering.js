@@ -944,6 +944,7 @@ export async function renderWorldMapView(app, route, root) {
   let mapController = null;
   let world = null;
   let routeFormEnabled = false;
+  const initialRenderToken = app.state?.renderToken;
 
   function worldRouteFields() {
     if (!routeForm) {
@@ -1002,6 +1003,27 @@ export async function renderWorldMapView(app, route, root) {
     });
   }
 
+  function destroyMountedMap() {
+    if (!mapController) {
+      return;
+    }
+    mapController.destroy();
+    mapController = null;
+  }
+
+  function isActiveRender() {
+    return app.state?.renderToken === initialRenderToken;
+  }
+
+  function ensureActiveRender() {
+    if (isActiveRender()) {
+      return true;
+    }
+    disposed = true;
+    destroyMountedMap();
+    return false;
+  }
+
   function clearWorldRoute() {
     if (!routeResult) {
       return;
@@ -1045,6 +1067,9 @@ export async function renderWorldMapView(app, route, root) {
 
   try {
     const summary = await app.requestJson("/api/world");
+    if (!ensureActiveRender()) {
+      return;
+    }
     if (disposed) {
       return () => {};
     }
@@ -1062,6 +1087,9 @@ export async function renderWorldMapView(app, route, root) {
     }
 
     const detailsPayload = await app.requestJson("/api/world/details");
+    if (!ensureActiveRender()) {
+      return;
+    }
     if (disposed) {
       return () => {};
     }
@@ -1095,6 +1123,9 @@ export async function renderWorldMapView(app, route, root) {
         app.navigate(app.buildMapHref(params));
       },
     });
+    if (!ensureActiveRender()) {
+      return;
+    }
 
     const nodeOptions = safeArray(world.graph?.nodes).map((node) => ({
       id: text(node?.id),
@@ -1147,6 +1178,9 @@ export async function renderWorldMapView(app, route, root) {
           method: "POST",
           body: JSON.stringify(payload),
         });
+        if (!isActiveRender()) {
+          return;
+        }
         if (disposed) {
           return;
         }
@@ -1160,6 +1194,9 @@ export async function renderWorldMapView(app, route, root) {
         }
         app.setStatus(itinerary.reachable ? "World route ready." : "World route returned an incomplete itinerary.", itinerary.reachable ? "success" : "neutral");
       } catch (error) {
+        if (!isActiveRender()) {
+          return;
+        }
         if (disposed) {
           return;
         }
@@ -1178,6 +1215,9 @@ export async function renderWorldMapView(app, route, root) {
 
     app.setStatus("World surface ready.", "success");
   } catch (error) {
+    if (!ensureActiveRender()) {
+      return;
+    }
     const message = error instanceof Error ? error.message : "World map failed to load.";
     renderUnavailable(
       "World details unavailable",
@@ -1188,6 +1228,6 @@ export async function renderWorldMapView(app, route, root) {
 
   return () => {
     disposed = true;
-    mapController?.destroy();
+    destroyMountedMap();
   };
 }

@@ -749,6 +749,7 @@ function createMapFixture(overrides: {
     },
     state: {
       mapScenes: new Map(),
+      renderToken: 0,
     },
   };
 

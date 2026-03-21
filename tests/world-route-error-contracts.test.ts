@@ -241,7 +241,7 @@ test("world route plan returns world_route_mode_not_allowed with frozen 422 payl
         error: "Route mode is not allowed by selected edges or portals.",
         code: "world_route_mode_not_allowed",
         mode: "shuttle",
-        allowedModes: ["walk"],
+        allowedModes: ["walk", "mixed"],
       });
     },
     {
@@ -346,6 +346,56 @@ test("world route plan restricts world_route_mode_not_allowed to portal-compatib
         world.portals = world.portals.map((portal) =>
           portal.id === "portal-dest-002-main" || portal.id === "portal-dest-004-main"
             ? { ...portal, allowedModes: ["walk"] }
+            : portal,
+        );
+        applyWorld(services, world);
+      },
+    },
+  );
+});
+
+test("world route plan restricts early world_route_mode_not_allowed retry modes to viable cross-map options", async () => {
+  await withServer(
+    "mode-not-allowed-early",
+    async (requestJson) => {
+      const response = await requestJson<{ error: string; code: string; mode: string; allowedModes: string[] }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "shuttle",
+        },
+      });
+
+      assert.equal(response.status, 422, response.text);
+      assert.deepEqual(response.body, {
+        error: "Route mode is not allowed by selected edges or portals.",
+        code: "world_route_mode_not_allowed",
+        mode: "shuttle",
+        allowedModes: ["walk", "mixed"],
+      });
+    },
+    {
+      prepareServices: (services) => {
+        const world = cloneWorld(services);
+        replaceWorldWithAlternativeModeRoutes(world);
+        world.graph.edges = [
+          {
+            id: "world-edge-mode-walk-direct",
+            from: "world-node-dest-002-main",
+            to: "world-node-dest-004-main",
+            distance: 120,
+            roadType: "road",
+            allowedModes: ["walk"],
+            congestion: 0,
+            bidirectional: true,
+          },
+        ];
+        world.portals = world.portals.map((portal) =>
+          portal.id === "portal-dest-002-main" || portal.id === "portal-dest-004-main"
+            ? { ...portal, allowedModes: ["walk", "bike"] }
             : portal,
         );
         applyWorld(services, world);

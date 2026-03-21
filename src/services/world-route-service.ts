@@ -294,6 +294,35 @@ function filterAllowedModes(allowedModes: readonly TravelMode[], supportedModes:
   return TRAVEL_MODE_VALUES.filter((mode) => allowedModes.includes(mode) && supportedModes.includes(mode));
 }
 
+function collectCrossMapCompatibleModes(
+  world: WorldMapRecord,
+  entryPortals: readonly DestinationPortalRecord[],
+  exitPortals: readonly DestinationPortalRecord[],
+): TravelMode[] {
+  if (entryPortals.length === 0 || exitPortals.length === 0) {
+    return [];
+  }
+
+  const modes = new Set<TravelMode>();
+  for (const entry of entryPortals) {
+    for (const exit of exitPortals) {
+      const portalModes = collectSharedAllowedModes([entry, exit]);
+      if (portalModes.length === 0) {
+        continue;
+      }
+      const worldModes = collectReachableWorldModes(world, entry.worldNodeId, exit.worldNodeId);
+      if (worldModes.length === 0) {
+        continue;
+      }
+      for (const mode of filterAllowedModes(worldModes, portalModes)) {
+        modes.add(mode);
+      }
+    }
+  }
+
+  return uniqueModes(modes);
+}
+
 function buildWorldReachabilityGraph(world: WorldMapRecord, mode: TravelMode): WeightedGraph<TravelMode> {
   const graph = new WeightedGraph<TravelMode>();
   for (const node of world.graph.nodes) {
@@ -946,6 +975,13 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
   const originDirectional = originPortals.filter((portal) => allowsPortalDirection(portal, "local-to-world"));
   const targetDirectional = targetPortals.filter((portal) => allowsPortalDirection(portal, "world-to-local"));
 
+  const validOriginDirectionalPortals = originDirectional.filter((portal) =>
+    hasValidPortalBinding(portal, worldNodeById, destinationNodeIds),
+  );
+  const validTargetDirectionalPortals = targetDirectional.filter((portal) =>
+    hasValidPortalBinding(portal, worldNodeById, destinationNodeIds),
+  );
+
   if (originDirectional.length === 0 || targetDirectional.length === 0) {
     const fallbackEntry = [...originPortals].sort(comparePortal)[0];
     const fallbackExit = [...targetPortals].sort(comparePortal)[0];
@@ -977,10 +1013,22 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
     .filter((entry): entry is ModePortal => entry.mode !== null);
 
   if (originModePortals.length === 0) {
-    throw new WorldRouteServiceError(422, createModeNotAllowedRecord(request.mode, collectAllowedModes(originDirectional)));
+    throw new WorldRouteServiceError(
+      422,
+      createModeNotAllowedRecord(
+        request.mode,
+        collectCrossMapCompatibleModes(world, validOriginDirectionalPortals, validTargetDirectionalPortals),
+      ),
+    );
   }
   if (targetModePortals.length === 0) {
-    throw new WorldRouteServiceError(422, createModeNotAllowedRecord(request.mode, collectAllowedModes(targetDirectional)));
+    throw new WorldRouteServiceError(
+      422,
+      createModeNotAllowedRecord(
+        request.mode,
+        collectCrossMapCompatibleModes(world, validOriginDirectionalPortals, validTargetDirectionalPortals),
+      ),
+    );
   }
 
   const orderedOriginModePortals = [...originModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
