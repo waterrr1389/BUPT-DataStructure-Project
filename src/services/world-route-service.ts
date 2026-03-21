@@ -60,6 +60,8 @@ interface PlannedWorldPath {
   steps: WorldRouteWorldEdgeStep[];
   distance: number;
   cost: number;
+  modeRejected: boolean;
+  allowedModes: TravelMode[];
 }
 
 interface PlannedLocalLeg {
@@ -100,6 +102,13 @@ interface CandidateWorldFailure {
   originLocal: PlannedLocalLeg;
 }
 
+interface CandidateWorldModeFailure {
+  entry: ModePortal;
+  exit: ModePortal;
+  originLocal: PlannedLocalLeg;
+  allowedModes: TravelMode[];
+}
+
 interface CandidateOriginFailure {
   entry: ModePortal;
   exit: ModePortal;
@@ -111,6 +120,10 @@ interface WorldGraphStepMeta {
   distance: number;
   congestion: number;
   mode: TravelMode;
+}
+
+interface WorldReachabilityStepMeta {
+  allowedModes: TravelMode[];
 }
 
 export class WorldRouteServiceError extends Error {
@@ -264,6 +277,12 @@ function collectAllowedModes(portals: DestinationPortalRecord[]): TravelMode[] {
     }
   }
   return uniqueModes(modes);
+}
+
+function collectPathAllowedModes(pathStepAllowedModes: Array<readonly TravelMode[]>): TravelMode[] {
+  return uniqueModes(
+    TRAVEL_MODE_VALUES.filter((mode) => pathStepAllowedModes.every((allowedModes) => allowedModes.includes(mode))),
+  );
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -435,6 +454,8 @@ function buildWorldPath(world: WorldMapRecord, fromWorldNodeId: string, toWorldN
       steps: [],
       distance: 0,
       cost: 0,
+      modeRejected: false,
+      allowedModes: [],
     };
   }
 
@@ -464,12 +485,35 @@ function buildWorldPath(world: WorldMapRecord, fromWorldNodeId: string, toWorldN
 
   const result = findShortestPath(graph, fromWorldNodeId, toWorldNodeId);
   if (!result.reachable) {
+    const fullReachabilityGraph = new WeightedGraph<TravelMode, undefined, WorldReachabilityStepMeta>();
+    for (const node of world.graph.nodes) {
+      fullReachabilityGraph.addNode({ id: node.id });
+    }
+    for (const edge of world.graph.edges) {
+      fullReachabilityGraph.addEdge({
+        from: edge.from,
+        to: edge.to,
+        bidirectional: edge.bidirectional,
+        distance: worldEdgeCost(edge.distance, edge.congestion),
+        metadata: { allowedModes: [...edge.allowedModes] },
+      });
+    }
+
+    const fullReachability = findShortestPath(fullReachabilityGraph, fromWorldNodeId, toWorldNodeId);
+    const modeRejected = fullReachability.reachable;
+    const allowedModes = modeRejected
+      ? collectPathAllowedModes(
+          fullReachability.steps.map((step) => (step.metadata as WorldReachabilityStepMeta).allowedModes),
+        )
+      : [];
     return {
       reachable: false,
       worldNodeIds: [],
       steps: [],
       distance: 0,
       cost: 0,
+      modeRejected,
+      allowedModes,
     };
   }
 
@@ -497,6 +541,8 @@ function buildWorldPath(world: WorldMapRecord, fromWorldNodeId: string, toWorldN
     steps,
     distance,
     cost,
+    modeRejected: false,
+    allowedModes: [],
   };
 }
 
@@ -566,24 +612,23 @@ function planLocalLeg(
   };
 }
 
-function assertPortalBindings(
-  portals: DestinationPortalRecord[],
+function hasValidPortalBinding(
+  portal: DestinationPortalRecord,
   worldNodeById: Map<string, WorldMapRecord["graph"]["nodes"][number]>,
   destinationNodeIds: Map<string, Set<string>>,
-): void {
-  for (const portal of portals) {
-    const worldNode = worldNodeById.get(portal.worldNodeId);
-    if (!worldNode || worldNode.kind !== "portal") {
-      throw new WorldRouteServiceError(409, createPortalMisconfiguredRecord(portal.id));
-    }
-    if (worldNode.destinationId && worldNode.destinationId !== portal.destinationId) {
-      throw new WorldRouteServiceError(409, createPortalMisconfiguredRecord(portal.id));
-    }
-    const localNodes = destinationNodeIds.get(portal.destinationId);
-    if (!localNodes || !localNodes.has(portal.localNodeId)) {
-      throw new WorldRouteServiceError(409, createPortalMisconfiguredRecord(portal.id));
-    }
+): boolean {
+  const worldNode = worldNodeById.get(portal.worldNodeId);
+  if (!worldNode || worldNode.kind !== "portal") {
+    return false;
   }
+  if (worldNode.destinationId && worldNode.destinationId !== portal.destinationId) {
+    return false;
+  }
+  const localNodes = destinationNodeIds.get(portal.destinationId);
+  if (!localNodes || !localNodes.has(portal.localNodeId)) {
+    return false;
+  }
+  return true;
 }
 
 function buildPortalSelection(
@@ -710,6 +755,9 @@ function planWorldOnlyRoute(world: WorldMapRecord, request: WorldOnlyRoutePlanRe
 
   const path = buildWorldPath(world, request.fromWorldNodeId, request.toWorldNodeId, request.mode);
   if (!path.reachable) {
+    if (path.modeRejected) {
+      throw new WorldRouteServiceError(422, createModeNotAllowedRecord(request.mode, path.allowedModes));
+    }
     const leg = {
       scope: "world" as const,
       worldNodeIds: [request.fromWorldNodeId],
@@ -790,6 +838,15 @@ function compareWorldFailure(left: CandidateWorldFailure, right: CandidateWorldF
   );
 }
 
+function compareWorldModeFailure(left: CandidateWorldModeFailure, right: CandidateWorldModeFailure): number {
+  return (
+    comparePortalPairPriority(left.entry, left.exit, right.entry, right.exit) ||
+    compareNumber(left.originLocal.leg.cost, right.originLocal.leg.cost) ||
+    compareNumber(portalTransferCost(left.entry, left.exit), portalTransferCost(right.entry, right.exit)) ||
+    comparePortalPairId(left.entry, left.exit, right.entry, right.exit)
+  );
+}
+
 function compareOriginFailure(left: CandidateOriginFailure, right: CandidateOriginFailure): number {
   return (
     comparePortalPairPriority(left.entry, left.exit, right.entry, right.exit) ||
@@ -861,7 +918,6 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
     [originDestination.id, new Set(originDestination.graph.nodes.map((node) => node.id))],
     [targetDestination.id, new Set(targetDestination.graph.nodes.map((node) => node.id))],
   ]);
-  assertPortalBindings([...originPortals, ...targetPortals], worldNodeById, destinationNodeIds);
 
   const originDirectional = originPortals.filter((portal) => allowsPortalDirection(portal, "local-to-world"));
   const targetDirectional = targetPortals.filter((portal) => allowsPortalDirection(portal, "world-to-local"));
@@ -903,8 +959,30 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
     throw new WorldRouteServiceError(422, createModeNotAllowedRecord(request.mode, collectAllowedModes(targetDirectional)));
   }
 
+  const invalidCandidatePortalIds: string[] = [];
+  const validOriginModePortals = originModePortals.filter((entry) => {
+    const valid = hasValidPortalBinding(entry.portal, worldNodeById, destinationNodeIds);
+    if (!valid) {
+      invalidCandidatePortalIds.push(entry.portal.id);
+    }
+    return valid;
+  });
+  const validTargetModePortals = targetModePortals.filter((entry) => {
+    const valid = hasValidPortalBinding(entry.portal, worldNodeById, destinationNodeIds);
+    if (!valid) {
+      invalidCandidatePortalIds.push(entry.portal.id);
+    }
+    return valid;
+  });
+
+  if (validOriginModePortals.length === 0 || validTargetModePortals.length === 0) {
+    if (invalidCandidatePortalIds.length > 0) {
+      throw new WorldRouteServiceError(409, createPortalMisconfiguredRecord(invalidCandidatePortalIds[0]));
+    }
+  }
+
   const originLocalByPortalId = new Map<string, PlannedLocalLeg>();
-  for (const entry of originModePortals) {
+  for (const entry of validOriginModePortals) {
     const originLocalStartNode = request.fromLocalNodeId ?? entry.portal.localNodeId;
     originLocalByPortalId.set(
       entry.portal.id,
@@ -920,7 +998,7 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
   }
 
   const targetLocalByPortalId = new Map<string, PlannedLocalLeg>();
-  for (const exit of targetModePortals) {
+  for (const exit of validTargetModePortals) {
     const destinationLocalEndNode = request.toLocalNodeId ?? exit.portal.localNodeId;
     targetLocalByPortalId.set(
       exit.portal.id,
@@ -935,12 +1013,13 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
     );
   }
 
-  const orderedEntries = [...originModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
-  const orderedExits = [...targetModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
+  const orderedEntries = [...validOriginModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
+  const orderedExits = [...validTargetModePortals].sort((left, right) => comparePortal(left.portal, right.portal));
 
   const successes: CandidateSuccess[] = [];
   const destinationFailures: CandidateDestinationFailure[] = [];
   const worldFailures: CandidateWorldFailure[] = [];
+  const worldModeFailures: CandidateWorldModeFailure[] = [];
   const originFailures: CandidateOriginFailure[] = [];
   let worldConnectedPairCount = 0;
 
@@ -954,7 +1033,11 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
 
       const worldPath = buildWorldPath(world, entry.portal.worldNodeId, exit.portal.worldNodeId, request.mode);
       if (!worldPath.reachable) {
-        worldFailures.push({ entry, exit, originLocal });
+        if (worldPath.modeRejected) {
+          worldModeFailures.push({ entry, exit, originLocal, allowedModes: worldPath.allowedModes });
+        } else {
+          worldFailures.push({ entry, exit, originLocal });
+        }
         continue;
       }
 
@@ -1027,6 +1110,17 @@ function planCrossMapRoute(runtime: ResolvedRuntime, world: WorldMapRecord, requ
         selected.originLocal.leg.cost,
         selected.worldPath.cost,
         selected.entry.portal.transferCost + selected.exit.portal.transferCost,
+      ),
+    );
+  }
+
+  if (worldModeFailures.length > 0) {
+    const orderedWorldModeFailures = [...worldModeFailures].sort(compareWorldModeFailure);
+    throw new WorldRouteServiceError(
+      422,
+      createModeNotAllowedRecord(
+        request.mode,
+        uniqueModes(orderedWorldModeFailures.flatMap((failure) => failure.allowedModes)),
       ),
     );
   }

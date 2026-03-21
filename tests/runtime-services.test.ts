@@ -269,6 +269,42 @@ test("world route service plans world-only routes from world node to world node"
   );
 });
 
+test("world route service returns world_route_mode_not_allowed when world-only traversal is blocked by world edges", async () => {
+  const app = await createIsolatedApp("world-routing-world-only-mode-not-allowed");
+  const world = cloneWorld(app);
+  world.graph.edges = world.graph.edges.map((edge) =>
+    edge.id === "world-edge-west-to-crossing" || edge.id === "world-edge-west-to-central"
+      ? { ...edge, allowedModes: ["shuttle", "mixed"] }
+      : edge,
+  );
+  applyWorld(app, world);
+
+  try {
+    app.worldRouting.plan({
+      scope: "world-only",
+      fromWorldNodeId: "world-node-dest-002-main",
+      toWorldNodeId: "world-node-dest-004-main",
+      strategy: "distance",
+      mode: "walk",
+    });
+  } catch (error) {
+    assert.equal(isWorldRouteServiceError(error), true, format(error));
+    if (!isWorldRouteServiceError(error)) {
+      throw error;
+    }
+    assert.equal(error.statusCode, 422, format(error.payload));
+    assert.deepEqual(error.payload, {
+      error: "Route mode is not allowed by selected edges or portals.",
+      code: "world_route_mode_not_allowed",
+      mode: "walk",
+      allowedModes: ["shuttle", "mixed"],
+    });
+    return;
+  }
+
+  throw new Error("Expected world-only planning to fail with world_route_mode_not_allowed.");
+});
+
 test("world route service plans cross-map routes between explicit local nodes", async () => {
   const app = await createIsolatedApp("world-routing-local-to-local");
   const itinerary = app.worldRouting.plan({
@@ -369,6 +405,39 @@ test("world route service respects mode-restricted portal candidates during dete
   assert.equal(itinerary.reachable, true, format(itinerary));
   assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-walk-only-fast");
   assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-walk-only-fast");
+});
+
+test("world route service ignores an unused misconfigured lower-priority portal when a valid cross-map route exists", async () => {
+  const app = await createIsolatedApp("world-routing-unused-misconfigured-portal");
+  const world = cloneWorld(app);
+  const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+  if (!originMain) {
+    throw new Error(format({ originMain }));
+  }
+
+  world.portals.push({
+    ...originMain,
+    id: "portal-dest-002-broken-low-priority",
+    label: "River Polytechnic Broken Connector",
+    localNodeId: "dest-002-missing-node",
+    priority: 1,
+  });
+  applyWorld(app, world);
+
+  const itinerary = app.worldRouting.plan({
+    scope: "cross-map",
+    fromDestinationId: "dest-002",
+    toDestinationId: "dest-004",
+    strategy: "distance",
+    mode: "walk",
+  }) as unknown as {
+    reachable: boolean;
+    portalSelection: { entryPortalId: string; exitPortalId: string };
+  };
+
+  assert.equal(itinerary.reachable, true, format(itinerary));
+  assert.equal(itinerary.portalSelection.entryPortalId, "portal-dest-002-main");
+  assert.equal(itinerary.portalSelection.exitPortalId, "portal-dest-004-main");
 });
 
 test("world route service ranks portal priority ahead of cheaper transfer cost", async () => {

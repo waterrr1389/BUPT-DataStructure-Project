@@ -209,6 +209,64 @@ test("world route plan returns world_route_mode_not_allowed with frozen 422 payl
   );
 });
 
+test("world route plan returns world_route_mode_not_allowed when world edges reject the requested mode", async () => {
+  await withServer(
+    "mode-not-allowed-world-edges",
+    async (requestJson) => {
+      const response = await requestJson<{ error: string; code: string; mode: string; allowedModes: string[] }>("/api/world/routes/plan", {
+        method: "POST",
+        body: {
+          scope: "cross-map",
+          fromDestinationId: "dest-002",
+          toDestinationId: "dest-004",
+          strategy: "distance",
+          mode: "walk",
+        },
+      });
+
+      assert.equal(response.status, 422, response.text);
+      assert.deepEqual(response.body, {
+        error: "Route mode is not allowed by selected edges or portals.",
+        code: "world_route_mode_not_allowed",
+        mode: "walk",
+        allowedModes: ["shuttle", "mixed"],
+      });
+    },
+    {
+      prepareServices: (services) => {
+        const world = cloneWorld(services);
+        const originMain = world.portals.find((portal) => portal.id === "portal-dest-002-main");
+        if (!originMain) {
+          throw new Error("Expected the seeded world to include portal-dest-002-main.");
+        }
+
+        world.graph.edges = world.graph.edges.map((edge) =>
+          edge.id === "world-edge-west-to-crossing" || edge.id === "world-edge-west-to-central"
+            ? { ...edge, allowedModes: ["shuttle", "mixed"] }
+            : edge,
+        );
+        world.graph.nodes.push({
+          id: "world-node-dest-002-detached",
+          kind: "portal",
+          label: "River Polytechnic Detached Gate",
+          tags: [],
+          destinationId: "dest-002",
+          x: 0,
+          y: 0,
+        });
+        world.portals.push({
+          ...originMain,
+          id: "portal-dest-002-detached",
+          label: "River Polytechnic Detached Connector",
+          worldNodeId: "world-node-dest-002-detached",
+          priority: 10,
+        });
+        applyWorld(services, world);
+      },
+    },
+  );
+});
+
 test("world route plan returns world_route_portal_misconfigured with frozen 409 payload", async () => {
   await withServer(
     "portal-misconfigured",
