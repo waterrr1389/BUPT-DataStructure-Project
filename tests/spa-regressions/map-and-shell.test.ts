@@ -6,7 +6,7 @@ import {
   createJsonResponse,
   createSpaDomEnvironment,
   dispatchDomEvent,
-  importPublicModule,
+  loadPublicPageFromIndexHtml,
   importSpaModule,
   requireElement,
   settleAsync,
@@ -22,6 +22,13 @@ import {
   type ExploreModule,
   type MapModule,
 } from "../spa-regressions.test";
+
+const PUBLIC_PAGE_BOOTSTRAP_SCRIPTS = [
+  { src: "/route-visualization-markers.js", type: "classic" },
+  { src: "/journal-presentation.js", type: "classic" },
+  { src: "/journal-consumers.js", type: "classic" },
+  { src: "/app.js", type: "module" },
+] as const;
 
 test("explore facility result map links stay clean without actor context", async () => {
   const env = createSpaDomEnvironment();
@@ -2554,16 +2561,16 @@ test("public app entry keeps the bootstrap failure fallback behavior", async () 
   const env = createSpaDomEnvironment();
   const restore = env.install();
   const globals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
     JournalConsumers?: unknown;
     JournalPresentation?: unknown;
   };
   const previousFetch = globalThis.fetch;
+  const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
   const previousJournalConsumers = globals.JournalConsumers;
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
     globalThis.fetch = (async (input: string | URL) => {
       const url = String(input);
       if (url === "/api/bootstrap") {
@@ -2575,14 +2582,84 @@ test("public app entry keeps the bootstrap failure fallback behavior", async () 
     const root = env.createRoot();
     root.setAttribute("id", "app-root");
 
-    await importPublicModule<unknown>("app.js");
+    const scripts = await loadPublicPageFromIndexHtml();
     await settleAsync();
 
+    assert.deepEqual(scripts, PUBLIC_PAGE_BOOTSTRAP_SCRIPTS);
     assert.equal(compactText(root.innerHTML).includes("Browser shell unavailable"), true);
     assert.equal(compactText(root.innerHTML).includes("Bootstrap exploded."), true);
     assert.equal(compactText(root.innerHTML).includes("Reload the shell"), true);
   } finally {
     globalThis.fetch = previousFetch;
+    globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("public page contract boots the shell without direct helper injection", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: unknown;
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    const requests: string[] = [];
+    globalThis.fetch = (async (input: string | URL) => {
+      const url = String(input);
+      requests.push(url);
+      if (url === "/api/bootstrap") {
+        return createJsonResponse(200, {
+          categories: [],
+          cuisines: [],
+          destinations: [
+            {
+              id: "dest-1",
+              name: "Harbor Reach",
+              region: "North Wharf",
+            },
+          ],
+          featured: [],
+          source: {
+            algorithms: "fallback",
+            data: "seeded",
+          },
+          users: [{ id: "user-1", name: "Avery Vale" }],
+        });
+      }
+      if (url === "/api/feed?limit=3") {
+        return createJsonResponse(200, {
+          items: [],
+          nextCursor: null,
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    root.setAttribute("id", "app-root");
+
+    const scripts = await loadPublicPageFromIndexHtml();
+    await settleAsync();
+
+    assert.deepEqual(scripts, PUBLIC_PAGE_BOOTSTRAP_SCRIPTS);
+    assert.deepEqual(requests, ["/api/bootstrap", "/api/feed?limit=3"]);
+    assert.equal(requireElement(root, ".site-brand").getAttribute("href"), "/");
+    assert.equal(requireElement(root, "#status-pill").textContent, "Runtime data: seeded. Algorithms: fallback.");
+    assert.equal(requireElement(root, "#status-pill").dataset.tone, "success");
+    assert.equal(requireElement(root, "#view-root").innerHTML.includes("Start with a destination, not a control panel"), true);
+    assert.equal(env.document.title, "Trail Atlas • Trail Atlas");
+  } finally {
+    globalThis.fetch = previousFetch;
+    globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
     globals.JournalConsumers = previousJournalConsumers;
     globals.JournalPresentation = previousJournalPresentation;
     restore();

@@ -16,7 +16,7 @@
   "scripts": {
     "build:browser:esm": "tsc -p tsconfig.browser-esm.json",
     "build:browser:script": "tsc -p tsconfig.browser-script.json",
-    "build:browser": "npm run build:browser:esm && npm run build:browser:script",
+    "build:browser": "node scripts/browser-build.js",
     "build:server": "tsc -p tsconfig.json",
     "build": "npm run build:browser && npm run build:server",
     "test": "npm run build && node dist/tests/index.js",

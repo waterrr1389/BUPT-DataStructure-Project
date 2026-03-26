@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 type EventListener = (event: TestEvent) => unknown;
+type PublicPageScriptType = "classic" | "module";
+type PublicPageScriptContract = {
+  src: string;
+  type: PublicPageScriptType;
+};
 
 type EventInit = {
   altKey?: boolean;
@@ -31,7 +36,12 @@ const VOID_TAGS = new Set([
 ]);
 
 let spaModuleRootPromise: Promise<string> | null = null;
-const PUBLIC_ROOT_FILES = ["app.js"];
+const PUBLIC_INDEX_FILE = "index.html";
+const PUBLIC_BOOTSTRAP_GLOBALS = [
+  "RouteVisualizationMarkers",
+  "JournalPresentation",
+  "JournalConsumers",
+] as const;
 const SPA_MODULE_FILES = [
   "app-shell.js",
   "lib.js",
@@ -48,6 +58,11 @@ const SPA_MODULE_FILES = [
 const runtimeImport = new Function("specifier", "return import(specifier);") as (
   specifier: string,
 ) => Promise<unknown>;
+
+function createImportSpecifier(absolutePath: string): string {
+  const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
+  return `file://${normalizedPath}?t=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function ensureRouteVisualizationMarkers(): void {
   const runtimeGlobals = globalThis as typeof globalThis & {
@@ -84,6 +99,58 @@ function parseAttributes(source: string): Record<string, string> {
   }
 
   return attributes;
+}
+
+function normalizePublicAssetPath(source: string): string {
+  const pathname = new URL(source, "http://localhost").pathname;
+  return pathname.replace(/^\/+/, "");
+}
+
+function clearPublicBootstrapGlobals(): void {
+  const runtimeGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+  PUBLIC_BOOTSTRAP_GLOBALS.forEach((name) => {
+    runtimeGlobals[name] = undefined;
+  });
+}
+
+export function parsePublicPageScriptContract(html: string): PublicPageScriptContract[] {
+  const scripts: PublicPageScriptContract[] = [];
+  const scriptPattern = /<script\b([^>]*)><\/script>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = scriptPattern.exec(html)) !== null) {
+    const attributes = parseAttributes(match[1] ?? "");
+    const src = attributes.src;
+    if (!src) {
+      continue;
+    }
+
+    scripts.push({
+      src,
+      type: normalizeAttributeName(attributes.type ?? "") === "module" ? "module" : "classic",
+    });
+  }
+
+  return scripts;
+}
+
+async function readPublicPageScriptContract(): Promise<PublicPageScriptContract[]> {
+  const html = await fs.readFile(path.join(process.cwd(), "public", PUBLIC_INDEX_FILE), "utf8");
+  return parsePublicPageScriptContract(html);
+}
+
+async function listPublicRootFiles(): Promise<string[]> {
+  const rootFiles = new Set<string>([PUBLIC_INDEX_FILE]);
+  const scripts = await readPublicPageScriptContract();
+
+  scripts.forEach(({ src }) => {
+    const relativePath = normalizePublicAssetPath(src);
+    if (relativePath && !relativePath.startsWith("spa/")) {
+      rootFiles.add(relativePath);
+    }
+  });
+
+  return [...rootFiles];
 }
 
 function splitSelector(selector: string): string[] {
@@ -489,9 +556,10 @@ async function ensureSpaModuleRoot(): Promise<string> {
       const moduleRoot = path.join(tempRoot, "browser");
       await fs.mkdir(moduleRoot, { recursive: true });
       await fs.writeFile(path.join(moduleRoot, "package.json"), JSON.stringify({ type: "module" }));
+      const publicRootFiles = await listPublicRootFiles();
 
       await Promise.all(
-        PUBLIC_ROOT_FILES.map(async (relativePath) => {
+        publicRootFiles.map(async (relativePath) => {
           const sourcePath = path.join(process.cwd(), "public", relativePath);
           const targetPath = path.join(moduleRoot, relativePath);
           await fs.mkdir(path.dirname(targetPath), { recursive: true });
@@ -519,20 +587,28 @@ export async function importSpaModule<TModule>(relativePath: string): Promise<TM
   ensureRouteVisualizationMarkers();
   const moduleRoot = await ensureSpaModuleRoot();
   const absolutePath = path.join(moduleRoot, "spa", relativePath);
-  const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
-  return runtimeImport(
-    `file://${normalizedPath}?t=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-  ) as Promise<TModule>;
+  return runtimeImport(createImportSpecifier(absolutePath)) as Promise<TModule>;
 }
 
 export async function importPublicModule<TModule>(relativePath: string): Promise<TModule> {
   ensureRouteVisualizationMarkers();
   const moduleRoot = await ensureSpaModuleRoot();
   const absolutePath = path.join(moduleRoot, relativePath);
-  const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
-  return runtimeImport(
-    `file://${normalizedPath}?t=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-  ) as Promise<TModule>;
+  return runtimeImport(createImportSpecifier(absolutePath)) as Promise<TModule>;
+}
+
+export async function loadPublicPageFromIndexHtml(): Promise<PublicPageScriptContract[]> {
+  const scripts = await readPublicPageScriptContract();
+  const moduleRoot = await ensureSpaModuleRoot();
+
+  clearPublicBootstrapGlobals();
+
+  for (const script of scripts) {
+    const absolutePath = path.join(moduleRoot, normalizePublicAssetPath(script.src));
+    await runtimeImport(createImportSpecifier(absolutePath));
+  }
+
+  return scripts;
 }
 
 export function createSpaDomEnvironment() {

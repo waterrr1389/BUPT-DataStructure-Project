@@ -107,9 +107,15 @@ export function createAppShell(root) {
         navToggle: null,
         backToTop: null,
     };
+    /**
+     * Applies the shell title convention to the current document.
+     */
     function setDocumentTitle(title) {
         document.title = title ? `${title} • Trail Atlas` : "Trail Atlas";
     }
+    /**
+     * Updates the visible shell status message and tone.
+     */
     function setStatus(message, tone = "neutral") {
         if (!dom.status) {
             return;
@@ -117,6 +123,9 @@ export function createAppShell(root) {
         dom.status.textContent = text(message, "Runtime ready.");
         dom.status.dataset.tone = tone;
     }
+    /**
+     * Sends a JSON request and throws when the response is not successful.
+     */
     async function requestJson(path, options = {}) {
         const response = await fetch(path, {
             ...options,
@@ -151,12 +160,21 @@ export function createAppShell(root) {
     function isMissingEndpointResponse(response) {
         return response.missing || /Unknown API endpoint/i.test(text(response.error));
     }
+    /**
+     * Builds a map href that preserves the active route context.
+     */
     function buildMapHref(params = {}) {
         return createRouteContextHref("/map", params);
     }
+    /**
+     * Builds a post detail href that preserves the active route context.
+     */
     function buildPostHref(journalId, params = {}) {
         return createRouteContextHref(`/posts/${encodeURIComponent(text(journalId))}`, params);
     }
+    /**
+     * Loads and caches the bootstrap payload consumed across SPA views.
+     */
     async function loadBootstrap() {
         if (state.bootstrap) {
             return state.bootstrap;
@@ -184,6 +202,9 @@ export function createAppShell(root) {
         }
         return state.bootstrapPromise;
     }
+    /**
+     * Loads and caches destination detail data for a destination id.
+     */
     async function ensureDestinationDetails(destinationId) {
         const id = text(destinationId);
         if (!id) {
@@ -196,12 +217,21 @@ export function createAppShell(root) {
         state.destinationDetails.set(id, payload);
         return payload;
     }
+    /**
+     * Returns the best available display name for a user id.
+     */
     function getUserName(userId) {
         return state.userById.get(userId)?.name || userId;
     }
+    /**
+     * Returns the best available display name for a destination id.
+     */
     function getDestinationName(destinationId) {
         return state.destinationById.get(destinationId)?.name || destinationId;
     }
+    /**
+     * Applies prepared selector bindings to matching controls inside a container.
+     */
     function applySelectorBindings(container, bindings) {
         safeArray(bindings).forEach(({ selector, items, config }) => {
             const element = container.querySelector(selector);
@@ -211,6 +241,9 @@ export function createAppShell(root) {
             fillSelect(element, items, config);
         });
     }
+    /**
+     * Renders a journal card string using the shell presentation helpers.
+     */
     function createJournalCard(item, options = {}) {
         const metadata = journalPresentation.formatJournalMetadata(item, {
             destinationById: state.destinationById,
@@ -318,6 +351,9 @@ export function createAppShell(root) {
         dom.shell.classList.remove("is-nav-open");
         dom.navToggle.setAttribute("aria-expanded", "false");
     }
+    /**
+     * Changes the active SPA route and optionally triggers a render.
+     */
     function navigate(href, options = {}) {
         const url = new URL(href, window.location.origin);
         const current = `${window.location.pathname}${window.location.search}`;
@@ -338,6 +374,9 @@ export function createAppShell(root) {
             void renderRoute({ preserveScroll: options.preserveScroll === true });
         }
     }
+    /**
+     * Loads feed items, falling back to the journal list when social endpoints are absent.
+     */
     async function fetchFeed(filters = {}) {
         const params = new URLSearchParams();
         const fallbackParams = new URLSearchParams();
@@ -388,6 +427,9 @@ export function createAppShell(root) {
             source: "journal-list",
         };
     }
+    /**
+     * Loads recommended journals for the supplied filter context.
+     */
     async function fetchRecommendedJournals(filters = {}) {
         const params = new URLSearchParams();
         if (filters.destinationId) {
@@ -402,6 +444,9 @@ export function createAppShell(root) {
         const payload = await requestJson(`/api/journals/recommendations${params.toString() ? `?${params.toString()}` : ""}`);
         return safeArray(payload.items);
     }
+    /**
+     * Loads a journal detail record for a specific journal id.
+     */
     async function fetchJournalDetail(journalId, options = {}) {
         const params = new URLSearchParams();
         if (options.viewerUserId) {
@@ -410,6 +455,9 @@ export function createAppShell(root) {
         const payload = await requestJson(`/api/journals/${encodeURIComponent(journalId)}${params.toString() ? `?${params.toString()}` : ""}`);
         return payload.item;
     }
+    /**
+     * Loads journal comments and reports whether comment APIs are available.
+     */
     async function fetchJournalComments(journalId, options = {}) {
         const params = new URLSearchParams();
         if (options.cursor) {
@@ -441,6 +489,9 @@ export function createAppShell(root) {
         }
         throw new Error(text(response.error, "Comments could not be loaded."));
     }
+    /**
+     * Creates a comment when the journal comment endpoint is available.
+     */
     async function createComment(journalId, userId, body) {
         const response = await requestJsonMaybe(`/api/journals/${encodeURIComponent(journalId)}/comments`, {
             method: "POST",
@@ -467,6 +518,9 @@ export function createAppShell(root) {
         }
         throw new Error(text(response.error, "Comment creation failed."));
     }
+    /**
+     * Sends a supported journal action and reports endpoint availability when relevant.
+     */
     async function sendJournalAction(action, journalId, selectedUserId) {
         const request = journalConsumers.resolveJournalActionRequest(action, journalId, selectedUserId);
         if (!request) {
@@ -582,6 +636,18 @@ export function createAppShell(root) {
             setRouteErrorState(route, error);
         }
     }
+    /**
+     * Renders the shell, installs listeners, loads bootstrap data, and opens the current route.
+     */
+    async function start() {
+        renderShell();
+        installGlobalEvents();
+        await loadBootstrap();
+        await renderRoute({ preserveScroll: true });
+    }
+    /**
+     * Assembles the public shell contract exposed to SPA views and callers.
+     */
     const app = {
         state,
         dom,
@@ -623,12 +689,7 @@ export function createAppShell(root) {
         fetchJournalComments,
         createComment,
         sendJournalAction,
-        start: async () => {
-            renderShell();
-            installGlobalEvents();
-            await loadBootstrap();
-            await renderRoute({ preserveScroll: true });
-        },
+        start,
     };
     return app;
 }

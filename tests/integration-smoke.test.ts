@@ -9,6 +9,7 @@ import { createServerHandler } from "../src/server/index";
 import { WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER } from "../src/services/contracts";
 import { createAppServices, type AppServices } from "../src/services/index";
 import { deriveWorldRuntimeState } from "../src/services/runtime";
+import { parsePublicPageScriptContract } from "./support/spa-harness";
 
 type JsonResponse<T> = {
   body: T;
@@ -820,6 +821,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
       },
     );
     const spaRoute = await requestText("/feed");
+    const spaScripts = parsePublicPageScriptContract(spaRoute.text);
     const appAsset = await requestText("/app.js");
     const spaAsset = await requestText("/spa/app-shell.js");
     const cssAsset = await requestText("/styles.css");
@@ -885,6 +887,12 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(spaRoute.status, 200);
     assert.equal(spaRoute.headers["cache-control"], "no-store");
     expectMatches(spaRoute.text, /<!DOCTYPE html>/i);
+    assert.deepEqual(spaScripts, [
+      { src: "/route-visualization-markers.js", type: "classic" },
+      { src: "/journal-presentation.js", type: "classic" },
+      { src: "/journal-consumers.js", type: "classic" },
+      { src: "/app.js", type: "module" },
+    ]);
     assert.equal(appAsset.status, 200);
     assert.equal(appAsset.headers["cache-control"], "no-store");
     assert.equal(spaAsset.status, 200);
