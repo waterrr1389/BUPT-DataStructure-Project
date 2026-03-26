@@ -1,16 +1,25 @@
 import { escapeHtml } from "../lib.js";
+import type { SpaApp, SpaRoute, ViewCleanup } from "../types.js";
+
 /**
  * Renders the deliberate SPA fallback route for unknown client-side paths.
  */
-export async function render(app, route, root) {
-    app.setDocumentTitle("Not Found");
-    root.innerHTML = `
+export async function render(
+  app: SpaApp,
+  route: SpaRoute,
+  root: HTMLElement,
+): Promise<ViewCleanup> {
+  app.setDocumentTitle("Not Found");
+
+  root.innerHTML = `
     <section class="route-hero route-hero-home">
       <div class="route-hero-copy">
         <p class="eyebrow">Not found</p>
         <h1>This frontend route does not exist in the SPA shell.</h1>
         <p class="route-lede">
-          The server correctly returned the browser shell for <code>${escapeHtml(route.pathname)}</code>, and the client resolved it to a deliberate fallback instead of a blank screen or accidental 404.
+          The server correctly returned the browser shell for <code>${escapeHtml(
+            route.pathname,
+          )}</code>, and the client resolved it to a deliberate fallback instead of a blank screen or accidental 404.
         </p>
         <div class="hero-actions">
           <a class="primary-link" href="/" data-nav="true">Go home</a>
@@ -31,5 +40,6 @@ export async function render(app, route, root) {
       </div>
     </section>
   `;
-    return null;
+
+  return null;
 }

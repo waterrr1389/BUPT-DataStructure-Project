@@ -6,6 +6,7 @@ import {
   createJsonResponse,
   createSpaDomEnvironment,
   dispatchDomEvent,
+  importPublicModule,
   importSpaModule,
   requireElement,
   settleAsync,
@@ -2543,6 +2544,45 @@ test("app shell parseRoute preserves the world view param alongside actor and de
       waypoints: "",
     });
   } finally {
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("public app entry keeps the bootstrap failure fallback behavior", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
+    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    globalThis.fetch = (async (input: string | URL) => {
+      const url = String(input);
+      if (url === "/api/bootstrap") {
+        throw new Error("Bootstrap exploded.");
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    root.setAttribute("id", "app-root");
+
+    await importPublicModule<unknown>("app.js");
+    await settleAsync();
+
+    assert.equal(compactText(root.innerHTML).includes("Browser shell unavailable"), true);
+    assert.equal(compactText(root.innerHTML).includes("Bootstrap exploded."), true);
+    assert.equal(compactText(root.innerHTML).includes("Reload the shell"), true);
+  } finally {
+    globalThis.fetch = previousFetch;
     globals.JournalConsumers = previousJournalConsumers;
     globals.JournalPresentation = previousJournalPresentation;
     restore();

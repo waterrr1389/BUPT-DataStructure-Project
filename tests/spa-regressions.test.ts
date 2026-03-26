@@ -277,8 +277,9 @@ function createLeafletStub() {
   };
 }
 
-function compactText(node: { innerHTML?: string; textContent?: string | null }) {
-  const source = (node.textContent ?? "") || node.innerHTML || "";
+function compactText(node: string | { innerHTML?: string; textContent?: string | null }) {
+  const source =
+    typeof node === "string" ? node : (node.textContent ?? "") || node.innerHTML || "";
   return source
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")

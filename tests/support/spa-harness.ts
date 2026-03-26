@@ -31,6 +31,7 @@ const VOID_TAGS = new Set([
 ]);
 
 let spaModuleRootPromise: Promise<string> | null = null;
+const PUBLIC_ROOT_FILES = ["app.js"];
 const SPA_MODULE_FILES = [
   "app-shell.js",
   "lib.js",
@@ -490,6 +491,15 @@ async function ensureSpaModuleRoot(): Promise<string> {
       await fs.writeFile(path.join(moduleRoot, "package.json"), JSON.stringify({ type: "module" }));
 
       await Promise.all(
+        PUBLIC_ROOT_FILES.map(async (relativePath) => {
+          const sourcePath = path.join(process.cwd(), "public", relativePath);
+          const targetPath = path.join(moduleRoot, relativePath);
+          await fs.mkdir(path.dirname(targetPath), { recursive: true });
+          await fs.writeFile(targetPath, await fs.readFile(sourcePath, "utf8"), "utf8");
+        }),
+      );
+
+      await Promise.all(
         SPA_MODULE_FILES.map(async (relativePath) => {
           const sourcePath = path.join(process.cwd(), "public", "spa", relativePath);
           const targetPath = path.join(moduleRoot, "spa", relativePath);
@@ -509,6 +519,16 @@ export async function importSpaModule<TModule>(relativePath: string): Promise<TM
   ensureRouteVisualizationMarkers();
   const moduleRoot = await ensureSpaModuleRoot();
   const absolutePath = path.join(moduleRoot, "spa", relativePath);
+  const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
+  return runtimeImport(
+    `file://${normalizedPath}?t=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  ) as Promise<TModule>;
+}
+
+export async function importPublicModule<TModule>(relativePath: string): Promise<TModule> {
+  ensureRouteVisualizationMarkers();
+  const moduleRoot = await ensureSpaModuleRoot();
+  const absolutePath = path.join(moduleRoot, relativePath);
   const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
   return runtimeImport(
     `file://${normalizedPath}?t=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,

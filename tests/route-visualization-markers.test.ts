@@ -70,6 +70,7 @@ type MapRenderingModule = {
 };
 
 type MarkerHelpersModule = {
+  createEndpointMarkers(routeNodes: RouteNode[], projection: Projection): MarkerOutput[];
   createPreviewMarkers(
     previewSelection: { endNode?: RouteNode; startNode?: RouteNode },
     projection: Projection,
@@ -77,11 +78,32 @@ type MarkerHelpersModule = {
   createRouteMarkerLayout(routeAnalysis: RouteAnalysis, projection: Projection): MarkerLayout;
 };
 
-const { createPreviewMarkers, createRouteMarkerLayout } = require(path.join(
+type RequireWithCache = NodeRequire & {
+  cache: Record<string, unknown>;
+  resolve(id: string): string;
+};
+
+const routeVisualizationMarkersPath = path.join(
   process.cwd(),
   "public",
   "route-visualization-markers.js",
-)) as MarkerHelpersModule;
+);
+const runtimeRequire = require as RequireWithCache;
+
+const { createPreviewMarkers, createRouteMarkerLayout } = runtimeRequire(
+  routeVisualizationMarkersPath,
+) as MarkerHelpersModule;
+
+function loadFreshRouteVisualizationMarkersModule(): MarkerHelpersModule {
+  const runtimeGlobals = globalThis as typeof globalThis & {
+    RouteVisualizationMarkers?: MarkerHelpersModule;
+  };
+  delete runtimeRequire.cache[runtimeRequire.resolve(routeVisualizationMarkersPath)];
+  Reflect.deleteProperty(runtimeGlobals, "RouteVisualizationMarkers");
+  const api = runtimeRequire(routeVisualizationMarkersPath) as MarkerHelpersModule;
+  assert.equal(runtimeGlobals.RouteVisualizationMarkers, api);
+  return api;
+}
 
 function createProjection(): Projection {
   return {
@@ -97,6 +119,16 @@ function createProjection(): Projection {
 function createNode(id: string, x: number, y: number): RouteNode {
   return { id, x, y };
 }
+
+test("route visualization markers keeps the CommonJS export attached to RouteVisualizationMarkers", () => {
+  const api = loadFreshRouteVisualizationMarkersModule();
+
+  assert.deepEqual(Object.keys(api).sort(), [
+    "createEndpointMarkers",
+    "createPreviewMarkers",
+    "createRouteMarkerLayout",
+  ]);
+});
 
 test("closed-loop routes offset start and end markers while preserving the shared node", () => {
   const sharedNode = createNode("loop-hub", 160, 200);

@@ -1,21 +1,13 @@
-import {
-  createRouteContextHref,
-  emptyStateMarkup,
-  escapeHtml,
-  fillSelect,
-  formatDate,
-  noticeMarkup,
-  resultMetaMarkup,
-  safeArray,
-  splitLines,
-} from "../lib.js";
+// @ts-nocheck
+import { createRouteContextHref, emptyStateMarkup, escapeHtml, fillSelect, formatDate, noticeMarkup, resultMetaMarkup, safeArray, splitLines, } from "../lib.js";
 import { getDestinationScene, renderRouteVisualization } from "../map-rendering.js";
-
 const COMMENTS_PAGE_SIZE = 5;
-
+/**
+ * Renders a single comment card for the post detail conversation view.
+ */
 function commentMarkup(app, item) {
-  const userLabel = app.getUserName(item?.userId);
-  return `
+    const userLabel = app.getUserName(item?.userId);
+    return `
     <article class="comment-card">
       <div class="comment-head">
         <strong>${escapeHtml(userLabel)}</strong>
@@ -25,32 +17,31 @@ function commentMarkup(app, item) {
     </article>
   `;
 }
-
+/**
+ * Renders journal detail, actor-aware actions, optional map context, and comments.
+ */
 export async function render(app, route, root) {
-  app.setDocumentTitle("Post Detail");
-
-  await app.loadBootstrap();
-  const users = safeArray(app.getBootstrap()?.users);
-  const actorDefault = users.some((user) => user.id === route.params.actor)
-    ? route.params.actor
-    : users[0]?.id || "";
-  const feedHref = createRouteContextHref("/feed", {}, actorDefault);
-  const composeHref = createRouteContextHref("/compose", {}, actorDefault);
-
-  let journal;
-  try {
-    journal = await app.fetchJournalDetail(route.journalId, {
-      viewerUserId: actorDefault,
-    });
-  } catch (error) {
-    root.innerHTML = `
+    app.setDocumentTitle("Post Detail");
+    await app.loadBootstrap();
+    const users = safeArray(app.getBootstrap()?.users);
+    const actorDefault = users.some((user) => user.id === route.params.actor)
+        ? route.params.actor
+        : users[0]?.id || "";
+    const feedHref = createRouteContextHref("/feed", {}, actorDefault);
+    const composeHref = createRouteContextHref("/compose", {}, actorDefault);
+    let journal;
+    try {
+        journal = await app.fetchJournalDetail(route.journalId, {
+            viewerUserId: actorDefault,
+        });
+    }
+    catch (error) {
+        root.innerHTML = `
       <section class="route-hero route-hero-feed">
         <div class="route-hero-copy">
           <p class="eyebrow">Post detail</p>
           <h1>This note could not be found.</h1>
-          <p class="route-lede">${escapeHtml(
-            error instanceof Error ? error.message : "Unknown journal.",
-          )}</p>
+          <p class="route-lede">${escapeHtml(error instanceof Error ? error.message : "Unknown journal.")}</p>
           <div class="hero-actions">
             <a class="primary-link" href="${escapeHtml(feedHref)}" data-nav="true">Back to feed</a>
             <a class="secondary-link" href="${escapeHtml(composeHref)}" data-nav="true">Compose a new note</a>
@@ -58,14 +49,12 @@ export async function render(app, route, root) {
         </div>
       </section>
     `;
-    return null;
-  }
-
-  const articleParagraphs = splitLines(journal.body);
-  const destinationName = app.getDestinationName(journal.destinationId);
-  const authorName = app.getUserName(journal.userId);
-
-  root.innerHTML = `
+        return null;
+    }
+    const articleParagraphs = splitLines(journal.body);
+    const destinationName = app.getDestinationName(journal.destinationId);
+    const authorName = app.getUserName(journal.userId);
+    root.innerHTML = `
     <section class="route-hero route-hero-feed">
       <div class="route-hero-copy">
         <p class="eyebrow">Post detail</p>
@@ -75,12 +64,12 @@ export async function render(app, route, root) {
         </p>
         <div id="post-hero-meta">
           ${resultMetaMarkup([
-            `views ${journal.views || 0}`,
-            `rating ${journal.averageRating || 0}`,
-            `${safeArray(journal.ratings).length} scores`,
-            journal.likeCount != null ? `${journal.likeCount} likes` : "",
-            journal.commentCount != null ? `${journal.commentCount} comments` : "",
-          ])}
+        `views ${journal.views || 0}`,
+        `rating ${journal.averageRating || 0}`,
+        `${safeArray(journal.ratings).length} scores`,
+        journal.likeCount != null ? `${journal.likeCount} likes` : "",
+        journal.commentCount != null ? `${journal.commentCount} comments` : "",
+    ])}
         </div>
       </div>
       <div class="route-hero-panel">
@@ -106,21 +95,17 @@ export async function render(app, route, root) {
           ${articleParagraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
         </div>
         ${app.tagsMarkup(journal.tags)}
-        ${
-          safeArray(journal.media).length
-            ? `<div class="media-strip">${safeArray(journal.media)
-                .map(
-                  (entry) => `
+        ${safeArray(journal.media).length
+        ? `<div class="media-strip">${safeArray(journal.media)
+            .map((entry) => `
                     <article class="media-card">
                       <p class="section-tag">${escapeHtml(entry.type || "media")}</p>
                       <h3>${escapeHtml(entry.title || "Untitled media")}</h3>
                       <p class="muted">${escapeHtml(entry.note || entry.source || "")}</p>
                     </article>
-                  `,
-                )
-                .join("")}</div>`
-            : ""
-        }
+                  `)
+            .join("")}</div>`
+        : ""}
       </article>
 
       <aside class="detail-sidebar">
@@ -140,9 +125,9 @@ export async function render(app, route, root) {
             <button type="button" id="post-delete" class="ghost">Delete</button>
           </div>
           ${resultMetaMarkup([
-            `Created ${formatDate(journal.createdAt)}`,
-            `Updated ${formatDate(journal.updatedAt)}`,
-          ])}
+        `Created ${formatDate(journal.createdAt)}`,
+        `Updated ${formatDate(journal.updatedAt)}`,
+    ])}
           <div class="story-card-actions">
             <a
               class="inline-link"
@@ -171,9 +156,9 @@ export async function render(app, route, root) {
           <button type="button" id="post-load-map" class="ghost">Show destination context</button>
           <div id="post-map-context">
             ${emptyStateMarkup({
-              title: "Map context is secondary",
-              body: "Open the supporting destination graph only when spatial detail is useful for this note.",
-            })}
+        title: "Map context is secondary",
+        body: "Open the supporting destination graph only when spatial detail is useful for this note.",
+    })}
           </div>
         </article>
       </aside>
@@ -196,319 +181,289 @@ export async function render(app, route, root) {
       <div id="post-comment-notice"></div>
       <div id="post-comments">
         ${emptyStateMarkup({
-          title: "Comments are loading",
-          body: "The detail view checks for social endpoints here and degrades intentionally if they are absent.",
-        })}
+        title: "Comments are loading",
+        body: "The detail view checks for social endpoints here and degrades intentionally if they are absent.",
+    })}
       </div>
       <div id="post-comments-footer"></div>
     </section>
   `;
-
-  fillSelect(root.querySelector("#post-actor"), users, {
-    selectedValue: actorDefault,
-  });
-
-  const commentNotice = root.querySelector("#post-comment-notice");
-  const commentsContainer = root.querySelector("#post-comments");
-  const commentsFooter = root.querySelector("#post-comments-footer");
-  const commentBody = root.querySelector("#post-comment-body");
-  const commentSubmitButton = root.querySelector("#post-comment-form button[type='submit']");
-  const actorSelect = root.querySelector("#post-actor");
-  const likeButton = root.querySelector("#post-like");
-  const heroMeta = root.querySelector("#post-hero-meta");
-  let currentLikeAction = "like";
-  let commentItems = [];
-  let commentsNextCursor = "";
-  let commentsTotalCount = 0;
-  let commentsAvailable = false;
-  let commentsError = "";
-  let commentsLoading = false;
-  let journalRequestToken = 0;
-  let disposed = false;
-
-  function buildFeedHref(actorId) {
-    return createRouteContextHref("/feed", {}, actorId);
-  }
-
-  function buildMapHref(actorId, destinationId) {
-    return createRouteContextHref("/map", { destinationId }, actorId);
-  }
-
-  function buildComposeHref(actorId, destinationId) {
-    return createRouteContextHref("/compose", { destinationId }, actorId);
-  }
-
-  function syncFeedLinks(actorId) {
-    root.querySelectorAll("[data-feed-href]").forEach((link) => {
-      link.setAttribute("href", buildFeedHref(actorId));
+    fillSelect(root.querySelector("#post-actor"), users, {
+        selectedValue: actorDefault,
     });
-  }
-
-  function syncMapLinks(actorId) {
-    root.querySelectorAll("[data-map-href]").forEach((link) => {
-      link.setAttribute("href", buildMapHref(actorId, link.getAttribute("data-map-destination") || ""));
-    });
-  }
-
-  function syncComposeLinks(actorId) {
-    root.querySelectorAll("[data-compose-href]").forEach((link) => {
-      link.setAttribute("href", buildComposeHref(actorId, link.getAttribute("data-compose-destination") || ""));
-    });
-  }
-
-  function renderHeroMeta(item) {
-    heroMeta.innerHTML = resultMetaMarkup([
-      `views ${item.views || 0}`,
-      `rating ${item.averageRating || 0}`,
-      `${safeArray(item.ratings).length} scores`,
-      item.likeCount != null ? `${item.likeCount} likes` : "",
-      item.commentCount != null ? `${item.commentCount} comments` : "",
-    ]);
-  }
-
-  function renderJournalState(item) {
-    journal = item;
-    renderHeroMeta(journal);
-    currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
-    likeButton.textContent = currentLikeAction === "like" ? "Like" : "Unlike";
-    syncFeedLinks(actorSelect.value);
-    syncMapLinks(actorSelect.value);
-    syncComposeLinks(actorSelect.value);
-  }
-
-  function renderComments() {
-    commentsContainer.innerHTML = commentsLoading && !commentItems.length
-      ? emptyStateMarkup({
-          title: "Comments are loading",
-          body: "Loading the current comment page for this note.",
-        })
-      : commentsError && !commentItems.length
-      ? emptyStateMarkup({
-          title: "Comments failed to load",
-          body: commentsError,
-        })
-      : commentItems.length
-      ? commentItems.map((item) => commentMarkup(app, item)).join("")
-      : emptyStateMarkup({
-          title: commentsAvailable ? "No comments yet" : "Comments unavailable",
-          body: commentsAvailable
-            ? "Start a calm conversation on this note."
-            : "The backend comments endpoint is not available in this workspace yet.",
+    const commentNotice = root.querySelector("#post-comment-notice");
+    const commentsContainer = root.querySelector("#post-comments");
+    const commentsFooter = root.querySelector("#post-comments-footer");
+    const commentBody = root.querySelector("#post-comment-body");
+    const commentSubmitButton = root.querySelector("#post-comment-form button[type='submit']");
+    const actorSelect = root.querySelector("#post-actor");
+    const likeButton = root.querySelector("#post-like");
+    const heroMeta = root.querySelector("#post-hero-meta");
+    let currentLikeAction = "like";
+    let commentItems = [];
+    let commentsNextCursor = "";
+    let commentsTotalCount = 0;
+    let commentsAvailable = false;
+    let commentsError = "";
+    let commentsLoading = false;
+    let journalRequestToken = 0;
+    let disposed = false;
+    function buildFeedHref(actorId) {
+        return createRouteContextHref("/feed", {}, actorId);
+    }
+    function buildMapHref(actorId, destinationId) {
+        return createRouteContextHref("/map", { destinationId }, actorId);
+    }
+    function buildComposeHref(actorId, destinationId) {
+        return createRouteContextHref("/compose", { destinationId }, actorId);
+    }
+    function syncFeedLinks(actorId) {
+        root.querySelectorAll("[data-feed-href]").forEach((link) => {
+            link.setAttribute("href", buildFeedHref(actorId));
         });
-
-    if (!commentsAvailable) {
-      commentsFooter.innerHTML = "";
-      return;
     }
-
-    const footerParts = [];
-    if (commentsTotalCount > 0) {
-      footerParts.push(
-        resultMetaMarkup([
-          commentsNextCursor
-            ? `${commentItems.length} of ${commentsTotalCount} comments`
-            : `${commentsTotalCount} comments`,
-        ]),
-      );
+    function syncMapLinks(actorId) {
+        root.querySelectorAll("[data-map-href]").forEach((link) => {
+            link.setAttribute("href", buildMapHref(actorId, link.getAttribute("data-map-destination") || ""));
+        });
     }
-    if (commentsNextCursor) {
-      footerParts.push(`
+    function syncComposeLinks(actorId) {
+        root.querySelectorAll("[data-compose-href]").forEach((link) => {
+            link.setAttribute("href", buildComposeHref(actorId, link.getAttribute("data-compose-destination") || ""));
+        });
+    }
+    function renderHeroMeta(item) {
+        heroMeta.innerHTML = resultMetaMarkup([
+            `views ${item.views || 0}`,
+            `rating ${item.averageRating || 0}`,
+            `${safeArray(item.ratings).length} scores`,
+            item.likeCount != null ? `${item.likeCount} likes` : "",
+            item.commentCount != null ? `${item.commentCount} comments` : "",
+        ]);
+    }
+    function renderJournalState(item) {
+        journal = item;
+        renderHeroMeta(journal);
+        currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
+        likeButton.textContent = currentLikeAction === "like" ? "Like" : "Unlike";
+        syncFeedLinks(actorSelect.value);
+        syncMapLinks(actorSelect.value);
+        syncComposeLinks(actorSelect.value);
+    }
+    function renderComments() {
+        commentsContainer.innerHTML = commentsLoading && !commentItems.length
+            ? emptyStateMarkup({
+                title: "Comments are loading",
+                body: "Loading the current comment page for this note.",
+            })
+            : commentsError && !commentItems.length
+                ? emptyStateMarkup({
+                    title: "Comments failed to load",
+                    body: commentsError,
+                })
+                : commentItems.length
+                    ? commentItems.map((item) => commentMarkup(app, item)).join("")
+                    : emptyStateMarkup({
+                        title: commentsAvailable ? "No comments yet" : "Comments unavailable",
+                        body: commentsAvailable
+                            ? "Start a calm conversation on this note."
+                            : "The backend comments endpoint is not available in this workspace yet.",
+                    });
+        if (!commentsAvailable) {
+            commentsFooter.innerHTML = "";
+            return;
+        }
+        const footerParts = [];
+        if (commentsTotalCount > 0) {
+            footerParts.push(resultMetaMarkup([
+                commentsNextCursor
+                    ? `${commentItems.length} of ${commentsTotalCount} comments`
+                    : `${commentsTotalCount} comments`,
+            ]));
+        }
+        if (commentsNextCursor) {
+            footerParts.push(`
         <div class="button-row">
           <button type="button" id="post-comments-more" class="ghost"${commentsLoading ? " disabled" : ""}>${commentsLoading ? "Loading…" : "Load more comments"}</button>
         </div>
       `);
+        }
+        commentsFooter.innerHTML = footerParts.join("");
     }
-    commentsFooter.innerHTML = footerParts.join("");
-  }
-
-  function setCommentFormDisabled(disabled) {
-    commentBody.disabled = disabled;
-    commentSubmitButton.disabled = disabled;
-  }
-
-  function applyCommentsResponse(response, reset) {
-    commentNotice.innerHTML = response.notice
-      ? noticeMarkup(response.available ? "note" : "quiet", "Comment status", response.notice)
-      : "";
-    commentsAvailable = response.available;
-    commentsTotalCount = response.totalCount;
-    commentsNextCursor = response.nextCursor;
-    commentItems = reset ? response.items : commentItems.concat(response.items);
-    commentsLoading = false;
-    renderComments();
-    setCommentFormDisabled(!response.available);
-  }
-
-  function applyCommentsError(error) {
-    commentsLoading = false;
-    commentsError = error instanceof Error ? error.message : "Comments could not be loaded.";
-    commentNotice.innerHTML = noticeMarkup("error", "Comments failed to load", commentsError);
-    renderComments();
-  }
-
-  async function refreshJournalDetail() {
-    const token = journalRequestToken + 1;
-    journalRequestToken = token;
-    const detail = await app.fetchJournalDetail(route.journalId, {
-      viewerUserId: actorSelect.value,
+    function setCommentFormDisabled(disabled) {
+        commentBody.disabled = disabled;
+        commentSubmitButton.disabled = disabled;
+    }
+    function applyCommentsResponse(response, reset) {
+        commentNotice.innerHTML = response.notice
+            ? noticeMarkup(response.available ? "note" : "quiet", "Comment status", response.notice)
+            : "";
+        commentsAvailable = response.available;
+        commentsTotalCount = response.totalCount;
+        commentsNextCursor = response.nextCursor;
+        commentItems = reset ? response.items : commentItems.concat(response.items);
+        commentsLoading = false;
+        renderComments();
+        setCommentFormDisabled(!response.available);
+    }
+    function applyCommentsError(error) {
+        commentsLoading = false;
+        commentsError = error instanceof Error ? error.message : "Comments could not be loaded.";
+        commentNotice.innerHTML = noticeMarkup("error", "Comments failed to load", commentsError);
+        renderComments();
+    }
+    async function refreshJournalDetail() {
+        const token = journalRequestToken + 1;
+        journalRequestToken = token;
+        const detail = await app.fetchJournalDetail(route.journalId, {
+            viewerUserId: actorSelect.value,
+        });
+        if (disposed || token !== journalRequestToken) {
+            return;
+        }
+        renderJournalState(detail);
+    }
+    async function refreshComments(options = {}) {
+        const reset = options.reset !== false;
+        const cursor = reset ? "" : commentsNextCursor;
+        commentsError = "";
+        commentsLoading = true;
+        renderComments();
+        try {
+            const response = await app.fetchJournalComments(route.journalId, {
+                cursor,
+                limit: COMMENTS_PAGE_SIZE,
+            });
+            if (disposed) {
+                return;
+            }
+            applyCommentsResponse(response, reset);
+        }
+        catch (error) {
+            if (disposed) {
+                return;
+            }
+            applyCommentsError(error);
+            throw error;
+        }
+    }
+    renderJournalState(journal);
+    root.querySelector("#post-view").addEventListener("click", async () => {
+        try {
+            await app.sendJournalAction("view", route.journalId, actorSelect.value);
+            await refreshJournalDetail();
+            app.setStatus("View recorded.", "success");
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "View action failed.", "error");
+        }
     });
-    if (disposed || token !== journalRequestToken) {
-      return;
-    }
-    renderJournalState(detail);
-  }
-
-  async function refreshComments(options = {}) {
-    const reset = options.reset !== false;
-    const cursor = reset ? "" : commentsNextCursor;
-    commentsError = "";
-    commentsLoading = true;
-    renderComments();
-
-    try {
-      const response = await app.fetchJournalComments(route.journalId, {
-        cursor,
-        limit: COMMENTS_PAGE_SIZE,
-      });
-      if (disposed) {
-        return;
-      }
-      applyCommentsResponse(response, reset);
-    } catch (error) {
-      if (disposed) {
-        return;
-      }
-      applyCommentsError(error);
-      throw error;
-    }
-  }
-
-  renderJournalState(journal);
-
-  root.querySelector("#post-view").addEventListener("click", async () => {
-    try {
-      await app.sendJournalAction("view", route.journalId, actorSelect.value);
-      await refreshJournalDetail();
-      app.setStatus("View recorded.", "success");
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "View action failed.", "error");
-    }
-  });
-
-  root.querySelector("#post-rate").addEventListener("click", async () => {
-    try {
-      await app.sendJournalAction("rate", route.journalId, actorSelect.value);
-      await refreshJournalDetail();
-      app.setStatus("Rating recorded.", "success");
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Rate action failed.", "error");
-    }
-  });
-
-  root.querySelector("#post-delete").addEventListener("click", async () => {
-    try {
-      await app.sendJournalAction("delete", route.journalId, actorSelect.value);
-      app.navigate(buildFeedHref(actorSelect.value));
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Delete action failed.", "error");
-    }
-  });
-
-  likeButton.addEventListener("click", async () => {
-    try {
-      const result = await app.sendJournalAction(currentLikeAction, route.journalId, actorSelect.value);
-      if (result.notice) {
-        app.setStatus(result.notice, "note");
-        return;
-      }
-      await refreshJournalDetail();
-      app.setStatus("Like state updated.", "success");
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Like action failed.", "error");
-    }
-  });
-
-  actorSelect.addEventListener("change", async () => {
-    app.navigate(app.buildPostHref(route.journalId, actorSelect.value ? { actor: actorSelect.value } : {}), {
-      replace: true,
-      preserveScroll: true,
-      render: false,
+    root.querySelector("#post-rate").addEventListener("click", async () => {
+        try {
+            await app.sendJournalAction("rate", route.journalId, actorSelect.value);
+            await refreshJournalDetail();
+            app.setStatus("Rating recorded.", "success");
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Rate action failed.", "error");
+        }
+    });
+    root.querySelector("#post-delete").addEventListener("click", async () => {
+        try {
+            await app.sendJournalAction("delete", route.journalId, actorSelect.value);
+            app.navigate(buildFeedHref(actorSelect.value));
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Delete action failed.", "error");
+        }
+    });
+    likeButton.addEventListener("click", async () => {
+        try {
+            const result = await app.sendJournalAction(currentLikeAction, route.journalId, actorSelect.value);
+            if (result.notice) {
+                app.setStatus(result.notice, "note");
+                return;
+            }
+            await refreshJournalDetail();
+            app.setStatus("Like state updated.", "success");
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Like action failed.", "error");
+        }
+    });
+    actorSelect.addEventListener("change", async () => {
+        app.navigate(app.buildPostHref(route.journalId, actorSelect.value ? { actor: actorSelect.value } : {}), {
+            replace: true,
+            preserveScroll: true,
+            render: false,
+        });
+        try {
+            await refreshJournalDetail();
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Post detail refresh failed.", "error");
+        }
+    });
+    root.querySelector("#post-comment-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const body = root.querySelector("#post-comment-body").value.trim();
+        if (!body) {
+            app.setStatus("Comment body is required.", "error");
+            return;
+        }
+        try {
+            const response = await app.createComment(route.journalId, actorSelect.value, body);
+            if (!response.available) {
+                app.setStatus(response.notice, "note");
+                return;
+            }
+            root.querySelector("#post-comment-body").value = "";
+            await refreshJournalDetail();
+            await refreshComments({ reset: true });
+            app.setStatus("Comment posted.", "success");
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Comment creation failed.", "error");
+        }
+    });
+    root.querySelector("#post-load-map").addEventListener("click", async () => {
+        try {
+            const details = await app.ensureDestinationDetails(journal.destinationId);
+            if (disposed || !details) {
+                return;
+            }
+            const scene = getDestinationScene(app.state.mapScenes, journal.destinationId, details);
+            root.querySelector("#post-map-context").innerHTML = renderRouteVisualization({
+                details,
+                route: null,
+                previewStartId: "",
+                previewEndId: "",
+                scene,
+            });
+        }
+        catch (error) {
+            root.querySelector("#post-map-context").innerHTML = noticeMarkup("note", "Map context unavailable", error instanceof Error ? error.message : "Could not load destination context.");
+        }
+    });
+    commentsFooter.addEventListener("click", async (event) => {
+        const button = event.target.closest("#post-comments-more");
+        if (!button || commentsLoading || !commentsNextCursor) {
+            return;
+        }
+        try {
+            await refreshComments({ reset: false });
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Comments could not be loaded.", "error");
+        }
     });
     try {
-      await refreshJournalDetail();
-    } catch (error) {
-      app.setStatus(
-        error instanceof Error ? error.message : "Post detail refresh failed.",
-        "error",
-      );
+        await refreshComments({ reset: true });
     }
-  });
-
-  root.querySelector("#post-comment-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const body = root.querySelector("#post-comment-body").value.trim();
-    if (!body) {
-      app.setStatus("Comment body is required.", "error");
-      return;
+    catch (error) {
+        app.setStatus(error instanceof Error ? error.message : "Comments could not be loaded.", "error");
     }
-
-    try {
-      const response = await app.createComment(route.journalId, actorSelect.value, body);
-      if (!response.available) {
-        app.setStatus(response.notice, "note");
-        return;
-      }
-      root.querySelector("#post-comment-body").value = "";
-      await refreshJournalDetail();
-      await refreshComments({ reset: true });
-      app.setStatus("Comment posted.", "success");
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Comment creation failed.", "error");
-    }
-  });
-
-  root.querySelector("#post-load-map").addEventListener("click", async () => {
-    try {
-      const details = await app.ensureDestinationDetails(journal.destinationId);
-      if (disposed || !details) {
-        return;
-      }
-      const scene = getDestinationScene(app.state.mapScenes, journal.destinationId, details);
-      root.querySelector("#post-map-context").innerHTML = renderRouteVisualization({
-        details,
-        route: null,
-        previewStartId: "",
-        previewEndId: "",
-        scene,
-      });
-    } catch (error) {
-      root.querySelector("#post-map-context").innerHTML = noticeMarkup(
-        "note",
-        "Map context unavailable",
-        error instanceof Error ? error.message : "Could not load destination context.",
-      );
-    }
-  });
-
-  commentsFooter.addEventListener("click", async (event) => {
-    const button = event.target.closest("#post-comments-more");
-    if (!button || commentsLoading || !commentsNextCursor) {
-      return;
-    }
-    try {
-      await refreshComments({ reset: false });
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Comments could not be loaded.", "error");
-    }
-  });
-
-  try {
-    await refreshComments({ reset: true });
-  } catch (error) {
-    app.setStatus(error instanceof Error ? error.message : "Comments could not be loaded.", "error");
-  }
-
-  return () => {
-    disposed = true;
-  };
+    return () => {
+        disposed = true;
+    };
 }

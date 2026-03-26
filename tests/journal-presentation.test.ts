@@ -27,6 +27,14 @@ type JournalEntry = {
 
 type JournalPresentationModule = {
   createDestinationSelectOptions(destinations: DestinationInput[]): DestinationOption[];
+  createSelectOptionsWithDisambiguatedLabels<TItem extends Record<string, unknown>>(
+    items: TItem[],
+    options?: {
+      getBaseLabel?: (item: TItem | undefined) => unknown;
+      getKey?: (item: TItem | undefined) => unknown;
+      getQualifierParts?: (item: TItem | undefined) => unknown;
+    },
+  ): Array<TItem & { label: string }>;
   formatJournalMetadata(
     journal: JournalEntry,
     lookups?: {
@@ -38,14 +46,48 @@ type JournalPresentationModule = {
     destinationLabel: string;
     userLabel: string;
   };
+  resolveLookupLabel(
+    id: string | undefined,
+    lookup: Map<string, NamedRecord> | undefined,
+    fallbackLabel: string,
+  ): string;
   summarizeText(value: string, maxLength?: number): string;
 };
 
-const { createDestinationSelectOptions, formatJournalMetadata, summarizeText } = require(path.join(
-  process.cwd(),
-  "public",
-  "journal-presentation.js",
-)) as JournalPresentationModule;
+type RequireWithCache = NodeRequire & {
+  cache: Record<string, unknown>;
+  resolve(id: string): string;
+};
+
+const journalPresentationPath = path.join(process.cwd(), "public", "journal-presentation.js");
+const runtimeRequire = require as RequireWithCache;
+
+const { createDestinationSelectOptions, formatJournalMetadata, summarizeText } = runtimeRequire(
+  journalPresentationPath,
+) as JournalPresentationModule;
+
+function loadFreshJournalPresentationModule(): JournalPresentationModule {
+  const runtimeGlobals = globalThis as typeof globalThis & {
+    JournalPresentation?: JournalPresentationModule;
+  };
+  delete runtimeRequire.cache[runtimeRequire.resolve(journalPresentationPath)];
+  Reflect.deleteProperty(runtimeGlobals, "JournalPresentation");
+  const api = runtimeRequire(journalPresentationPath) as JournalPresentationModule;
+  assert.equal(runtimeGlobals.JournalPresentation, api);
+  return api;
+}
+
+test("journal presentation keeps the CommonJS export attached to JournalPresentation", () => {
+  const api = loadFreshJournalPresentationModule();
+
+  assert.deepEqual(Object.keys(api).sort(), [
+    "createDestinationSelectOptions",
+    "createSelectOptionsWithDisambiguatedLabels",
+    "formatJournalMetadata",
+    "resolveLookupLabel",
+    "summarizeText",
+  ]);
+});
 
 test("destination select labels disambiguate duplicate names while preserving destination ids", () => {
   const options = createDestinationSelectOptions([

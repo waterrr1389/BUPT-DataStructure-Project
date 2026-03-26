@@ -1,16 +1,10 @@
-import {
-  createUrl,
-  emptyStateMarkup,
-  escapeHtml,
-  fillSelect,
-  noticeMarkup,
-  resultMetaMarkup,
-  safeArray,
-  text,
-} from "../lib.js";
-
+// @ts-nocheck
+import { createUrl, emptyStateMarkup, escapeHtml, fillSelect, noticeMarkup, resultMetaMarkup, safeArray, text, } from "../lib.js";
+/**
+ * Wraps journal exchange results in the shared surface-card markup.
+ */
 function exchangeBlock(title, body) {
-  return `
+    return `
     <article class="surface-card exchange-result-card">
       <p class="section-tag">Exchange</p>
       <h3>${escapeHtml(title)}</h3>
@@ -18,24 +12,26 @@ function exchangeBlock(title, body) {
     </article>
   `;
 }
-
+/**
+ * Formats the comment count label used by feed cards.
+ */
 function commentCountLabel(item) {
-  const value = Number(item?.commentCount);
-  return Number.isFinite(value) && value > 0 ? `${value} comments` : "Comments";
+    const value = Number(item?.commentCount);
+    return Number.isFinite(value) && value > 0 ? `${value} comments` : "Comments";
 }
-
+/**
+ * Renders the journal feed plus secondary exchange tooling.
+ */
 export async function render(app, route, root) {
-  app.setDocumentTitle("Feed");
-
-  const bootstrap = await app.loadBootstrap();
-  const destinationBindings = app.getDestinationBindings();
-  const users = safeArray(bootstrap?.users);
-  const destinationOptions = app.getDestinationOptions();
-  const actorDefault = users.some((user) => user.id === route.params.actor)
-    ? route.params.actor
-    : users[0]?.id || "";
-
-  root.innerHTML = `
+    app.setDocumentTitle("Feed");
+    const bootstrap = await app.loadBootstrap();
+    const destinationBindings = app.getDestinationBindings();
+    const users = safeArray(bootstrap?.users);
+    const destinationOptions = app.getDestinationOptions();
+    const actorDefault = users.some((user) => user.id === route.params.actor)
+        ? route.params.actor
+        : users[0]?.id || "";
+    root.innerHTML = `
     <section class="route-hero route-hero-feed">
       <div class="route-hero-copy">
         <p class="eyebrow">Feed</p>
@@ -148,333 +144,277 @@ export async function render(app, route, root) {
       </aside>
     </section>
   `;
-
-  fillSelect(root.querySelector("#feed-actor"), users);
-  fillSelect(root.querySelector("#feed-author-filter"), users, {
-    includeBlank: true,
-    blankLabel: "any author",
-  });
-  app.applySelectorBindings(root, destinationBindings?.selectorBindings);
-  root.querySelector("#feed-exchange-destination").value = destinationOptions[0]?.id || "";
-  root.querySelector("#feed-destination-filter").value = route.params.destinationId || "";
-  root.querySelector("#feed-author-filter").value = route.params.author || "";
-  root.querySelector("#feed-actor").value = actorDefault;
-
-  const feedResults = root.querySelector("#feed-results");
-  const feedNotice = root.querySelector("#feed-notice");
-  const exchangeResults = root.querySelector("#feed-exchange-results");
-  const actorSelect = root.querySelector("#feed-actor");
-  const authorFilter = root.querySelector("#feed-author-filter");
-  const destinationFilter = root.querySelector("#feed-destination-filter");
-
-  let disposed = false;
-  let currentFeedMode = "latest";
-
-  function buildComposeHref(actorId) {
-    return createUrl("/compose", actorId ? { actor: actorId } : {});
-  }
-
-  function syncComposeLinks(actorId) {
-    root.querySelectorAll(".feed-stream-card a").forEach((link) => {
-      const href = link.getAttribute("href") || "";
-      if (link.hasAttribute("data-compose-href") || href.startsWith("/compose")) {
-        link.setAttribute("href", buildComposeHref(actorId));
-      }
+    fillSelect(root.querySelector("#feed-actor"), users);
+    fillSelect(root.querySelector("#feed-author-filter"), users, {
+        includeBlank: true,
+        blankLabel: "any author",
     });
-  }
-
-  function syncPostLinks(actorId) {
-    root.querySelectorAll("[data-journal-id]").forEach((card) => {
-      const journalId = card.getAttribute("data-journal-id") || "";
-      if (!journalId) {
-        return;
-      }
-      card.querySelectorAll("a").forEach((link) => {
-        const href = link.getAttribute("href") || "";
-        if (href.startsWith("/posts/")) {
-          link.setAttribute("href", app.buildPostHref(journalId, actorId ? { actor: actorId } : {}));
-        }
-      });
-    });
-  }
-
-  function syncActorContext() {
-    const actorId = actorSelect.value;
-    syncComposeLinks(actorId);
-    syncPostLinks(actorId);
-  }
-
-  function renderJournalCard(item, options = {}) {
-    return app.createJournalCard(item, {
-      ...options,
-      actorId: actorSelect.value,
-    });
-  }
-
-  async function loadFeed(mode = "latest") {
-    currentFeedMode = mode;
-    const actorId = actorSelect.value;
-    const destinationId = destinationFilter.value;
-    const authorId = authorFilter.value;
-    const limit = root.querySelector("#feed-limit").value;
-
-    app.navigate(
-      createUrl("/feed", {
-        destinationId,
-        actor: actorId,
-        author: authorId,
-      }),
-      { replace: true, preserveScroll: true, render: false },
-    );
-
-    const result =
-      mode === "recommended"
-        ? {
-            items: safeArray(
-              await app.fetchRecommendedJournals({
-                destinationId,
-                userId: actorId,
-                limit,
-              }),
-            ).filter((item) => !authorId || item.userId === authorId),
-            notice: actorId
-              ? authorId
-                ? "Recommended notes are sourced from the legacy journal recommendation helper and filtered to the selected author."
-                : "Recommended notes are sourced from the legacy journal recommendation helper."
-              : "Select a traveler to load recommendations.",
-          }
-        : await app.fetchFeed({
+    app.applySelectorBindings(root, destinationBindings?.selectorBindings);
+    root.querySelector("#feed-exchange-destination").value = destinationOptions[0]?.id || "";
+    root.querySelector("#feed-destination-filter").value = route.params.destinationId || "";
+    root.querySelector("#feed-author-filter").value = route.params.author || "";
+    root.querySelector("#feed-actor").value = actorDefault;
+    const feedResults = root.querySelector("#feed-results");
+    const feedNotice = root.querySelector("#feed-notice");
+    const exchangeResults = root.querySelector("#feed-exchange-results");
+    const actorSelect = root.querySelector("#feed-actor");
+    const authorFilter = root.querySelector("#feed-author-filter");
+    const destinationFilter = root.querySelector("#feed-destination-filter");
+    let disposed = false;
+    let currentFeedMode = "latest";
+    function buildComposeHref(actorId) {
+        return createUrl("/compose", actorId ? { actor: actorId } : {});
+    }
+    function syncComposeLinks(actorId) {
+        root.querySelectorAll(".feed-stream-card a").forEach((link) => {
+            const href = link.getAttribute("href") || "";
+            if (link.hasAttribute("data-compose-href") || href.startsWith("/compose")) {
+                link.setAttribute("href", buildComposeHref(actorId));
+            }
+        });
+    }
+    function syncPostLinks(actorId) {
+        root.querySelectorAll("[data-journal-id]").forEach((card) => {
+            const journalId = card.getAttribute("data-journal-id") || "";
+            if (!journalId) {
+                return;
+            }
+            card.querySelectorAll("a").forEach((link) => {
+                const href = link.getAttribute("href") || "";
+                if (href.startsWith("/posts/")) {
+                    link.setAttribute("href", app.buildPostHref(journalId, actorId ? { actor: actorId } : {}));
+                }
+            });
+        });
+    }
+    function syncActorContext() {
+        const actorId = actorSelect.value;
+        syncComposeLinks(actorId);
+        syncPostLinks(actorId);
+    }
+    function renderJournalCard(item, options = {}) {
+        return app.createJournalCard(item, {
+            ...options,
+            actorId: actorSelect.value,
+        });
+    }
+    async function loadFeed(mode = "latest") {
+        currentFeedMode = mode;
+        const actorId = actorSelect.value;
+        const destinationId = destinationFilter.value;
+        const authorId = authorFilter.value;
+        const limit = root.querySelector("#feed-limit").value;
+        app.navigate(createUrl("/feed", {
             destinationId,
-            userId: authorId,
-            viewerUserId: actorId,
-            limit,
-          });
-
-    if (disposed) {
-      return;
+            actor: actorId,
+            author: authorId,
+        }), { replace: true, preserveScroll: true, render: false });
+        const result = mode === "recommended"
+            ? {
+                items: safeArray(await app.fetchRecommendedJournals({
+                    destinationId,
+                    userId: actorId,
+                    limit,
+                })).filter((item) => !authorId || item.userId === authorId),
+                notice: actorId
+                    ? authorId
+                        ? "Recommended notes are sourced from the legacy journal recommendation helper and filtered to the selected author."
+                        : "Recommended notes are sourced from the legacy journal recommendation helper."
+                    : "Select a traveler to load recommendations.",
+            }
+            : await app.fetchFeed({
+                destinationId,
+                userId: authorId,
+                viewerUserId: actorId,
+                limit,
+            });
+        if (disposed) {
+            return;
+        }
+        feedNotice.innerHTML = result.notice
+            ? noticeMarkup("note", mode === "recommended" ? "Recommendation mode" : "Feed mode", result.notice)
+            : "";
+        feedResults.innerHTML = safeArray(result.items).length
+            ? safeArray(result.items).map((item) => renderJournalCard(item, { hideDelete: false })).join("")
+            : emptyStateMarkup({
+                title: "No journals matched this view",
+                body: "Shift the destination or author filter, or move back to latest mode.",
+                actionHref: buildComposeHref(actorId),
+                actionLabel: "Write the first note",
+            });
+        syncActorContext();
     }
-
-    feedNotice.innerHTML = result.notice
-      ? noticeMarkup("note", mode === "recommended" ? "Recommendation mode" : "Feed mode", result.notice)
-      : "";
-    feedResults.innerHTML = safeArray(result.items).length
-      ? safeArray(result.items).map((item) => renderJournalCard(item, { hideDelete: false })).join("")
-      : emptyStateMarkup({
-          title: "No journals matched this view",
-          body: "Shift the destination or author filter, or move back to latest mode.",
-          actionHref: buildComposeHref(actorId),
-          actionLabel: "Write the first note",
-        });
-    syncActorContext();
-  }
-
-  async function refreshExchangeResults(blocks) {
-    exchangeResults.innerHTML = blocks.length
-      ? blocks.join("")
-      : emptyStateMarkup({
-          title: "Exchange tools stay secondary",
-          body: "Search by title or text, load a destination feed, or run compression and storyboard generation here.",
-        });
-  }
-
-  async function handleJournalAction(event) {
-    const button = event.target.closest("button[data-action]");
-    if (!button) {
-      return;
+    async function refreshExchangeResults(blocks) {
+        exchangeResults.innerHTML = blocks.length
+            ? blocks.join("")
+            : emptyStateMarkup({
+                title: "Exchange tools stay secondary",
+                body: "Search by title or text, load a destination feed, or run compression and storyboard generation here.",
+            });
     }
-
-    const card = button.closest("[data-journal-id]");
-    const journalId = card?.dataset.journalId;
-    const actorId = actorSelect.value;
-
-    try {
-      const result = await app.sendJournalAction(button.dataset.action, journalId, actorId);
-      if (result.notice) {
-        app.setStatus(result.notice, "note");
-      }
-      await loadFeed(currentFeedMode);
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Journal action failed.", "error");
+    async function handleJournalAction(event) {
+        const button = event.target.closest("button[data-action]");
+        if (!button) {
+            return;
+        }
+        const card = button.closest("[data-journal-id]");
+        const journalId = card?.dataset.journalId;
+        const actorId = actorSelect.value;
+        try {
+            const result = await app.sendJournalAction(button.dataset.action, journalId, actorId);
+            if (result.notice) {
+                app.setStatus(result.notice, "note");
+            }
+            await loadFeed(currentFeedMode);
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Journal action failed.", "error");
+        }
     }
-  }
-
-  root.querySelector("#feed-filter-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      await loadFeed("latest");
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Feed loading failed.", "error");
-    }
-  });
-
-  root.querySelector("#feed-load-recommended").addEventListener("click", async () => {
-    try {
-      await loadFeed("recommended");
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Recommendations failed.", "error");
-    }
-  });
-
-  actorSelect.addEventListener("change", async () => {
-    syncActorContext();
-    try {
-      await loadFeed(currentFeedMode);
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Feed loading failed.", "error");
-    }
-  });
-
-  feedResults.addEventListener("click", handleJournalAction);
-  exchangeResults.addEventListener("click", handleJournalAction);
-
-  root.querySelector("#feed-exchange-search-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      const exactTitle = root.querySelector("#feed-exchange-title").value.trim();
-      const query = root.querySelector("#feed-exchange-query").value.trim();
-      const blocks = [];
-
-      if (exactTitle) {
-        const payload = await app.requestJson(
-          `/api/journal-exchange/title?title=${encodeURIComponent(exactTitle)}`,
-        );
-        blocks.push(
-          exchangeBlock(
-            "Exact title",
-            payload.item ? renderJournalCard(payload.item, {
-              hideDelete: true,
-              hideSocialAction: true,
-              hideSocialMeta: true,
-            }) : emptyStateMarkup(),
-          ),
-        );
-      }
-
-      if (query) {
-        const payload = await app.requestJson(
-          `/api/journal-exchange/search?query=${encodeURIComponent(query)}`,
-        );
-        blocks.push(
-          exchangeBlock(
-            "Text search",
-            safeArray(payload.items).length
-              ? safeArray(payload.items)
-                  .map((item) => renderJournalCard(item, {
+    root.querySelector("#feed-filter-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+            await loadFeed("latest");
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Feed loading failed.", "error");
+        }
+    });
+    root.querySelector("#feed-load-recommended").addEventListener("click", async () => {
+        try {
+            await loadFeed("recommended");
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Recommendations failed.", "error");
+        }
+    });
+    actorSelect.addEventListener("change", async () => {
+        syncActorContext();
+        try {
+            await loadFeed(currentFeedMode);
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Feed loading failed.", "error");
+        }
+    });
+    feedResults.addEventListener("click", handleJournalAction);
+    exchangeResults.addEventListener("click", handleJournalAction);
+    root.querySelector("#feed-exchange-search-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+            const exactTitle = root.querySelector("#feed-exchange-title").value.trim();
+            const query = root.querySelector("#feed-exchange-query").value.trim();
+            const blocks = [];
+            if (exactTitle) {
+                const payload = await app.requestJson(`/api/journal-exchange/title?title=${encodeURIComponent(exactTitle)}`);
+                blocks.push(exchangeBlock("Exact title", payload.item ? renderJournalCard(payload.item, {
                     hideDelete: true,
                     hideSocialAction: true,
                     hideSocialMeta: true,
-                  }))
-                  .join("")
-              : emptyStateMarkup(),
-          ),
-        );
-      }
-
-      await refreshExchangeResults(blocks);
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Exchange search failed.", "error");
-    }
-  });
-
-  root.querySelector("#feed-exchange-by-destination").addEventListener("click", async () => {
-    try {
-      const destinationId = root.querySelector("#feed-exchange-destination").value;
-      const payload = await app.requestJson(
-        `/api/journal-exchange/destination?destinationId=${encodeURIComponent(destinationId)}`,
-      );
-      await refreshExchangeResults([
-        exchangeBlock(
-          "Destination feed",
-          safeArray(payload.items).length
-            ? safeArray(payload.items)
-                .map((item) => renderJournalCard(item, {
-                  hideDelete: true,
-                  hideSocialAction: true,
-                  hideSocialMeta: true,
-                }))
-                .join("")
-            : emptyStateMarkup(),
-        ),
-      ]);
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Destination exchange failed.", "error");
-    }
-  });
-
-  root.querySelector("#feed-compression-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      const body = root.querySelector("#feed-compression-body").value;
-      const payload = await app.requestJson("/api/journal-exchange/compress", {
-        method: "POST",
-        body: JSON.stringify({ body }),
-      });
-      app.state.lastCompressed = text(payload.item?.compressed);
-      await refreshExchangeResults([
-        exchangeBlock(
-          "Compression",
-          `<p class="muted">${escapeHtml(payload.item?.compressed)}</p>${resultMetaMarkup([
-            `ratio ${payload.item?.ratio}`,
-          ])}`,
-        ),
-      ]);
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Compression failed.", "error");
-    }
-  });
-
-  root.querySelector("#feed-decompress").addEventListener("click", async () => {
-    try {
-      const body =
-        app.state.lastCompressed || root.querySelector("#feed-compression-body").value.trim();
-      const payload = await app.requestJson("/api/journal-exchange/decompress", {
-        method: "POST",
-        body: JSON.stringify({ body }),
-      });
-      await refreshExchangeResults([
-        exchangeBlock("Decompression", `<p>${escapeHtml(payload.item?.text)}</p>`),
-      ]);
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Decompression failed.", "error");
-    }
-  });
-
-  root.querySelector("#feed-storyboard-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      const payload = await app.requestJson("/api/journal-exchange/storyboard", {
-        method: "POST",
-        body: JSON.stringify({
-          title: root.querySelector("#feed-storyboard-title").value,
-          prompt: root.querySelector("#feed-storyboard-prompt").value,
-          mediaSources: ["generated://cover/demo-1", "generated://clip/demo-1"],
-        }),
-      });
-      await refreshExchangeResults([
-        exchangeBlock(
-          payload.item?.title || "Storyboard",
-          `<div class="storyboard">${safeArray(payload.item?.frames)
-            .map(
-              (frame) => `
+                }) : emptyStateMarkup()));
+            }
+            if (query) {
+                const payload = await app.requestJson(`/api/journal-exchange/search?query=${encodeURIComponent(query)}`);
+                blocks.push(exchangeBlock("Text search", safeArray(payload.items).length
+                    ? safeArray(payload.items)
+                        .map((item) => renderJournalCard(item, {
+                        hideDelete: true,
+                        hideSocialAction: true,
+                        hideSocialMeta: true,
+                    }))
+                        .join("")
+                    : emptyStateMarkup()));
+            }
+            await refreshExchangeResults(blocks);
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Exchange search failed.", "error");
+        }
+    });
+    root.querySelector("#feed-exchange-by-destination").addEventListener("click", async () => {
+        try {
+            const destinationId = root.querySelector("#feed-exchange-destination").value;
+            const payload = await app.requestJson(`/api/journal-exchange/destination?destinationId=${encodeURIComponent(destinationId)}`);
+            await refreshExchangeResults([
+                exchangeBlock("Destination feed", safeArray(payload.items).length
+                    ? safeArray(payload.items)
+                        .map((item) => renderJournalCard(item, {
+                        hideDelete: true,
+                        hideSocialAction: true,
+                        hideSocialMeta: true,
+                    }))
+                        .join("")
+                    : emptyStateMarkup()),
+            ]);
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Destination exchange failed.", "error");
+        }
+    });
+    root.querySelector("#feed-compression-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+            const body = root.querySelector("#feed-compression-body").value;
+            const payload = await app.requestJson("/api/journal-exchange/compress", {
+                method: "POST",
+                body: JSON.stringify({ body }),
+            });
+            app.state.lastCompressed = text(payload.item?.compressed);
+            await refreshExchangeResults([
+                exchangeBlock("Compression", `<p class="muted">${escapeHtml(payload.item?.compressed)}</p>${resultMetaMarkup([
+                    `ratio ${payload.item?.ratio}`,
+                ])}`),
+            ]);
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Compression failed.", "error");
+        }
+    });
+    root.querySelector("#feed-decompress").addEventListener("click", async () => {
+        try {
+            const body = app.state.lastCompressed || root.querySelector("#feed-compression-body").value.trim();
+            const payload = await app.requestJson("/api/journal-exchange/decompress", {
+                method: "POST",
+                body: JSON.stringify({ body }),
+            });
+            await refreshExchangeResults([
+                exchangeBlock("Decompression", `<p>${escapeHtml(payload.item?.text)}</p>`),
+            ]);
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Decompression failed.", "error");
+        }
+    });
+    root.querySelector("#feed-storyboard-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+            const payload = await app.requestJson("/api/journal-exchange/storyboard", {
+                method: "POST",
+                body: JSON.stringify({
+                    title: root.querySelector("#feed-storyboard-title").value,
+                    prompt: root.querySelector("#feed-storyboard-prompt").value,
+                    mediaSources: ["generated://cover/demo-1", "generated://clip/demo-1"],
+                }),
+            });
+            await refreshExchangeResults([
+                exchangeBlock(payload.item?.title || "Storyboard", `<div class="storyboard">${safeArray(payload.item?.frames)
+                    .map((frame) => `
                 <figure>
                   <img src="${escapeHtml(frame.art)}" alt="${escapeHtml(frame.caption)}" />
                   <figcaption>${escapeHtml(frame.caption)}</figcaption>
                 </figure>
-              `,
-            )
-            .join("")}</div>`,
-        ),
-      ]);
-    } catch (error) {
-      app.setStatus(error instanceof Error ? error.message : "Storyboard generation failed.", "error");
-    }
-  });
-
-  syncActorContext();
-  await loadFeed("latest");
-  await refreshExchangeResults([]);
-
-  return () => {
-    disposed = true;
-  };
+              `)
+                    .join("")}</div>`),
+            ]);
+        }
+        catch (error) {
+            app.setStatus(error instanceof Error ? error.message : "Storyboard generation failed.", "error");
+        }
+    });
+    syncActorContext();
+    await loadFeed("latest");
+    await refreshExchangeResults([]);
+    return () => {
+        disposed = true;
+    };
 }

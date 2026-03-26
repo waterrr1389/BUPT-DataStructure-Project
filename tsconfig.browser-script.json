@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "none",
+    "lib": [
+      "ES2021",
+      "DOM"
+    ],
+    "strict": true,
+    "noEmitOnError": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": false,
+    "skipLibCheck": true,
+    "noCheck": true
+  },
+  "files": [
+    "public/journal-consumers.ts",
+    "public/journal-presentation.ts",
+    "public/route-visualization-markers.ts"
+  ]
+}

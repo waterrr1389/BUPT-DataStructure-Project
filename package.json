@@ -14,7 +14,11 @@
     "@types/leaflet": "^1.9.20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build:browser:esm": "tsc -p tsconfig.browser-esm.json",
+    "build:browser:script": "tsc -p tsconfig.browser-script.json",
+    "build:browser": "npm run build:browser:esm && npm run build:browser:script",
+    "build:server": "tsc -p tsconfig.json",
+    "build": "npm run build:browser && npm run build:server",
     "test": "npm run build && node dist/tests/index.js",
     "validate:data": "npm run build && node dist/scripts/validate-data.js",
     "benchmark": "npm run build && node dist/scripts/run-benchmarks.js",

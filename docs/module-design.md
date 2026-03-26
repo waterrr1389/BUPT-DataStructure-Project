@@ -23,7 +23,17 @@
 - `src/services/food-service.ts`
 - `src/server/index.ts`
 - `public/index.html`
+- `public/app.ts`
 - `public/app.js`
+- `public/journal-consumers.ts`
+- `public/journal-consumers.js`
+- `public/journal-presentation.ts`
+- `public/journal-presentation.js`
+- `public/route-visualization-markers.ts`
+- `public/route-visualization-markers.js`
+- `public/spa/**/*.ts`
+- `public/spa/**/*.js`
+- `public/vendor/**`
 - `public/styles.css`
 - `scripts/validate-data.ts`
 - `scripts/run-benchmarks.ts`
@@ -63,6 +73,10 @@
 ### Server And Browser Surface
 
 - `src/server/index.ts` exposes a lightweight HTTP server, static asset serving, and JSON API routes for every feature area.
+- `public/app.ts` and `public/spa/**/*.ts` are the browser-maintained TypeScript sources for the module-based SPA runtime.
+- `public/journal-consumers.ts`, `public/journal-presentation.ts`, and `public/route-visualization-markers.ts` compile to stable script URLs while keeping browser-global and CommonJS-compatible behavior.
+- `public/*.js` and `public/spa/**/*.js` remain the served browser runtime output at unchanged URLs because the server still serves `public/` directly.
+- `public/vendor/**` remains third-party browser JavaScript and CSS rather than project-authored TypeScript.
 - `public/` provides the single-page demo UI for destinations, routes, facilities, journals, exchange, and food.
 
 ### Scripts And Tests

@@ -107,6 +107,11 @@ type JournalConsumersModule = {
   } | null;
 };
 
+type RequireWithCache = NodeRequire & {
+  cache: Record<string, unknown>;
+  resolve(id: string): string;
+};
+
 const ALL_DESTINATION_SELECTORS = [
   "#explore-facility-destination",
   "#explore-food-destination",
@@ -131,18 +136,31 @@ const SEEDED_JOURNAL_DESTINATION_IDS = [
   "dest-034",
 ] as const;
 
-const { createDestinationSelectOptions, formatJournalMetadata } = require(path.join(
-  process.cwd(),
-  "public",
-  "journal-presentation.js",
-)) as JournalPresentationModule;
+const journalPresentationPath = path.join(process.cwd(), "public", "journal-presentation.js");
+const journalConsumersPath = path.join(process.cwd(), "public", "journal-consumers.js");
+const runtimeRequire = require as RequireWithCache;
+
+const { createDestinationSelectOptions, formatJournalMetadata } = runtimeRequire(
+  journalPresentationPath,
+) as JournalPresentationModule;
 
 const {
   journalCard,
   prepareDestinationSelectorBindings,
   prepareJournalExchangeDestinationBindings,
   resolveJournalActionRequest,
-} = require(path.join(process.cwd(), "public", "journal-consumers.js")) as JournalConsumersModule;
+} = runtimeRequire(journalConsumersPath) as JournalConsumersModule;
+
+function loadFreshJournalConsumersModule(): JournalConsumersModule {
+  const runtimeGlobals = globalThis as typeof globalThis & {
+    JournalConsumers?: JournalConsumersModule;
+  };
+  delete runtimeRequire.cache[runtimeRequire.resolve(journalConsumersPath)];
+  Reflect.deleteProperty(runtimeGlobals, "JournalConsumers");
+  const api = runtimeRequire(journalConsumersPath) as JournalConsumersModule;
+  assert.equal(runtimeGlobals.JournalConsumers, api);
+  return api;
+}
 
 async function createIsolatedApp(name: string): Promise<AppServices> {
   const runtimeDir = path.join("/tmp", `ds-ts-journal-consumers-${name}`);
@@ -170,6 +188,17 @@ function readJournalId(markup: string): string {
   }
   return match[1];
 }
+
+test("journal consumers keeps the CommonJS export attached to JournalConsumers", () => {
+  const api = loadFreshJournalConsumersModule();
+
+  assert.deepEqual(Object.keys(api).sort(), [
+    "journalCard",
+    "prepareDestinationSelectorBindings",
+    "prepareJournalExchangeDestinationBindings",
+    "resolveJournalActionRequest",
+  ]);
+});
 
 test("all destination selectors consume one authoritative bootstrap catalog with seeded ids preserved", async () => {
   const app = await createIsolatedApp("selectors");

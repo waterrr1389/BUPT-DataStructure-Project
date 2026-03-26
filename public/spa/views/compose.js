@@ -1,38 +1,30 @@
-import {
-  escapeHtml,
-  fillSelect,
-  noticeMarkup,
-  parseListInput,
-  resultMetaMarkup,
-  safeArray,
-  text,
-} from "../lib.js";
-
+import { escapeHtml, fillSelect, noticeMarkup, parseListInput, resultMetaMarkup, safeArray, text, } from "../lib.js";
+/**
+ * Builds the live preview card shown beside the compose form.
+ */
 function previewMarkup(state) {
-  return `
+    return `
     <article class="story-card compose-preview-card">
-      <p class="muted">${escapeHtml(state.destinationLabel || "Choose a destination")} · ${escapeHtml(
-        state.authorLabel || "Choose an author",
-      )}</p>
+      <p class="muted">${escapeHtml(state.destinationLabel || "Choose a destination")} · ${escapeHtml(state.authorLabel || "Choose an author")}</p>
       <h3>${escapeHtml(state.title || "Untitled field note")}</h3>
       <p>${escapeHtml(state.body || "Your postcard-like travel note preview appears here.")}</p>
       ${state.tags.length ? `<div class="tag-row">${state.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     </article>
   `;
 }
-
+/**
+ * Renders the compose view and preserves destination and actor handoff on publish.
+ */
 export async function render(app, route, root) {
-  app.setDocumentTitle("Compose");
-
-  const bootstrap = await app.loadBootstrap();
-  const journalBindings = app.getJournalBindings();
-  const users = safeArray(bootstrap?.users);
-  const defaultDestinationId = route.params.destinationId || app.getDestinationOptions()[0]?.id || "";
-  const defaultUserId = users.some((user) => user.id === route.params.actor)
-    ? route.params.actor
-    : users[0]?.id || "";
-
-  root.innerHTML = `
+    app.setDocumentTitle("Compose");
+    const bootstrap = await app.loadBootstrap();
+    const journalBindings = app.getJournalBindings();
+    const users = safeArray(bootstrap?.users);
+    const defaultDestinationId = route.params.destinationId || app.getDestinationOptions()[0]?.id || "";
+    const defaultUserId = users.some((user) => user.id === route.params.actor)
+        ? route.params.actor
+        : users[0]?.id || "";
+    root.innerHTML = `
     <section class="route-hero route-hero-compose">
       <div class="route-hero-copy">
         <p class="eyebrow">Compose</p>
@@ -121,85 +113,68 @@ export async function render(app, route, root) {
       </aside>
     </section>
   `;
-
-  fillSelect(root.querySelector("#compose-user"), users, { selectedValue: defaultUserId });
-  app.applySelectorBindings(root, journalBindings?.selectorBindings);
-  root.querySelector("#compose-destination").value = defaultDestinationId;
-
-  const preview = root.querySelector("#compose-preview");
-  const notice = root.querySelector("#compose-notice");
-  const authorSelect = root.querySelector("#compose-user");
-  const destinationSelect = root.querySelector("#compose-destination");
-  const titleInput = root.querySelector("#compose-title");
-  const bodyInput = root.querySelector("#compose-body");
-  const tagsInput = root.querySelector("#compose-tags");
-
-  function renderPreview() {
-    preview.innerHTML = previewMarkup({
-      authorLabel: app.getUserName(authorSelect.value),
-      destinationLabel: app.getDestinationName(destinationSelect.value),
-      title: titleInput.value.trim(),
-      body: bodyInput.value.trim().slice(0, 260),
-      tags: parseListInput(tagsInput.value),
-    });
-  }
-
-  [authorSelect, destinationSelect, titleInput, bodyInput, tagsInput].forEach((element) => {
-    element.addEventListener("input", renderPreview);
-    element.addEventListener("change", renderPreview);
-  });
-
-  root.querySelector("#compose-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    const mediaTitle = root.querySelector("#compose-media-title").value.trim();
-    const mediaSource = root.querySelector("#compose-media-source").value.trim();
-    const mediaNote = root.querySelector("#compose-media-note").value.trim();
-
-    try {
-      const payload = await app.requestJson("/api/journals", {
-        method: "POST",
-        body: JSON.stringify({
-          userId: authorSelect.value,
-          destinationId: destinationSelect.value,
-          title: titleInput.value,
-          body: bodyInput.value,
-          tags: parseListInput(tagsInput.value),
-          media:
-            mediaTitle && mediaSource
-              ? [
-                  {
-                    type: "image",
-                    title: mediaTitle,
-                    source: mediaSource,
-                    note: mediaNote || undefined,
-                  },
-                ]
-              : [],
-        }),
-      });
-
-      notice.innerHTML = noticeMarkup(
-        "success",
-        "Note published",
-        "The routed shell will now move from Compose into the new post detail view.",
-      );
-      const createdId = payload.item?.id;
-      if (createdId) {
-        app.navigate(app.buildPostHref(createdId, authorSelect.value ? { actor: authorSelect.value } : {}));
-      } else {
-        app.navigate("/feed");
-      }
-    } catch (error) {
-      notice.innerHTML = noticeMarkup(
-        "note",
-        "Compose error",
-        error instanceof Error ? error.message : "Journal creation failed.",
-      );
+    fillSelect(root.querySelector("#compose-user"), users, { selectedValue: defaultUserId });
+    app.applySelectorBindings(root, journalBindings?.selectorBindings);
+    root.querySelector("#compose-destination").value = defaultDestinationId;
+    const preview = root.querySelector("#compose-preview");
+    const notice = root.querySelector("#compose-notice");
+    const authorSelect = root.querySelector("#compose-user");
+    const destinationSelect = root.querySelector("#compose-destination");
+    const titleInput = root.querySelector("#compose-title");
+    const bodyInput = root.querySelector("#compose-body");
+    const tagsInput = root.querySelector("#compose-tags");
+    function renderPreview() {
+        preview.innerHTML = previewMarkup({
+            authorLabel: app.getUserName(authorSelect.value),
+            destinationLabel: app.getDestinationName(destinationSelect.value),
+            title: titleInput.value.trim(),
+            body: bodyInput.value.trim().slice(0, 260),
+            tags: parseListInput(tagsInput.value),
+        });
     }
-  });
-
-  renderPreview();
-
-  return null;
+    [authorSelect, destinationSelect, titleInput, bodyInput, tagsInput].forEach((element) => {
+        element.addEventListener("input", renderPreview);
+        element.addEventListener("change", renderPreview);
+    });
+    root.querySelector("#compose-form")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const mediaTitle = root.querySelector("#compose-media-title").value.trim();
+        const mediaSource = root.querySelector("#compose-media-source").value.trim();
+        const mediaNote = root.querySelector("#compose-media-note").value.trim();
+        try {
+            const payload = await app.requestJson("/api/journals", {
+                method: "POST",
+                body: JSON.stringify({
+                    userId: authorSelect.value,
+                    destinationId: destinationSelect.value,
+                    title: titleInput.value,
+                    body: bodyInput.value,
+                    tags: parseListInput(tagsInput.value),
+                    media: mediaTitle && mediaSource
+                        ? [
+                            {
+                                type: "image",
+                                title: mediaTitle,
+                                source: mediaSource,
+                                note: mediaNote || undefined,
+                            },
+                        ]
+                        : [],
+                }),
+            });
+            notice.innerHTML = noticeMarkup("success", "Note published", "The routed shell will now move from Compose into the new post detail view.");
+            const createdId = payload.item?.id;
+            if (createdId) {
+                app.navigate(app.buildPostHref(createdId, authorSelect.value ? { actor: authorSelect.value } : {}));
+            }
+            else {
+                app.navigate("/feed");
+            }
+        }
+        catch (error) {
+            notice.innerHTML = noticeMarkup("note", "Compose error", error instanceof Error ? error.message : "Journal creation failed.");
+        }
+    });
+    renderPreview();
+    return null;
 }

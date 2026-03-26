@@ -2,7 +2,7 @@
 
 ## Architecture Summary
 
-The project is designed as a single TypeScript codebase with custom algorithm modules, service orchestration, a lightweight server, static demo assets, and scriptable validation or benchmark commands.
+The project is designed as a TypeScript-led codebase with custom algorithm modules, service orchestration, a lightweight server, static demo assets, and scriptable validation or benchmark commands. The authored browser sources now live in `public/*.ts` and `public/spa/**/*.ts`, while `public/vendor/**` remains vendored third-party JavaScript and CSS.
 
 ## Layered Design
 
@@ -39,7 +39,10 @@ The project is designed as a single TypeScript codebase with custom algorithm mo
 ### Delivery Layer
 
 - `src/server/index.ts` serves the web or API demo.
+- `public/app.ts` plus `public/spa/**/*.ts` define the browser-maintained SPA sources that compile to the existing `public/app.js` and `public/spa/**/*.js` runtime files.
+- `public/journal-consumers.ts`, `public/journal-presentation.ts`, and `public/route-visualization-markers.ts` compile as script-style helpers so browser-global and CommonJS-compatible behavior stays intact.
 - `public/**` contains browser-facing assets and scenario data, including one shared destination-option preparation path for all five destination selectors. That shared path consumes the full destination catalog, applies consistent duplicate-name disambiguation, and still leaves the featured deck available for homepage cards.
+- `public/vendor/**` contains third-party browser assets that are served as-is.
 - `scripts/validate-data.ts`, `scripts/run-benchmarks.ts`, and `scripts/demo.ts` provide repeatable CLI entrypoints.
 - `tests/**` contains unit, integration, and smoke tests.
 
@@ -55,7 +58,7 @@ The fallback runtime keeps deterministic scenic and campus graph variants so rou
 
 ## Design Decisions
 
-- Use JSON-compatible data and plain TypeScript modules to avoid external dependencies.
+- Use JSON-compatible data and plain TypeScript modules for first-party code, while serving vendored browser dependencies from `public/vendor/**`.
 - Keep algorithm modules independent so benchmarks and tests can target them directly.
-- Use a single compile target in `dist/` to keep commands predictable.
+- Run the browser build as part of `npm run build`, then keep the emitted browser runtime in `public/` so the server can continue serving stable asset URLs directly from that directory.
 - Keep demo and server entrypoints thin so the core logic remains testable in isolation.
