@@ -58,14 +58,27 @@ const SPA_MODULE_FILES = [
 const runtimeImport = new Function("specifier", "return import(specifier);") as (
   specifier: string,
 ) => Promise<unknown>;
-const nodeRequire = require as ((specifier: string) => unknown) & {
-  cache: Record<string, unknown>;
-  resolve(specifier: string): string;
+const vm = require("vm") as {
+  runInNewContext(
+    source: string,
+    context: Record<string, unknown>,
+    options?: { filename?: string },
+  ): unknown;
+  runInThisContext(source: string, options?: { filename?: string }): unknown;
 };
-
 function createImportSpecifier(absolutePath: string): string {
   const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
   return `file://${normalizedPath}?t=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createClassicScriptFilename(relativePath: string): string {
+  return path.join(process.cwd(), "public", relativePath);
+}
+
+function createClassicScriptContext(): Record<string, unknown> {
+  return {
+    globalThis,
+  };
 }
 
 function ensureRouteVisualizationMarkers(): void {
@@ -621,9 +634,10 @@ export async function loadPublicPageFromIndexHtml(): Promise<PublicPageScriptCon
     const relativePath = normalizePublicAssetPath(script.src);
 
     if (script.type === "classic") {
-      const classicSourcePath = path.join(process.cwd(), "public", relativePath);
-      delete nodeRequire.cache[nodeRequire.resolve(classicSourcePath)];
-      nodeRequire(classicSourcePath);
+      const classicSource = await fs.readFile(createClassicScriptFilename(relativePath), "utf8");
+      vm.runInNewContext(classicSource, createClassicScriptContext(), {
+        filename: createClassicScriptFilename(relativePath),
+      });
       continue;
     }
 
