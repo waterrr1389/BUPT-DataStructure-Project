@@ -3,6 +3,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  createClassicScriptEvaluator,
   createJsonResponse,
   createSpaDomEnvironment,
   dispatchDomEvent,
@@ -29,6 +30,10 @@ const PUBLIC_PAGE_BOOTSTRAP_SCRIPTS = [
   { src: "/journal-consumers.js", type: "classic" },
   { src: "/app.js", type: "module" },
 ] as const;
+
+function normalizeVmSnapshot<TValue>(value: TValue): TValue {
+  return JSON.parse(JSON.stringify(value)) as TValue;
+}
 
 test("explore facility result map links stay clean without actor context", async () => {
   const env = createSpaDomEnvironment();
@@ -2595,6 +2600,73 @@ test("public app entry keeps the bootstrap failure fallback behavior", async () 
     globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
     globals.JournalConsumers = previousJournalConsumers;
     globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("classic helper evaluation hides CommonJS bindings and keeps browser globals available", () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+
+  try {
+    const evaluator = createClassicScriptEvaluator();
+    const snapshot = normalizeVmSnapshot(evaluator.evaluate(
+      `({
+        requireType: typeof require,
+        moduleType: typeof module,
+        exportsType: typeof exports,
+        windowType: typeof window,
+        documentType: typeof document,
+        thisMatchesGlobalThis: globalThis === this,
+        windowMatchesGlobalThis: window === globalThis,
+        documentMatchesWindow: document === window.document
+      })`,
+      path.join(process.cwd(), "public", "__classic-helper-contract-a__.js"),
+    ) as Record<string, unknown>);
+
+    assert.deepEqual(snapshot, {
+      requireType: "undefined",
+      moduleType: "undefined",
+      exportsType: "undefined",
+      windowType: "object",
+      documentType: "object",
+      thisMatchesGlobalThis: true,
+      windowMatchesGlobalThis: true,
+      documentMatchesWindow: true,
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("classic helper evaluation preserves cross-script globals between helper files", () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+
+  try {
+    const evaluator = createClassicScriptEvaluator();
+    evaluator.evaluate(
+      "var sharedClassicBinding = 'kept';",
+      path.join(process.cwd(), "public", "__classic-helper-contract-b__.js"),
+    );
+    const snapshot = normalizeVmSnapshot(evaluator.evaluate(
+      `({
+        sharedType: typeof sharedClassicBinding,
+        sharedValue: sharedClassicBinding,
+        sharedOnWindow: window.sharedClassicBinding,
+        thisMatchesGlobalThis: globalThis === this
+      })`,
+      path.join(process.cwd(), "public", "__classic-helper-contract-c__.js"),
+    ) as Record<string, unknown>);
+
+    assert.deepEqual(snapshot, {
+      sharedType: "string",
+      sharedValue: "kept",
+      sharedOnWindow: "kept",
+      thisMatchesGlobalThis: true,
+    });
+  } finally {
+    delete (env.window as typeof env.window & Record<string, unknown>).sharedClassicBinding;
     restore();
   }
 });

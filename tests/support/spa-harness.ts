@@ -59,13 +59,14 @@ const runtimeImport = new Function("specifier", "return import(specifier);") as 
   specifier: string,
 ) => Promise<unknown>;
 const vm = require("vm") as {
-  runInNewContext(
+  createContext(contextObject: Record<string, unknown>): Record<string, unknown>;
+  runInContext(
     source: string,
     context: Record<string, unknown>,
     options?: { filename?: string },
   ): unknown;
-  runInThisContext(source: string, options?: { filename?: string }): unknown;
 };
+
 function createImportSpecifier(absolutePath: string): string {
   const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
   return `file://${normalizedPath}?t=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -75,9 +76,38 @@ function createClassicScriptFilename(relativePath: string): string {
   return path.join(process.cwd(), "public", relativePath);
 }
 
-function createClassicScriptContext(): Record<string, unknown> {
+type ClassicScriptEvaluator = {
+  evaluate(source: string, filename: string): unknown;
+};
+
+function createClassicScriptRuntimeWindow(): Record<string, unknown> {
+  const runtimeWindow = globalThis.window as unknown as Record<string, unknown> | undefined;
+  if (!runtimeWindow) {
+    throw new Error("Classic helper execution requires an installed window runtime.");
+  }
+
+  runtimeWindow.window = runtimeWindow;
+  runtimeWindow.self = runtimeWindow;
+  runtimeWindow.globalThis = runtimeWindow;
+  runtimeWindow.document = globalThis.document;
+  return runtimeWindow;
+}
+
+function syncPublicBootstrapGlobals(runtimeWindow: Record<string, unknown>): void {
+  const runtimeGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+  PUBLIC_BOOTSTRAP_GLOBALS.forEach((name) => {
+    runtimeGlobals[name] = runtimeWindow[name];
+  });
+}
+
+export function createClassicScriptEvaluator(): ClassicScriptEvaluator {
+  const runtimeWindow = createClassicScriptRuntimeWindow();
+  const context = vm.createContext(runtimeWindow);
+
   return {
-    globalThis,
+    evaluate(source: string, filename: string) {
+      return vm.runInContext(source, context, { filename });
+    },
   };
 }
 
@@ -133,8 +163,12 @@ function extractBodyMarkup(html: string): string {
 
 function clearPublicBootstrapGlobals(): void {
   const runtimeGlobals = globalThis as typeof globalThis & Record<string, unknown>;
+  const runtimeWindow = globalThis.window as unknown as Record<string, unknown> | undefined;
   PUBLIC_BOOTSTRAP_GLOBALS.forEach((name) => {
     runtimeGlobals[name] = undefined;
+    if (runtimeWindow) {
+      runtimeWindow[name] = undefined;
+    }
   });
 }
 
@@ -626,6 +660,8 @@ export async function loadPublicPageFromIndexHtml(): Promise<PublicPageScriptCon
   const html = await fs.readFile(path.join(process.cwd(), "public", PUBLIC_INDEX_FILE), "utf8");
   const scripts = parsePublicPageScriptContract(html);
   const moduleRoot = await ensureSpaModuleRoot();
+  const classicEvaluator = createClassicScriptEvaluator();
+  const classicRuntimeWindow = globalThis.window as unknown as Record<string, unknown>;
 
   clearPublicBootstrapGlobals();
   globalThis.document.body.innerHTML = extractBodyMarkup(html);
@@ -635,9 +671,8 @@ export async function loadPublicPageFromIndexHtml(): Promise<PublicPageScriptCon
 
     if (script.type === "classic") {
       const classicSource = await fs.readFile(createClassicScriptFilename(relativePath), "utf8");
-      vm.runInNewContext(classicSource, createClassicScriptContext(), {
-        filename: createClassicScriptFilename(relativePath),
-      });
+      classicEvaluator.evaluate(classicSource, createClassicScriptFilename(relativePath));
+      syncPublicBootstrapGlobals(classicRuntimeWindow);
       continue;
     }
 
