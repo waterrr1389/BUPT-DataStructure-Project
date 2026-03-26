@@ -822,6 +822,9 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     );
     const spaRoute = await requestText("/feed");
     const spaScripts = parsePublicPageScriptContract(spaRoute.text);
+    const routeMarkersAsset = await requestText("/route-visualization-markers.js");
+    const journalPresentationAsset = await requestText("/journal-presentation.js");
+    const journalConsumersAsset = await requestText("/journal-consumers.js");
     const appAsset = await requestText("/app.js");
     const spaAsset = await requestText("/spa/app-shell.js");
     const cssAsset = await requestText("/styles.css");
@@ -893,10 +896,21 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
       { src: "/journal-consumers.js", type: "classic" },
       { src: "/app.js", type: "module" },
     ]);
+    assert.equal(routeMarkersAsset.status, 200);
+    assert.equal(routeMarkersAsset.headers["cache-control"], "no-store");
+    expectMatches(routeMarkersAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(journalPresentationAsset.status, 200);
+    assert.equal(journalPresentationAsset.headers["cache-control"], "no-store");
+    expectMatches(journalPresentationAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(journalConsumersAsset.status, 200);
+    assert.equal(journalConsumersAsset.headers["cache-control"], "no-store");
+    expectMatches(journalConsumersAsset.headers["content-type"] ?? "", /javascript/i);
     assert.equal(appAsset.status, 200);
     assert.equal(appAsset.headers["cache-control"], "no-store");
+    expectMatches(appAsset.headers["content-type"] ?? "", /javascript/i);
     assert.equal(spaAsset.status, 200);
     assert.equal(spaAsset.headers["cache-control"], "no-store");
+    expectMatches(spaAsset.headers["content-type"] ?? "", /javascript/i);
     assert.equal(cssAsset.status, 200);
     assert.equal(cssAsset.headers["cache-control"], "no-store");
   });

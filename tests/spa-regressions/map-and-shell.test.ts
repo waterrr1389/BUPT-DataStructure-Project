@@ -2579,13 +2579,14 @@ test("public app entry keeps the bootstrap failure fallback behavior", async () 
       throw new Error(`Unexpected fetch: ${url}`);
     }) as typeof fetch;
 
-    const root = env.createRoot();
-    root.setAttribute("id", "app-root");
-
     const scripts = await loadPublicPageFromIndexHtml();
     await settleAsync();
+    const root = requireElement(env.document.body, "#app-root");
 
     assert.deepEqual(scripts, PUBLIC_PAGE_BOOTSTRAP_SCRIPTS);
+    assert.ok(globals.RouteVisualizationMarkers);
+    assert.ok(globals.JournalPresentation);
+    assert.ok(globals.JournalConsumers);
     assert.equal(compactText(root.innerHTML).includes("Browser shell unavailable"), true);
     assert.equal(compactText(root.innerHTML).includes("Bootstrap exploded."), true);
     assert.equal(compactText(root.innerHTML).includes("Reload the shell"), true);
@@ -2644,13 +2645,14 @@ test("public page contract boots the shell without direct helper injection", asy
       throw new Error(`Unexpected fetch: ${url}`);
     }) as typeof fetch;
 
-    const root = env.createRoot();
-    root.setAttribute("id", "app-root");
-
     const scripts = await loadPublicPageFromIndexHtml();
     await settleAsync();
+    const root = requireElement(env.document.body, "#app-root");
 
     assert.deepEqual(scripts, PUBLIC_PAGE_BOOTSTRAP_SCRIPTS);
+    assert.ok(globals.RouteVisualizationMarkers);
+    assert.ok(globals.JournalPresentation);
+    assert.ok(globals.JournalConsumers);
     assert.deepEqual(requests, ["/api/bootstrap", "/api/feed?limit=3"]);
     assert.equal(requireElement(root, ".site-brand").getAttribute("href"), "/");
     assert.equal(requireElement(root, "#status-pill").textContent, "Runtime data: seeded. Algorithms: fallback.");

@@ -6,6 +6,13 @@ const { spawnSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..");
 const publicRoot = path.join(repoRoot, "public");
+const managedBrowserBoundaries = [
+  { kind: "file", sourcePath: path.join(publicRoot, "app.ts") },
+  { kind: "tree", directoryPath: path.join(publicRoot, "spa") },
+  { kind: "file", sourcePath: path.join(publicRoot, "journal-consumers.ts") },
+  { kind: "file", sourcePath: path.join(publicRoot, "journal-presentation.ts") },
+  { kind: "file", sourcePath: path.join(publicRoot, "route-visualization-markers.ts") },
+];
 const browserBuilds = [
   { name: "esm", config: "tsconfig.browser-esm.json" },
   { name: "script", config: "tsconfig.browser-script.json" },
@@ -14,11 +21,6 @@ const browserBuilds = [
 function fail(message) {
   console.error(message);
   process.exit(1);
-}
-
-function isWithin(parentPath, childPath) {
-  const relativePath = path.relative(parentPath, childPath);
-  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
 function getTscCommand() {
@@ -47,70 +49,83 @@ function runTsc(args, options = {}) {
   return `${result.stdout ?? ""}${result.stderr ?? ""}`;
 }
 
-function readTsconfig(configPath) {
-  const configContent = fs.readFileSync(path.join(repoRoot, configPath), "utf8");
-  return JSON.parse(configContent);
-}
+function listFiles(directoryPath, extension) {
+  if (!fs.existsSync(directoryPath)) {
+    return [];
+  }
 
-function listTypeScriptFiles(directoryPath) {
-  const sourcePaths = [];
+  const filePaths = [];
   const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
 
   for (const entry of entries) {
     const entryPath = path.join(directoryPath, entry.name);
-
     if (entry.isDirectory()) {
-      sourcePaths.push(...listTypeScriptFiles(entryPath));
+      filePaths.push(...listFiles(entryPath, extension));
       continue;
     }
 
-    if (entry.isFile() && entryPath.endsWith(".ts") && !entryPath.endsWith(".d.ts")) {
-      sourcePaths.push(entryPath);
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    if (extension === ".ts" && entryPath.endsWith(".ts") && !entryPath.endsWith(".d.ts")) {
+      filePaths.push(entryPath);
+      continue;
+    }
+
+    if (extension === ".js" && entryPath.endsWith(".js")) {
+      filePaths.push(entryPath);
     }
   }
 
-  return sourcePaths.sort();
+  return filePaths.sort();
 }
 
-function resolveConfigEntry(entryPath) {
-  return path.resolve(repoRoot, entryPath);
+function uniqueSorted(paths) {
+  return Array.from(new Set(paths)).sort();
 }
 
-function resolveIncludePattern(configPath, pattern) {
-  if (!pattern.includes("*")) {
-    return [resolveConfigEntry(pattern)];
+function listManagedSourcePaths() {
+  const sourcePaths = [];
+
+  for (const boundary of managedBrowserBoundaries) {
+    if (boundary.kind === "file") {
+      if (fs.existsSync(boundary.sourcePath) && fs.statSync(boundary.sourcePath).isFile()) {
+        sourcePaths.push(boundary.sourcePath);
+      }
+      continue;
+    }
+
+    sourcePaths.push(...listFiles(boundary.directoryPath, ".ts"));
   }
 
-  const recursiveTsSuffix = "/**/*.ts";
-
-  if (pattern.endsWith(recursiveTsSuffix)) {
-    const directoryPath = resolveConfigEntry(pattern.slice(0, -recursiveTsSuffix.length));
-    return listTypeScriptFiles(directoryPath);
-  }
-
-  fail(`Unsupported include pattern in ${configPath}: ${pattern}`);
+  return uniqueSorted(sourcePaths);
 }
 
-function listBrowserSources(configPath) {
-  const config = readTsconfig(configPath);
-  const configuredEntries = [];
+function listManagedOutputPaths() {
+  const outputPaths = [];
 
-  for (const filePath of config.files ?? []) {
-    configuredEntries.push(resolveConfigEntry(filePath));
+  for (const boundary of managedBrowserBoundaries) {
+    if (boundary.kind === "file") {
+      const outputPath = toOutputPath(boundary.sourcePath);
+      if (fs.existsSync(outputPath) && fs.statSync(outputPath).isFile()) {
+        outputPaths.push(outputPath);
+      }
+      continue;
+    }
+
+    outputPaths.push(...listFiles(boundary.directoryPath, ".js"));
   }
 
-  for (const pattern of config.include ?? []) {
-    configuredEntries.push(...resolveIncludePattern(configPath, pattern));
-  }
-
-  return configuredEntries
-    .filter((entry) => entry.endsWith(".ts") && !entry.endsWith(".d.ts"))
-    .filter((entry) => isWithin(publicRoot, entry))
-    .sort();
+  return uniqueSorted(outputPaths);
 }
 
 function toOutputPath(sourcePath) {
   return sourcePath.slice(0, -3) + ".js";
+}
+
+function toSourcePath(outputPath) {
+  return outputPath.slice(0, -3) + ".ts";
 }
 
 function removeManagedOutputs(outputPaths) {
@@ -121,47 +136,90 @@ function removeManagedOutputs(outputPaths) {
   }
 }
 
-function verifyOutputs(sourcePaths) {
-  const missingOutputs = sourcePaths
+function findMissingOutputs(sourcePaths) {
+  return sourcePaths
     .map((sourcePath) => ({ sourcePath, outputPath: toOutputPath(sourcePath) }))
     .filter(({ outputPath }) => !fs.existsSync(outputPath));
+}
+
+function findOrphanOutputs(outputPaths, sourcePaths) {
+  const sourceSet = new Set(sourcePaths);
+  return outputPaths.filter((outputPath) => !sourceSet.has(toSourcePath(outputPath)));
+}
+
+function formatMissingOutputs(missingOutputs) {
+  return missingOutputs
+    .map(({ sourcePath, outputPath }) => {
+      const relativeSource = path.relative(repoRoot, sourcePath);
+      const relativeOutput = path.relative(repoRoot, outputPath);
+      return `Missing emitted asset for ${relativeSource}: expected ${relativeOutput}`;
+    })
+    .join("\n");
+}
+
+function formatOrphanOutputs(orphanOutputs, label) {
+  const details = orphanOutputs
+    .map((outputPath) => {
+      const relativeOutput = path.relative(repoRoot, outputPath);
+      const relativeSource = path.relative(repoRoot, toSourcePath(outputPath));
+      return `${relativeOutput} has no matching TypeScript source at ${relativeSource}`;
+    })
+    .join("\n");
+
+  return `${label}\n${details}`;
+}
+
+function verifyOutputs(sourcePaths, preBuildOrphans) {
+  const failures = [];
+  const missingOutputs = findMissingOutputs(sourcePaths);
 
   if (missingOutputs.length > 0) {
-    const details = missingOutputs
-      .map(({ sourcePath, outputPath }) => {
-        const relativeSource = path.relative(repoRoot, sourcePath);
-        const relativeOutput = path.relative(repoRoot, outputPath);
-        return `Missing emitted asset for ${relativeSource}: expected ${relativeOutput}`;
-      })
-      .join("\n");
+    failures.push(formatMissingOutputs(missingOutputs));
+  }
 
-    fail(details);
+  if (preBuildOrphans.length > 0) {
+    failures.push(
+      formatOrphanOutputs(
+        preBuildOrphans,
+        "Managed browser JavaScript is checked in without a matching TypeScript source of truth:"
+      )
+    );
+  }
+
+  const postBuildOrphans = findOrphanOutputs(listManagedOutputPaths(), sourcePaths);
+
+  if (postBuildOrphans.length > 0) {
+    failures.push(
+      formatOrphanOutputs(
+        postBuildOrphans,
+        "Managed browser JavaScript exists after rebuild without a matching TypeScript source of truth:"
+      )
+    );
+  }
+
+  if (failures.length > 0) {
+    fail(failures.join("\n\n"));
   }
 }
 
 function main() {
-  const sourceSet = new Set();
-
-  for (const build of browserBuilds) {
-    for (const sourcePath of listBrowserSources(build.config)) {
-      sourceSet.add(sourcePath);
-    }
-  }
-
-  const sourcePaths = Array.from(sourceSet).sort();
+  const sourcePaths = listManagedSourcePaths();
 
   if (sourcePaths.length === 0) {
     fail("No browser TypeScript sources were resolved for browser build verification.");
   }
 
-  removeManagedOutputs(sourcePaths.map(toOutputPath));
+  const managedOutputPaths = listManagedOutputPaths();
+  const preBuildOrphans = findOrphanOutputs(managedOutputPaths, sourcePaths);
+
+  removeManagedOutputs(managedOutputPaths);
 
   for (const build of browserBuilds) {
     console.log(`Compiling browser ${build.name} sources with ${build.config}`);
     runTsc(["-p", build.config]);
   }
 
-  verifyOutputs(sourcePaths);
+  verifyOutputs(sourcePaths, preBuildOrphans);
 
   console.log(`Verified ${sourcePaths.length} browser runtime assets.`);
 }

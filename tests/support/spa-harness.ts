@@ -58,6 +58,10 @@ const SPA_MODULE_FILES = [
 const runtimeImport = new Function("specifier", "return import(specifier);") as (
   specifier: string,
 ) => Promise<unknown>;
+const nodeRequire = require as ((specifier: string) => unknown) & {
+  cache: Record<string, unknown>;
+  resolve(specifier: string): string;
+};
 
 function createImportSpecifier(absolutePath: string): string {
   const normalizedPath = path.resolve(absolutePath).replace(/\\/g, "/");
@@ -104,6 +108,14 @@ function parseAttributes(source: string): Record<string, string> {
 function normalizePublicAssetPath(source: string): string {
   const pathname = new URL(source, "http://localhost").pathname;
   return pathname.replace(/^\/+/, "");
+}
+
+function extractBodyMarkup(html: string): string {
+  const bodyMatch = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+  if (!bodyMatch) {
+    throw new Error("Public index.html is missing a body element.");
+  }
+  return bodyMatch[1] ?? "";
 }
 
 function clearPublicBootstrapGlobals(): void {
@@ -598,13 +610,24 @@ export async function importPublicModule<TModule>(relativePath: string): Promise
 }
 
 export async function loadPublicPageFromIndexHtml(): Promise<PublicPageScriptContract[]> {
-  const scripts = await readPublicPageScriptContract();
+  const html = await fs.readFile(path.join(process.cwd(), "public", PUBLIC_INDEX_FILE), "utf8");
+  const scripts = parsePublicPageScriptContract(html);
   const moduleRoot = await ensureSpaModuleRoot();
 
   clearPublicBootstrapGlobals();
+  globalThis.document.body.innerHTML = extractBodyMarkup(html);
 
   for (const script of scripts) {
-    const absolutePath = path.join(moduleRoot, normalizePublicAssetPath(script.src));
+    const relativePath = normalizePublicAssetPath(script.src);
+
+    if (script.type === "classic") {
+      const classicSourcePath = path.join(process.cwd(), "public", relativePath);
+      delete nodeRequire.cache[nodeRequire.resolve(classicSourcePath)];
+      nodeRequire(classicSourcePath);
+      continue;
+    }
+
+    const absolutePath = path.join(moduleRoot, relativePath);
     await runtimeImport(createImportSpecifier(absolutePath));
   }
 

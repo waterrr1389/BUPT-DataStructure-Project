@@ -88,8 +88,16 @@ export type CommentResponse = {
   totalCount: number;
 };
 
+export type CommentCreationResult = {
+  available: boolean;
+  item: JsonRecord | null;
+  notice: string;
+};
+
 export type JournalActionResult = {
+  available: boolean;
   notice?: string;
+  payload: unknown;
 };
 
 export type DebouncedFunction<TArgs extends unknown[]> = ((...args: TArgs) => void) & {
@@ -143,10 +151,10 @@ export interface SpaApp {
     journalId: string,
     options?: Record<string, unknown>,
   ): Promise<CommentResponse>;
-  /** Attempts to create a journal comment when comment APIs are available. */
-  createComment?(journalId: string, userId: string, body: string): Promise<JsonRecord>;
-  /** Sends a supported journal action such as like or unlike when available. */
-  sendJournalAction?(
+  /** Attempts to create a journal comment and reports comment endpoint availability. */
+  createComment(journalId: string, userId: string, body: string): Promise<CommentCreationResult>;
+  /** Sends a supported journal action and returns an availability-aware result envelope. */
+  sendJournalAction(
     action: string,
     journalId: string,
     selectedUserId: string,

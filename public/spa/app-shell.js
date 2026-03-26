@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createRouteContextHref, debounce, emptyStateMarkup, escapeHtml, fillSelect, isPrimaryNavigationEvent, noticeMarkup, resultMetaMarkup, safeArray, tagsMarkup, text, } from "./lib.js";
+import { createRouteContextHref, debounce, fillSelect, isPrimaryNavigationEvent, noticeMarkup, safeArray, tagsMarkup, text, } from "./lib.js";
 /**
  * Resolves required global helper APIs that are still shipped outside the SPA module tree.
  */
@@ -201,6 +201,48 @@ export function createAppShell(root) {
             });
         }
         return state.bootstrapPromise;
+    }
+    /**
+     * Returns the cached bootstrap payload after it has been loaded.
+     */
+    function getBootstrap() {
+        return state.bootstrap;
+    }
+    /**
+     * Returns destination selector bindings prepared from bootstrap data.
+     */
+    function getDestinationBindings() {
+        return state.destinationBindings;
+    }
+    /**
+     * Returns journal exchange selector bindings prepared from bootstrap data.
+     */
+    function getJournalBindings() {
+        return state.journalBindings;
+    }
+    /**
+     * Returns destination select options derived from bootstrap data.
+     */
+    function getDestinationOptions() {
+        return state.destinationOptions;
+    }
+    /**
+     * Returns featured destinations advertised by the bootstrap payload.
+     */
+    function getFeaturedDestinations() {
+        return state.featuredDestinations;
+    }
+    /**
+     * Returns categories exposed by the bootstrap payload.
+     */
+    function getCategories() {
+        return state.categories;
+    }
+    /**
+     * Returns cuisines exposed by the bootstrap payload.
+     */
+    function getCuisines() {
+        return state.cuisines;
     }
     /**
      * Loads and caches destination detail data for a destination id.
@@ -490,7 +532,7 @@ export function createAppShell(root) {
         throw new Error(text(response.error, "Comments could not be loaded."));
     }
     /**
-     * Creates a comment when the journal comment endpoint is available.
+     * Creates a comment and reports whether the comment endpoint is available.
      */
     async function createComment(journalId, userId, body) {
         const response = await requestJsonMaybe(`/api/journals/${encodeURIComponent(journalId)}/comments`, {
@@ -650,38 +692,27 @@ export function createAppShell(root) {
      */
     const app = {
         state,
-        dom,
-        helpers: journalPresentation,
-        consumers: journalConsumers,
         loadBootstrap,
+        getBootstrap,
+        getDestinationBindings,
+        getJournalBindings,
+        getDestinationOptions,
+        getFeaturedDestinations,
+        getCategories,
+        getCuisines,
         ensureDestinationDetails,
         requestJson,
-        requestJsonMaybe,
         setStatus,
         setDocumentTitle,
         navigate,
         parseRoute,
         buildMapHref,
         buildPostHref,
-        getDestinationOptions: () => state.destinationOptions,
-        getDestinationBindings: () => state.destinationBindings,
-        getJournalBindings: () => state.journalBindings,
-        getFeaturedDestinations: () => state.featuredDestinations,
-        getCategories: () => state.categories,
-        getCuisines: () => state.cuisines,
-        getBootstrap: () => state.bootstrap,
-        getUserById: (userId) => state.userById.get(userId) || null,
-        getDestinationById: (destinationId) => state.destinationById.get(destinationId) || null,
         getUserName,
         getDestinationName,
         applySelectorBindings,
         createJournalCard,
-        emptyStateMarkup,
-        escapeHtml,
-        noticeMarkup,
-        resultMetaMarkup,
         tagsMarkup,
-        fillSelect,
         debounce,
         fetchFeed,
         fetchRecommendedJournals,
