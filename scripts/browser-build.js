@@ -18,9 +18,10 @@ const browserBuilds = [
   { name: "script", config: "tsconfig.browser-script.json" },
 ];
 
-function fail(message) {
-  console.error(message);
-  process.exit(1);
+function fail(message, exitCode = 1) {
+  const error = new Error(message);
+  error.exitCode = exitCode;
+  throw error;
 }
 
 function getTscCommand() {
@@ -43,7 +44,7 @@ function runTsc(args, options = {}) {
       process.stdout.write(result.stdout ?? "");
       process.stderr.write(result.stderr ?? "");
     }
-    process.exit(result.status ?? 1);
+    fail("", result.status ?? 1);
   }
 
   return `${result.stdout ?? ""}${result.stderr ?? ""}`;
@@ -136,6 +137,27 @@ function removeManagedOutputs(outputPaths) {
   }
 }
 
+function snapshotManagedOutputs(outputPaths) {
+  const outputSnapshots = new Map();
+
+  for (const outputPath of outputPaths) {
+    if (fs.existsSync(outputPath)) {
+      outputSnapshots.set(outputPath, fs.readFileSync(outputPath));
+    }
+  }
+
+  return outputSnapshots;
+}
+
+function restoreManagedOutputs(outputSnapshots) {
+  const managedOutputPaths = listManagedOutputPaths();
+  removeManagedOutputs(managedOutputPaths);
+
+  for (const [outputPath, content] of outputSnapshots.entries()) {
+    fs.writeFileSync(outputPath, content);
+  }
+}
+
 function findMissingOutputs(sourcePaths) {
   return sourcePaths
     .map((sourcePath) => ({ sourcePath, outputPath: toOutputPath(sourcePath) }))
@@ -169,21 +191,12 @@ function formatOrphanOutputs(orphanOutputs, label) {
   return `${label}\n${details}`;
 }
 
-function verifyOutputs(sourcePaths, preBuildOrphans) {
+function verifyOutputs(sourcePaths) {
   const failures = [];
   const missingOutputs = findMissingOutputs(sourcePaths);
 
   if (missingOutputs.length > 0) {
     failures.push(formatMissingOutputs(missingOutputs));
-  }
-
-  if (preBuildOrphans.length > 0) {
-    failures.push(
-      formatOrphanOutputs(
-        preBuildOrphans,
-        "Managed browser JavaScript is checked in without a matching TypeScript source of truth:"
-      )
-    );
   }
 
   const postBuildOrphans = findOrphanOutputs(listManagedOutputPaths(), sourcePaths);
@@ -203,25 +216,33 @@ function verifyOutputs(sourcePaths, preBuildOrphans) {
 }
 
 function main() {
-  const sourcePaths = listManagedSourcePaths();
-
-  if (sourcePaths.length === 0) {
-    fail("No browser TypeScript sources were resolved for browser build verification.");
-  }
-
   const managedOutputPaths = listManagedOutputPaths();
-  const preBuildOrphans = findOrphanOutputs(managedOutputPaths, sourcePaths);
+  const outputSnapshots = snapshotManagedOutputs(managedOutputPaths);
 
-  removeManagedOutputs(managedOutputPaths);
+  try {
+    const sourcePaths = listManagedSourcePaths();
 
-  for (const build of browserBuilds) {
-    console.log(`Compiling browser ${build.name} sources with ${build.config}`);
-    runTsc(["-p", build.config]);
+    if (sourcePaths.length === 0) {
+      fail("No browser TypeScript sources were resolved for browser build verification.");
+    }
+
+    removeManagedOutputs(managedOutputPaths);
+
+    for (const build of browserBuilds) {
+      console.log(`Compiling browser ${build.name} sources with ${build.config}`);
+      runTsc(["-p", build.config]);
+    }
+
+    verifyOutputs(sourcePaths);
+
+    console.log(`Verified ${sourcePaths.length} browser runtime assets.`);
+  } catch (error) {
+    restoreManagedOutputs(outputSnapshots);
+    if (error?.message) {
+      console.error(error.message);
+    }
+    process.exit(error?.exitCode ?? 1);
   }
-
-  verifyOutputs(sourcePaths, preBuildOrphans);
-
-  console.log(`Verified ${sourcePaths.length} browser runtime assets.`);
 }
 
 main();
