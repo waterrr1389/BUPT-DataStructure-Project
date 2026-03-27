@@ -1,15 +1,16 @@
 # Round 5 Summary
 
 ## Goal
-Capture the doc-only adjustments that resolve the remaining FR-2/FR-3 evidence labels and keep the verification narrative in sync across this repo without touching code.
+Close the remaining doc/bookkeeping alignment for FR-6 evidence splitting and stale summary verification wording without touching code.
 
 ## Implementation Highlights
-- `docs/requirements-analysis.md` now anchors the foundational destination search, ranking, and routing capabilities to the March 19 recorded run while separately tagging selector parity/disambiguation and graph variant regression coverage as part of the March 27 rerun, so reviewers can trace how the rerun supplements rather than replaces the prior evidence.
-- `round-4-summary.md` now closes the verification story by noting the same evidence split and documenting that the docs and summaries already align with the latest rerun, meaning the remaining open work is purely factual bookkeeping.
+- `docs/requirements-analysis.md` now records the FR-6 evidence split by keeping the foundational destination search, ranking, and routing coverage on the March 19 run while assigning selector parity/disambiguation and graph variant regression checks to the March 27 rerun.
+- `round-4-summary.md` now uses closure wording that reflects the FR-6 split and removes stale overstatements in the verification narrative.
+- `round-5-summary.md` now cleans up verification wording so doc consistency checks and worktree notes stay precise and historically anchored.
 
 ## Verification Conclusions
 - `npm test` (the `npm run build` + `node dist/tests/index.js` combo) passes on this HEAD with 144 tests, reaffirming that the rerun used for FR-2/FR-3 evidence is green.
-- `git status --short --branch` output on this checkpoint is exactly:
+- At the pre-summary verification checkpoint, `git status --short --branch` output was exactly:
   `## main...origin/main [ahead 41]`
   ` M .humanize/rlcr/2026-03-27_12-31-07/goal-tracker.md`
 - Doc consistency is verified with:
