@@ -1,11 +1,11 @@
 # Round 5 Summary
 
 ## Goal
-Close the remaining doc/bookkeeping alignment for FR-6 evidence splitting and stale summary verification wording without touching code.
+Close the remaining doc/bookkeeping alignment for FR-2/FR-3 evidence splitting and stale summary verification wording without touching code.
 
 ## Implementation Highlights
-- `docs/requirements-analysis.md` now records the FR-6 evidence split by keeping the foundational destination search, ranking, and routing coverage on the March 19 run while assigning selector parity/disambiguation and graph variant regression checks to the March 27 rerun.
-- `round-4-summary.md` now uses closure wording that reflects the FR-6 split and removes stale overstatements in the verification narrative.
+- `docs/requirements-analysis.md` now records the FR-2/FR-3 evidence split by keeping the foundational destination search, ranking, and routing coverage on the March 19 run while assigning selector parity/disambiguation and graph variant regression checks to the March 27 rerun.
+- `round-4-summary.md` now uses closure wording that reflects the FR-2/FR-3 evidence split and removes stale overstatements in the verification narrative.
 - `round-5-summary.md` now cleans up verification wording so doc consistency checks and worktree notes stay precise and historically anchored.
 
 ## Verification Conclusions
