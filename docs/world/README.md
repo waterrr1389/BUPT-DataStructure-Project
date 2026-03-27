@@ -14,13 +14,13 @@
 
 ## Files
 
-- [spec.md](/home/frisk/ds-ts/docs/world/spec.md)
+- [spec.md](./spec.md)
   - world mode 的总方案、范围、术语、Boston-inspired 空间逻辑和实施顺序
-- [contract.md](/home/frisk/ds-ts/docs/world/contract.md)
+- [contract.md](./contract.md)
   - world 数据模型、HTTP 合同、路由语义和失败语义
-- [plan.md](/home/frisk/ds-ts/docs/world/plan.md)
+- [plan.md](./plan.md)
   - world mode 的实施计划与参考性任务拆分，供维护中的 planning/reference set 对照使用
-- [boston-inspired.seed-fragment.json](/home/frisk/ds-ts/docs/world/examples/boston-inspired.seed-fragment.json)
+- [boston-inspired.seed-fragment.json](./examples/boston-inspired.seed-fragment.json)
   - Boston-inspired 的 world 样例数据片段，供规格/合同对照使用，不是当前运行时 seed 的唯一事实来源
 
 ## Merge Notes
@@ -41,7 +41,7 @@
 
 推荐顺序：
 
-1. 先读 [spec.md](/home/frisk/ds-ts/docs/world/spec.md)
-2. 再读 [contract.md](/home/frisk/ds-ts/docs/world/contract.md)
-3. 再读 [plan.md](/home/frisk/ds-ts/docs/world/plan.md)
-4. 最后对照 [boston-inspired.seed-fragment.json](/home/frisk/ds-ts/docs/world/examples/boston-inspired.seed-fragment.json)
+1. 先读 [spec.md](./spec.md)
+2. 再读 [contract.md](./contract.md)
+3. 再读 [plan.md](./plan.md)
+4. 最后对照 [boston-inspired.seed-fragment.json](./examples/boston-inspired.seed-fragment.json)
