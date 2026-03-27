@@ -10,7 +10,7 @@ Capture the fd-level guard diagnostics, the child-process `cwd` proof, and the u
 
 ## Verification Conclusions
 - `npm test` passes 144 tests (itself running `npm run build` and `node dist/tests/index.js`), confirming the new guard diagnostics, built handler proof, and the full automated suite are green on this HEAD.
-- Documentation, the guard repro, and the summary now reference the current March 27 rerun plus the verified guard/cwd evidence, and the goal-tracker entry captures the remaining bookkeeping so no other files need edits once this batch lands.
+- Documentation, the guard repro, and the summary now reference the current March 27 rerun plus the verified guard/cwd evidence; tracker and follow-up documentation bookkeeping can continue in subsequent rounds as needed.
 - Direct guard repro: created a `public/.browser-build-guard-repro-*` folder containing `illegal-first-party.js` and ran `node scripts/browser-build.js`; `spawnSync` exits with status `1` and stderr begins with the guard banner while listing the injected `public/.../illegal-first-party.js` path, demonstrating the diagnostic output is now steady.
 - `git ls-files 'public/*.js' 'public/spa/**/*.js' 'public/vendor/**/*.js'` returns just `public/vendor/leaflet/leaflet.js`, showing no first-party runtime `.js` files live under `public/`.
 - `docs/evaluation-and-improvements.md` now notes: “Verification: this round (March 27, 2026) reran `npm test` (which itself performs `npm run build`) and passed on the current HEAD; the March 19 recorded runs continue to document `npm run validate:data`, `npm run benchmark`, and `npm run demo`, while the March 18 unrestricted-environment checks remain the historical record that browser/API startup worked on `127.0.0.1:3000`,” so the docs match the current-versus-historical verification framing described in this summary.
@@ -25,8 +25,8 @@ Capture the fd-level guard diagnostics, the child-process `cwd` proof, and the u
 ### Requested Changes
 - Note in the tracker that Round 4 delivered the fd-level guard diagnostic rewrite, the `tests/support/built-server-cwd-proof.ts` child-process `cwd` statement, and the docs updates that place March 27 verification on the current HEAD while March 19/18 entries stay historical.
 - Capture the verification evidence that `npm test` (144 tests) succeeded on this HEAD, that the guard repro exits with status `1` while listing the injected `public/.../illegal-first-party.js`, and that `public/vendor/leaflet/leaflet.js` is the only runtime `.js` tracked under `public/`.
-- Keep the tracker entry open until reviewers accept the summary and documentation alignment; the goal-tracker file is the only uncommitted change, so updating it here keeps the workspace tidy.
+- Keep the tracker entry open until reviewers accept the summary and documentation alignment, and record any additional follow-up doc/bookkeeping updates in the next round summaries.
 
 ### Justification
 - The reviews reopened because guard diagnostics, the built handler `cwd` proof, and the docs narrative needed definitive current-HEAD evidence; those artifacts now exist and should be recorded explicitly in the tracker.
-- Only `.humanize/rlcr/2026-03-27_12-31-07/goal-tracker.md` remains modified, so noting these outcomes there avoids any unstaged drift while the round-4 summary sits ready to land.
+- Tracking these outcomes in `.humanize/rlcr/2026-03-27_12-31-07/goal-tracker.md` keeps the round-4 evidence explicit while allowing later rounds to carry any remaining documentation/bookkeeping deltas.
