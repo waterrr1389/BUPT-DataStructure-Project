@@ -624,5 +624,5 @@ world 不可用时推荐返回：
 
 实现与审阅时可对照使用：
 
-- [boston-inspired.seed-fragment.json](/home/frisk/ds-ts/docs/world/examples/boston-inspired.seed-fragment.json)
+- [boston-inspired.seed-fragment.json](./examples/boston-inspired.seed-fragment.json)
   - 该文件是示例/夹具片段，不是当前运行时 seed 的唯一事实来源
