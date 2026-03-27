@@ -42,6 +42,7 @@ interface ExactState extends RouteMetrics {
 }
 
 function compareMetrics(left: RouteMetrics, right: RouteMetrics): number {
+  // Keep routing decisions deterministic by using the same tie-break order as shortest-path search.
   if (left.cost !== right.cost) {
     return left.cost - right.cost;
   }
@@ -172,6 +173,7 @@ function solveExactRoute<Mode extends string, EdgeMeta>(
   }
 
   const fullMask = (1 << stopCount) - 1;
+  // Held-Karp state: dp[mask][last] stores the best metrics for visiting `mask` and ending at `last`.
   const dp: Array<Array<ExactState | undefined>> = Array.from(
     { length: fullMask + 1 },
     () => Array.from({ length: stopCount }, () => undefined),
@@ -296,6 +298,7 @@ function solveHeuristicRoute<Mode extends string, EdgeMeta>(
     let bestStop: string | undefined;
     let bestMetrics: RouteMetrics | undefined;
 
+    // The heuristic fallback is a nearest-neighbor walk using the same metric ordering as the exact solver.
     for (const stop of remaining) {
       const path = getPath(paths, current, stop);
 
@@ -358,6 +361,7 @@ function buildRouteResult<Mode extends string, EdgeMeta>(
     if (joinedPath.length === 0) {
       joinedPath.push(...path.nodes);
     } else {
+      // Adjacent legs share a checkpoint node, so drop the repeated first node from later segments.
       joinedPath.push(...path.nodes.slice(1));
     }
   }
@@ -423,6 +427,7 @@ export function planClosedLoopRoute<Mode extends string = string, NodeMeta = und
 
   const checkpoints = [origin, ...order];
   const { paths, unreachablePairs } = buildPairwisePaths(graph, checkpoints, options);
+  // The exact solver grows exponentially with stop count, so larger inputs switch to the heuristic fallback.
   const method = order.length <= maxExactStops ? "exact" : "heuristic";
   const routeOrder = method === "exact"
     ? solveExactRoute(origin, order, paths)

@@ -21,6 +21,7 @@ function buildAlphabet(input: string): string[] {
   const seen = new Set<string>();
   const alphabet: string[] = [];
 
+  // Preserve first-seen order so both sides seed the same base dictionary from the payload alone.
   for (const character of Array.from(input)) {
     if (!seen.has(character)) {
       seen.add(character);
@@ -32,6 +33,7 @@ function buildAlphabet(input: string): string[] {
 }
 
 function getDictionarySize(data: LzwCompressedData): number {
+  // Decoding adds one dictionary entry for every code after the first emitted symbol.
   return data.alphabet.length + Math.max(data.codes.length - 1, 0);
 }
 
@@ -92,6 +94,7 @@ export function compressText(input: string): CompressionResult {
   const dictionary = new Map<string, number>();
   const codes: number[] = [];
 
+  // Seed dictionary indices with the transmitted alphabet before emitting any combined phrases.
   alphabet.forEach((character, index) => {
     dictionary.set(character, index);
   });

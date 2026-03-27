@@ -83,6 +83,7 @@ function compareMetrics(
   left: Pick<PathState<string, unknown> | FrontierEntry, "cost" | "distance" | "time">,
   right: Pick<PathState<string, unknown> | FrontierEntry, "cost" | "distance" | "time">,
 ): number {
+  // Secondary metrics keep path selection stable when the primary strategy ties.
   if (left.cost !== right.cost) {
     return left.cost - right.cost;
   }
@@ -273,6 +274,7 @@ function resolveTraversal<Mode extends string, EdgeMeta>(
     const edgeModes = collectModes(edge);
 
     if (edgeModes.length === 0) {
+      // Edges without mode metadata stay traversable as generic distance-based links.
       candidateModes.push(null);
     } else {
       for (const mode of edgeModes) {
@@ -304,6 +306,7 @@ function resolveTraversal<Mode extends string, EdgeMeta>(
       candidateStep.metadata = edge.metadata;
     }
 
+    // Reuse the global metric ordering so route expansion and mode selection agree.
     if (!bestStep || compareMetrics(candidateStep, bestStep) < 0) {
       bestStep = candidateStep;
     }
@@ -497,6 +500,7 @@ function runDijkstra<Mode extends string, NodeMeta, EdgeMeta>(
     const frontierEntry = frontier.pop() as FrontierEntry;
     const currentState = states.get(frontierEntry.nodeId) as PathState<Mode, EdgeMeta>;
 
+    // Relaxation pushes replacement entries, so older heap entries must be ignored here.
     if (compareMetrics(frontierEntry, currentState) > 0) {
       continue;
     }
