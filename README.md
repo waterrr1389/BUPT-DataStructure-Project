@@ -36,7 +36,8 @@
 - `tests/` 与 `docs/`：测试与交付文档。
 
 ## 当前验证状态
-- 仓库文档此前记录过 `npm test` 的一次通过结果；本次文档同步未重新执行构建或测试，因此这里不额外声明新的验证结论。
+- 本轮（2026 年 3 月 27 日）重新运行了 `npm test`（该脚本会先执行 `npm run build`），并成功通过，因此构建与自动化测试在当前 HEAD 上都被验证过。
+- March 19, 2026 记录的运行仍是 `npm run validate:data`、`npm run benchmark`、`npm run demo` 等命令的基线成绩，而 March 18 的非受限环境启动与浏览器/API 烟雾记录保留为历史佐证。
 
 ## 文档索引
 - 用户指南：`docs/user-guide.md`。

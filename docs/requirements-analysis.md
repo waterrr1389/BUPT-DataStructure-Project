@@ -2,7 +2,7 @@
 
 ## Functional Requirements And Repository Mapping
 
-Evidence below refers to the recorded March 19, 2026 verification pass unless noted otherwise; the March 18 unrestricted startup and smoke record is historical.
+Evidence below refers to the March 27, 2026 rerun of `npm test` (which includes `npm run build`) for the automated tests, while the March 19, 2026 recorded runs provide the reference evidence for `npm run validate:data`, `npm run benchmark`, and `npm run demo`; the March 18 unrestricted startup and smoke record is historical.
 
 ### FR-1 Data And Validation
 
@@ -13,7 +13,7 @@ Implemented in:
 - `src/data/validation.ts`
 - `scripts/validate-data.ts`
 
-- Recorded evidence (March 19, 2026 run):
+- Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - The real seed validated at `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` edges, `12` users, `12` journals, and `880` foods.
 - Validation rejects broken coordinates, missing metadata, invalid travel-mode bindings, and broken graph references.
@@ -28,7 +28,7 @@ Implemented in:
 - `src/algorithms/fuzzy.ts`
 - `src/services/destination-service.ts`
 
-Recorded evidence (March 19, 2026 run):
+Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Destination search supports query, category, and `sortBy` handling.
 - Destination recommendation uses bounded top-k ranking.
@@ -45,7 +45,7 @@ Implemented in:
 - `src/services/route-service.ts`
 - `src/services/facility-service.ts`
 
-Recorded evidence (March 19, 2026 run):
+Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Routing supports shortest-path and multi-stop planning.
 - The exposed strategy set is `distance`, `time`, and `mixed`.
@@ -63,7 +63,7 @@ Implemented in:
 - `src/services/exchange-service.ts`
 - `src/algorithms/compression.ts`
 
-Recorded evidence (March 19, 2026 run):
+Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Journals can be created, listed, viewed, rated, updated, deleted, and recommended.
 - Exchange supports exact-title lookup and full-text search without relying on database-native search.
@@ -79,7 +79,7 @@ Implemented in:
 - `src/algorithms/top-k.ts`
 - `src/algorithms/graph.ts`
 
-Recorded evidence (March 19, 2026 run):
+Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Food recommendation blends heat, rating, dietary preference matching, and graph distance.
 - Food search supports cuisine filtering and typo-tolerant text matching.
@@ -97,12 +97,12 @@ Implemented in:
 - `tests/`
 - `docs/`
 
-Recorded evidence (March 19, 2026 run):
+Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - The browser surface covers destinations, routes, facilities, journals, exchange, and food.
 - The March 19 recorded `npm run demo` provides a deterministic report centered on `dest-002` / `River Polytechnic`.
-- The March 19 recorded `npm test` run now includes explicit selector-parity coverage and graph-variant structure/regression coverage.
-- `README.md` and the delivery docs now align with the implemented module structure and recorded outputs.
+- The March 27 rerun of `npm test` now includes explicit selector-parity coverage and graph-variant structure/regression coverage.
+- `README.md` and the delivery docs now align with the implemented module structure and recorded outputs while explicitly distinguishing the March 27 rerun, the March 19 recorded command runs, and the March 18 historical startup evidence.
 
 ## Non-Functional Requirements
 

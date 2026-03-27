@@ -5,7 +5,7 @@
 - Feature coverage: the repository implements destination recommendation and search, routing, nearby facilities, journals, journal exchange, food discovery, benchmarks, demo scripting, and a browser-facing surface.
 - Data scale: the March 19 recorded `npm run validate:data` run reported `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` edges, `12` users, `12` journals, and `880` foods.
 - Algorithm ownership: ranking, prefix/text search, fuzzy matching, routing, multi-stop planning, and compression all live in `src/algorithms/`.
-- Verification: the March 19 recorded runs for `npm run build`, `npm run validate:data`, `npm test`, `npm run benchmark`, and `npm run demo` passed in the post-fix workspace; the March 18 unrestricted-environment checks remain the historical record that browser/API startup worked on `127.0.0.1:3000`.
+- Verification: this round (March 27, 2026) reran `npm test` (which itself performs `npm run build`) and passed on the current HEAD; the March 19 recorded runs continue to document `npm run validate:data`, `npm run benchmark`, and `npm run demo`, while the March 18 unrestricted-environment checks remain the historical record that browser/API startup worked on `127.0.0.1:3000`.
 - Startup behavior: the CLI now supports both the verified unrestricted-environment startup path and clean restricted-environment failure reporting when a sandbox returns `EPERM`.
 - Documentation: the delivery docs now describe the implemented repository and recorded evidence instead of Round 0 planning assumptions.
 

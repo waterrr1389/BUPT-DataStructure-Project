@@ -13,20 +13,21 @@ The repository regression surface is:
 
 ## Recorded Evidence Summary
 
-The notes below combine two evidence sets:
+The notes below cover:
 
-- March 19, 2026 automated-test evidence from this round, plus targeted code-level confirmation where noted
+- March 27, 2026 automated re-verification (`npm test`, which itself runs `npm run build`) executed for this round, plus targeted code-level confirmation where noted
+- March 19, 2026 recorded command runs for `npm run validate:data`, `npm run benchmark`, and `npm run demo` (the earlier automated-test pass is also part of that historical record)
 - March 18, 2026 unrestricted live-start and browser/API smoke evidence (historical)
 
-This round did not rerun the unrestricted March 18 smoke pass; that live-start record remains historical.
+This round reran only `npm test`/`npm run build`; the remaining command evidence stays with the March 19 or March 18 records, and the unrestricted March 18 smoke pass remains historical.
 
 ### Build
 
-- Recorded in the March 19, 2026 run: `npm run build` passed.
+- Verified on March 27, 2026 when the round's `npm test` script (which runs `npm run build`) passed; the March 19, 2026 run also recorded `npm run build`, providing the historical baseline for the standalone build command.
 
 ### Data Validation
 
-- Recorded in the March 19, 2026 run, `npm run validate:data` passed against `src/data/seed.ts`.
+- Recorded in the March 19, 2026 run (not rerun during this round), `npm run validate:data` passed against `src/data/seed.ts`.
 - Recorded counts:
   - destinations: `220`
   - buildings: `660`
@@ -39,8 +40,8 @@ This round did not rerun the unrestricted March 18 smoke pass; that live-start r
 
 ### Automated Tests
 
-- `npm test` passed with `30` tests on March 19, 2026.
-- Recorded March 19 automated-test evidence from this round includes:
+- March 27, 2026 reran `npm test` (which runs `npm run build` and `node dist/tests/index.js`) and passed with `144` tests.
+- Recorded March 27 automated-test evidence from this round includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
   - external runtime/source verification
@@ -54,11 +55,11 @@ This round did not rerun the unrestricted March 18 smoke pass; that live-start r
   - deterministic graph-variant regression coverage in `tests/runtime-services.test.ts` for distinct scenic and campus fallback graph structures
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
-- A March 19 recorded code inspection also confirmed that `dist/public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail was not rerun in the older March 18 live browser smoke, and the public browser URL remains stable.
+- A March 19 recorded code inspection also confirmed that `dist/public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail remains tied to the March 19 run because it was not rerun this round, and the public browser URL remains stable.
 
 ### Benchmarks
 
-- Recorded in the March 19, 2026 benchmarking run, `npm run benchmark` passed.
+- Recorded in the March 19, 2026 benchmarking run (not rerun during this round), `npm run benchmark` passed.
 - Representative output from that recorded run:
   - `top-k: 6.250 ms over 25 iteration(s) with sample size 1000`
   - `search: 27.531 ms over 25 iteration(s) with sample size 1000`
@@ -69,7 +70,7 @@ The benchmark harness uses fixed workloads, but the wall-clock timings vary by r
 
 ## Example Demo Results
 
-`npm run demo` produced a deterministic report in the recorded March 19, 2026 run, built from `createAppServices()` and the real seed/runtime data.
+`npm run demo` produced a deterministic report in the recorded March 19, 2026 run (not rerun during this round), built from `createAppServices()` and the real seed/runtime data.
 
 Representative deterministic outputs recorded from that run:
 
