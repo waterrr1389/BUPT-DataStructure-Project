@@ -47,18 +47,19 @@ Source plan: plan.md
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Define dist/public as the only runtime output directory and route browser build output there while preserving public URLs. | 2 | in_progress | Aligns build output with stable URLs. |
-| Switch server static root to the runtime output directory and keep index fallback consistent. | 2 | in_progress | Server should not serve source public/. |
-| Update tests and harnesses to load assets from the runtime output directory and assert helper/global/CommonJS contracts. | 3 | in_progress | Include negative coverage for broken outputs. |
-| Split build responsibilities for browser output and static copy; ensure build is repeatable and recoverable. | 4 | in_progress | No manual steps. |
-| Remove first-party committed browser JS from public/ and add safeguards to prevent reintroduction. | 1 | in_progress | Leave third-party exceptions intact. |
-| Update docs to describe pure TypeScript meaning, runtime output directory, stable URLs, and exceptions. | 5 | in_progress | Keep commands consistent with structure. |
-| Audit new or moved first-party public contracts for concise English JSDoc. | 6 | pending | Avoid process-style comments. |
+| None | - | Cleared | Round 0 implementation and verification are complete. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
+| 2 | Define dist/public as the only runtime output directory and route browser build output there while preserving public URLs. | 0 | 0 | Commits 2593f7a, cce1cdd; runtime path checks updated in code/docs alignment. |
+| 2 | Switch server static root to the runtime output directory and keep index fallback consistent. | 0 | 0 | Commit c862c23. |
+| 3 | Update tests and harnesses to load assets from the runtime output directory and assert helper/global/CommonJS contracts. | 0 | 0 | Commits 9bf2524, a505c74; npm test passed. |
+| 4 | Split build responsibilities for browser output and static copy; ensure build is repeatable and recoverable. | 0 | 0 | Commits 2593f7a, cce1cdd; npm test passed. |
+| 1 | Remove first-party committed browser JS from public/ and add safeguards to prevent reintroduction. | 0 | 0 | Commits 2593f7a, cce1cdd; `git ls-files 'public/*.js' 'public/spa/**/*.js'` returns only `public/vendor/leaflet/leaflet.js`. |
+| 5 | Update docs to describe pure TypeScript meaning, runtime output directory, stable URLs, and exceptions. | 0 | 0 | Commits c8b1b26, d95b890, e412634, d45260f; docs and runtime path checks were updated. |
+| 6 | Audit new or moved first-party public contracts for concise English JSDoc. | 0 | 0 | Reviewed touched code/comments for English-only and process-comment discipline; no new production public contract exports were introduced. |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
