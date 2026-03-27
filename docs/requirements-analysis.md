@@ -60,12 +60,12 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 - The exposed travel modes are `walk`, `bike`, `shuttle`, and `mixed`.
 - Indoor route coverage appears in the deterministic demo.
 - Nearby facilities are filtered by category and ordered by network distance.
-- The recorded demo surface includes the implemented world view and world-route planning entrypoints.
 
 Recorded evidence (March 27, 2026 rerun):
 
 - The rerun's graph and runtime-service tests now verify fallback runtime generation uses deterministic scenic and campus graph variants instead of reusing a single template, locking in the rerun's graph-variant regression coverage.
 - The rerun's runtime-service and world-route suites cover indoor route behavior plus explicit world-route invalid-request and error-contract behavior through the automated test suite.
+- The rerun's SPA/browser-facing regression suite covers the implemented world-view and world-route browser surfaces under `/map?view=world`.
 
 ### FR-4 Journals, Feed, Search, Compression, And Storyboard Output
 
