@@ -35,19 +35,22 @@ Source plan: plan.md
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 1 (Updated: Round 0)
+### Plan Version: 2 (Updated: Round 2 review)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initial plan | - | - |
+| 2 | Reopened verification and bookkeeping work after the Round 2 review found three failing regressions on current HEAD and the mutable tracker still omitted original-plan AC-7. | The Round 2 summary claimed green verification that is not reproducible, so the tracker must carry the reopened work instead of reporting no active tasks. | 1, 2, 3, 4, 5, 7 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| None | - | Cleared | Round 0 implementation and verification are complete. |
+| Restore browser-build guard diagnostics so `spawnSync` callers capture the illegal-path banner and every offending `public/*` path, then rerun `npm test`. | 1, 3, 4 | Reopened | Current `npm test` fails both browser-build guard regressions because the child process exits non-zero with empty captured `stdout` and `stderr`. |
+| Replace the cwd regression with a writable, module-load-time proof that loads the built server and runtime helper after `chdir`, then rerun `npm test`. | 2, 3 | Reopened | The current test imports helpers before `chdir()` and tries to create its external cwd outside writable roots, so it neither proves the required behavior nor passes in this workspace. |
+| Reconcile docs and mutable bookkeeping with the real current state: remove false green-verification claims, document runtime-output/static-copy/vendor-exception semantics positively, and carry original-plan AC-7 explicitly until each batch has acceptance evidence. | 5, 7 | Reopened | `docs/evaluation-and-improvements.md` still claims `npm test` passes on current HEAD, and the immutable tracker still omits AC-7 from the original plan. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -70,3 +73,6 @@ Source plan: plan.md
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
+| Browser-build guard failures are not emitted in a way that `spawnSync(..., { encoding: "utf8" })` captures, leaving the new illegal-`public/*.js` regression tests red. | 2 | 1, 3, 4 | Route all build-failure diagnostics through a synchronous stderr path, then rerun the injected-illegal-file repro plus `npm test`. |
+| The cwd regression imports runtime helpers before `chdir()` and creates its external cwd under the repo parent instead of a guaranteed writable location, so it neither proves module-load-time cwd independence nor passes repeatably. | 2 | 2, 3 | Use a writable outside cwd such as `/tmp`, load the built modules only after `chdir()` in a fresh process or late require, and assert `/` plus `/app.js` against `dist/public`. |
+| Mutable tracking still omits original-plan AC-7, and current delivery evidence overstates green verification on current HEAD. | 2 | 5, 7 | Reject the Round 2 closure request, keep AC-7 explicit in mutable tracking, and only re-close doc/evidence work after rerun commands and positive docs checks succeed. |
