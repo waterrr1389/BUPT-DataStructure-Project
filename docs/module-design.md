@@ -24,17 +24,20 @@
 - `src/server/index.ts`
 - `public/index.html`
 - `public/app.ts`
-- `public/app.js`
 - `public/journal-consumers.ts`
-- `public/journal-consumers.js`
 - `public/journal-presentation.ts`
-- `public/journal-presentation.js`
 - `public/route-visualization-markers.ts`
-- `public/route-visualization-markers.js`
 - `public/spa/**/*.ts`
-- `public/spa/**/*.js`
 - `public/vendor/**`
 - `public/styles.css`
+- `dist/public/index.html`
+- `dist/public/app.js`
+- `dist/public/journal-consumers.js`
+- `dist/public/journal-presentation.js`
+- `dist/public/route-visualization-markers.js`
+- `dist/public/spa/**/*.js`
+- `dist/public/vendor/**`
+- `dist/public/styles.css`
 - `scripts/validate-data.ts`
 - `scripts/run-benchmarks.ts`
 - `scripts/demo.ts`
@@ -75,9 +78,10 @@
 - `src/server/index.ts` exposes a lightweight HTTP server, static asset serving, and JSON API routes for every feature area.
 - `public/app.ts` and `public/spa/**/*.ts` are the browser-maintained TypeScript sources for the module-based SPA runtime.
 - `public/journal-consumers.ts`, `public/journal-presentation.ts`, and `public/route-visualization-markers.ts` compile to stable script URLs while keeping browser-global and CommonJS-compatible behavior.
-- `public/*.js` and `public/spa/**/*.js` remain the served browser runtime output at unchanged URLs because the server still serves `public/` directly.
-- `public/vendor/**` remains third-party browser JavaScript and CSS rather than project-authored TypeScript.
-- `public/` provides the single-page demo UI for destinations, routes, facilities, journals, exchange, and food.
+- `dist/public/*.js` and `dist/public/spa/**/*.js` are the served browser runtime output; build output moved from source `public/` to `dist/public/` while keeping public URLs unchanged.
+- `public/vendor/**` remains third-party browser JavaScript and CSS source assets rather than project-authored TypeScript.
+- `dist/public/vendor/**` is the third-party exception in served runtime output and stays non-authored.
+- Source `public/` provides browser source inputs, while served UI assets are read from `dist/public/`.
 
 ### Scripts And Tests
 

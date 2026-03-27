@@ -52,16 +52,16 @@ The demo covers:
 ## Browser/API Notes
 
 - `GET /api/health` reports the runtime source bundle, including whether data/algorithms/validation are external or fallback.
-- The server serves `public/` plus JSON API endpoints from `src/server/index.ts`, so the browser runtime keeps the same public URLs while the maintained sources move to TypeScript.
-- Browser-maintained sources live in `public/*.ts` and `public/spa/**/*.ts`; the served runtime output remains `public/*.js` and `public/spa/**/*.js`.
-- `public/vendor/**` remains vendored third-party JavaScript and CSS rather than project-authored TypeScript.
+- The server serves `dist/public/` plus JSON API endpoints from `src/server/index.ts`, so browser runtime URLs stay stable while source and runtime directories remain separated.
+- Browser-maintained first-party sources live in `public/*.ts` and `public/spa/**/*.ts`; served runtime output is built into `dist/public/*.js` and `dist/public/spa/**/*.js`.
+- `public/vendor/**` remains vendored third-party JavaScript and CSS rather than project-authored TypeScript, and is emitted to `dist/public/vendor/**` as a served exception.
 - Route, facility, food, journal, and exchange destination selectors now draw from the same full destination catalog and use the same duplicate-name disambiguation. The featured destination subset is still reserved for homepage cards.
 - Invalid destination `sortBy` inputs are rejected instead of being silently treated as `rating`.
 
 ## Troubleshooting
 
 - If `npm run start` fails with `EPERM` on `127.0.0.1:3000` inside a restricted sandbox, treat that as an environment limitation rather than a known compile/runtime issue in the repo. The March 18 unrestricted-environment verification recorded elsewhere in the delivery docs confirmed that the app can also start successfully and serve the browser/API surface.
-- If you change browser TypeScript under `public/*.ts` or `public/spa/**/*.ts`, rerun `npm run build` so the served JavaScript in `public/` is refreshed.
+- If you change browser TypeScript under `public/*.ts` or `public/spa/**/*.ts`, rerun `npm run build` so the served JavaScript in `dist/public/` is refreshed.
 - If you change `public/journal-consumers.ts`, `public/journal-presentation.ts`, or `public/route-visualization-markers.ts`, keep their browser-global and CommonJS-compatible behavior intact because they are compiled as script-style helpers rather than ESM modules.
 - If demo output changes, rerun `npm test` because `tests/integration-smoke.test.ts` asserts the deterministic demo report structure.
 - If fallback-only runtime behavior changes, rerun `npm test` because `tests/runtime-services.test.ts` now checks the deterministic scenic and campus graph variants directly.

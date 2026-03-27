@@ -47,12 +47,12 @@ Source plan: plan.md
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Define dist/public as the only runtime output directory and route browser build output there while preserving public URLs. | 2 | pending | Aligns build output with stable URLs. |
-| Switch server static root to the runtime output directory and keep index fallback consistent. | 2 | pending | Server should not serve source public/. |
-| Update tests and harnesses to load assets from the runtime output directory and assert helper/global/CommonJS contracts. | 3 | pending | Include negative coverage for broken outputs. |
-| Split build responsibilities for browser output and static copy; ensure build is repeatable and recoverable. | 4 | pending | No manual steps. |
-| Remove first-party committed browser JS from public/ and add safeguards to prevent reintroduction. | 1 | pending | Leave third-party exceptions intact. |
-| Update docs to describe pure TypeScript meaning, runtime output directory, stable URLs, and exceptions. | 5 | pending | Keep commands consistent with structure. |
+| Define dist/public as the only runtime output directory and route browser build output there while preserving public URLs. | 2 | in_progress | Aligns build output with stable URLs. |
+| Switch server static root to the runtime output directory and keep index fallback consistent. | 2 | in_progress | Server should not serve source public/. |
+| Update tests and harnesses to load assets from the runtime output directory and assert helper/global/CommonJS contracts. | 3 | in_progress | Include negative coverage for broken outputs. |
+| Split build responsibilities for browser output and static copy; ensure build is repeatable and recoverable. | 4 | in_progress | No manual steps. |
+| Remove first-party committed browser JS from public/ and add safeguards to prevent reintroduction. | 1 | in_progress | Leave third-party exceptions intact. |
+| Update docs to describe pure TypeScript meaning, runtime output directory, stable URLs, and exceptions. | 5 | in_progress | Keep commands consistent with structure. |
 | Audit new or moved first-party public contracts for concise English JSDoc. | 6 | pending | Avoid process-style comments. |
 
 ### Completed and Verified
