@@ -72,7 +72,7 @@
 ### Round 0
 
 - Established the RLCR goal tracker and initial repository delivery surface.
-- Added the zero-dependency TypeScript command contract, source layout, docs, scripts, server, and first-pass tests.
+- Added the minimal-dependency TypeScript command contract, source layout, docs, scripts, server, and first-pass tests.
 - Later review confirmed that Round 0 implemented substantial code but overstated completion.
 
 ### Round 1
