@@ -54,6 +54,7 @@ async function loadOptionalModule<T>(relativePath: string): Promise<T | null> {
     return require(modulePath) as T;
   } catch (error) {
     const candidate = error as NodeJS.ErrnoException;
+    // Only treat the requested module as optional; nested dependency failures should still surface.
     if (candidate?.code === "MODULE_NOT_FOUND" && String(candidate.message ?? "").includes(modulePath)) {
       return null;
     }
@@ -171,6 +172,7 @@ function mergeValidation(bundle: ValidationBundle | null): ResolvedValidationBun
 function mergeAlgorithms(bundle: AlgorithmBundle | null): ResolvedAlgorithmBundle {
   return {
     recommendation: {
+      // External helpers can override individual functions, but the fallback bundle remains the baseline contract.
       ...fallbackRecommendationHelpers,
       ...(bundle?.recommendation ?? {}),
     },
@@ -190,6 +192,7 @@ function normalizeSeedModule(module: unknown): { seedData: SeedDataContract; loo
   if (!candidate?.seedData) {
     return null;
   }
+  // Rebuild missing lookup maps from the resolved seed so downstream services always receive complete indexes.
   const defaultLookups = createLookups(candidate.seedData);
   const lookups: ResolvedSeedLookups = {
     destinationById: candidate.lookups?.destinationById ?? defaultLookups.destinationById,
@@ -260,6 +263,7 @@ export async function getRuntime(options: ServiceContextOptions = {}): Promise<R
   const runtimePromise = (async () => {
     const runtimeDir = options.runtimeDir ?? path.resolve(process.cwd(), ".runtime");
     const externalSeed = normalizeSeedModule(await loadOptionalModule("../data/seed"));
+    // Validation extensions are only loaded with external seed data; fallback data validates through the local contract.
     const externalValidation = externalSeed
       ? normalizeValidationModule(await loadOptionalModule("../data/validation"))
       : null;
@@ -268,6 +272,7 @@ export async function getRuntime(options: ServiceContextOptions = {}): Promise<R
     );
 
     const fallback = createFallbackRuntime();
+    // Resolve each bundle independently so external algorithms can coexist with fallback data and validation.
     const resolvedSeed = externalSeed ?? fallback;
     const defaultLookups = createLookups(resolvedSeed.seedData);
     const resolvedLookups: ResolvedSeedLookups = {
@@ -295,6 +300,7 @@ export async function getRuntime(options: ServiceContextOptions = {}): Promise<R
   })();
 
   if (!options.runtimeDir) {
+    // Callers that use the default runtime share one in-memory singleton; explicit runtimeDir keeps isolation for tests.
     cachedRuntimePromise = runtimePromise;
   }
   return runtimePromise;

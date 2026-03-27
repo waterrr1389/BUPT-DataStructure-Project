@@ -362,6 +362,7 @@ function createDestinationName(index: number, type: DestinationType): string {
 
 function selectGraphVariant(index: number, type: DestinationType): GraphVariant {
   const variants = type === "scenic" ? SCENIC_GRAPH_VARIANTS : CAMPUS_GRAPH_VARIANTS;
+  // Reuse a small layout set so fallback routes stay predictable while adjacent destinations still vary in metadata.
   return variants[Math.floor(index / 2) % variants.length];
 }
 
@@ -536,6 +537,7 @@ function createEdges(
   variant: GraphVariant,
 ): DestinationEdge[] {
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  // "Mobile" links become the destination-specific fast lane, while indoor and walkway links remain walk-only.
   const mobileModes: TravelMode[] = type === "campus" ? ["walk", "bike"] : ["walk", "shuttle"];
   return variant.edges.map((edge) =>
     createEdge(
@@ -729,6 +731,7 @@ function buildLookups(data: SeedDataContract): SeedLookupsContract {
   };
 }
 
+// Materialize the fallback catalog once so every runtime sees the same deterministic ids, graphs, and lookup maps.
 const destinations = Array.from({ length: 220 }, (_, index) => createDestination(index));
 const users = createUsers(destinations);
 const journals = createJournals(destinations, users);

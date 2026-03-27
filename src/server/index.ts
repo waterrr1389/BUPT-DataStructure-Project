@@ -7,6 +7,7 @@ import { isWorldRouteServiceError } from "../services/world-route-service";
 
 function resolvePublicDirFromServerLocation(): string {
   const serverDir = path.normalize(path.resolve(__dirname)).replace(/\\/g, "/");
+  // Resolve assets relative to the built server entry instead of process.cwd() so tests can run from outside the repo.
   if (serverDir.endsWith("/dist/src/server")) {
     return path.resolve(serverDir, "..", "..", "public");
   }
@@ -67,6 +68,7 @@ function staticCacheControl(filePath: string): string {
 
 async function serveStatic(requestPath: string, response: ServerResponse): Promise<void> {
   const normalizedPath = requestPath === "/" ? "/index.html" : requestPath;
+  // Normalize the request path before joining so traversal attempts cannot escape the public directory.
   const safePath = path.normalize(normalizedPath).replace(/^(\.\.[/\\])+/, "");
   const targetPath = path.join(publicDir, safePath);
   if (!targetPath.startsWith(publicDir)) {
@@ -82,6 +84,7 @@ async function serveStatic(requestPath: string, response: ServerResponse): Promi
     response.end(content);
   } catch (error) {
     const candidate = error as NodeJS.ErrnoException;
+    // Extensionless misses fall back to the SPA shell, while real asset misses still return 404.
     if (candidate.code === "ENOENT" && !path.extname(targetPath)) {
       const fallback = await fs.readFile(path.join(publicDir, "index.html"));
       response.writeHead(200, {
@@ -172,6 +175,7 @@ async function handleApi(
     return false;
   }
 
+  // Keep literal routes ahead of parameter routes so ids never shadow special endpoints.
   if (request.method === "GET" && url.pathname === "/api/health") {
     json(response, 200, {
       ok: true,

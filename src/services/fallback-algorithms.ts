@@ -117,6 +117,7 @@ export const fallbackRecommendationHelpers: RecommendationHelpers = {
     if (limit <= 0) {
       return [];
     }
+    // Keep only the current winners so ranking stays stable by insertion order without sorting the whole input.
     const heap = new MinHeap<{ item: T; score: number; order: number }>((left, right) => {
       if (left.score === right.score) {
         return left.order - right.order;
@@ -158,6 +159,7 @@ export const fallbackSearchHelpers: SearchHelpers = {
         const haystacks = value(item).map((part) => normalizeText(part));
         const matches = queryTokens.filter((token) => haystacks.some((haystack) => haystack.includes(token)));
         const normalizedQuery = normalizeText(query);
+        // Exact and phrase boosts keep short, direct matches ahead of broad token overlaps.
         const exactBoost = haystacks.some((haystack) => haystack === normalizedQuery) ? 4 : 0;
         const phraseBoost = haystacks.join(" ").includes(normalizedQuery) ? 2 : 0;
         const score = matches.length * 3 + exactBoost + phraseBoost;
@@ -377,6 +379,7 @@ function mergePaths(paths: PathResult[], strategy: RouteStrategy): PathResult {
     if (nodeIds.length === 0) {
       nodeIds.push(...path.nodeIds);
     } else {
+      // Drop the repeated boundary node when stitching consecutive segments into one walk.
       nodeIds.push(...path.nodeIds.slice(1));
     }
     steps.push(...path.steps);
@@ -435,6 +438,7 @@ function runClosedWalk(args: {
   const remaining = new Set(uniqueTargets);
   while (remaining.size > 0) {
     const candidates = [...remaining].map((target) => ({ target, path: getPath(current, target) }));
+    // The fallback planner uses a greedy nearest-next pass to stay deterministic and lightweight.
     candidates.sort((left, right) => left.path.totalCost - right.path.totalCost);
     const next = candidates.find((candidate) => candidate.path.reachable);
     if (!next) {
