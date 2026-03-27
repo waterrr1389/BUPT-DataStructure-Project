@@ -203,6 +203,7 @@ function modeSpeed(mode: TravelMode): number {
 
 function pickMode(edge: DestinationEdge, requestedMode: TravelMode): TravelMode | null {
   if (requestedMode === "mixed") {
+    // Mixed routing prefers the fastest permitted mode on each edge instead of preserving a prior segment mode.
     if (edge.allowedModes.includes("shuttle")) {
       return "shuttle";
     }
@@ -224,6 +225,7 @@ function edgeCost(edge: DestinationEdge, strategy: RouteStrategy, mode: TravelMo
   }
   const speed = modeSpeed(effectiveMode);
   const adjusted = edge.distance / speed;
+  // Time-based routing starts from travel time, then inflates it by edge congestion so blocked shortcuts lose priority.
   const congestionMultiplier = 1 + edge.congestion * 1.15;
   return {
     cost: Number((adjusted * congestionMultiplier).toFixed(2)),

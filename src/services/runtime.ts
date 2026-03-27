@@ -85,6 +85,7 @@ function resolveSourceKind(value: unknown): RuntimeSourceKind {
 
 export function deriveWorldRuntimeState(data: SeedDataContract): WorldRuntimeState {
   const available = Boolean(data.world);
+  // A world payload can exist for map rendering even when routing must stay disabled until the graph and portals are complete.
   const routingAvailable = Boolean(
     data.world &&
       data.world.graph.nodes.length > 0 &&
