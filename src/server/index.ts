@@ -5,7 +5,15 @@ import { parseDestinationSortBy, type WorldRoutePlanInvalidRequestRecord } from 
 import { createAppServices, type AppServices } from "../services/index";
 import { isWorldRouteServiceError } from "../services/world-route-service";
 
-const publicDir = path.resolve(process.cwd(), "dist/public");
+function resolvePublicDirFromServerLocation(): string {
+  const serverDir = path.normalize(path.resolve(__dirname)).replace(/\\/g, "/");
+  if (serverDir.endsWith("/dist/src/server")) {
+    return path.resolve(serverDir, "..", "..", "public");
+  }
+  return path.resolve(serverDir, "..", "..", "dist", "public");
+}
+
+const publicDir = resolvePublicDirFromServerLocation();
 const WORLD_ROUTE_INVALID_REQUEST_MESSAGE = "Invalid world route request.";
 
 class RequestBodyError extends Error {
