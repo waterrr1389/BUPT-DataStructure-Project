@@ -35,7 +35,7 @@ Source plan: plan.md
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 6 (Updated: Round 6 review)
+### Plan Version: 7 (Updated: Round 7 review)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -47,12 +47,12 @@ Source plan: plan.md
 | 4 | Closed the reopened guard-diagnostics and child-process cwd-proof work after fresh current-HEAD verification, but kept the docs/bookkeeping batch open for one remaining verification-attribution mismatch. | Round 4 now verifies `npm test` at 144 passing tests, the direct `spawnSync` guard repro emits the banner plus injected `public/.../illegal-first-party.js`, and the built-server child-process proof exits successfully after `chdir()`. `docs/requirements-analysis.md` and `round-4-summary.md` still need one more wording pass to keep the review artifacts fully aligned with that state. | 1, 2, 3, 4, 5, 7 |
 | 5 | Accepted the FR-2 / FR-3 evidence split and a fresh `npm test` rerun, but kept the docs/bookkeeping batch open because the repo-wide verification narrative is still not fully aligned. | Round 5 fixed the earlier FR-2 / FR-3 mismatch, but `docs/requirements-analysis.md` still mixes March 27 rerun text into the FR-6 March 19 block, `round-4-summary.md` still over-claims closure, and the Round 5 modified-tracker / README grep statements do not match current HEAD. | 5, 7 |
 | 6 | Confirmed the March 19 / March 27 evidence split is now accurately separated under FR-2 and FR-3, but the bookkeeping narrative still refers to the old FR-6 framing and the tracker was not refreshed after Round 6. | `docs/requirements-analysis.md` now publishes the FR-2/FR-3 split, yet `round-5-summary.md` and `round-6-summary.md` continue to describe that split as FR-6 and omitted the Round 6 tracker update request, so the plan log and summary still disagree. | 5, 7 |
+| 7 | Closed the remaining round-summary and tracker bookkeeping after review confirmed the FR-2/FR-3 evidence split and refreshed current-HEAD verification. | `round-5-summary.md` and `round-6-summary.md` now describe the March 19 and March 27 evidence split under FR-2 and FR-3, and the Round 7 review reran the status, JS-inventory, date-consistency, and `npm test` checks before closing the reviewer-managed tracker work. | 5, 7 |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Update the round summaries and tracker closure state to match the verified FR-2/FR-3 evidence split. | 5, 7 | Active | `docs/requirements-analysis.md` already separates the March 19 and March 27 proof under FR-2 and FR-3, but `round-5-summary.md` and `round-6-summary.md` still describe that story as an FR-6 block and the Round 6 summary omitted the goal-tracker update request; bring the bookkeeping narrative in sync, then record closure against the refreshed mutable tracker while keeping AC-7 explicitly visible because the immutable section cannot change. |
 
 #### AC-7 Batch Evidence Status
 | Batch | Acceptance Command Or Check | Current Evidence | Status | Notes |
@@ -61,7 +61,7 @@ Source plan: plan.md
 | Server static directory switch | Check server static root against runtime output and keep `/` fallback aligned | The child-process cwd proof and the integration smoke suite both confirm that the built handler still serves `/` and `/app.js` from `dist/public` after `chdir()`. | Verified | The reopened cwd-proof gap is closed by `tests/support/built-server-cwd-proof.ts` plus the green Round 4 `npm test` rerun. |
 | Test baseline switch | `npm test`; inspect integration smoke, SPA harness, and helper contract tests | `npm test` passed with 144 tests on March 27, 2026, including the browser guard regressions, runtime-output contract checks, helper/global/CommonJS coverage, and the child-process cwd proof. | Verified | The suite now re-closes the previously reopened browser-build and cwd regressions on current HEAD. |
 | First-party JS removal and guard | `git ls-files 'public/*.js' 'public/spa/**/*.js'`; `npm test` | `git ls-files` still returns only `public/vendor/leaflet/leaflet.js`, and the direct `spawnSync` guard repro exits 1 with stderr starting at the banner while listing the injected illegal `public/.../illegal-first-party.js`. | Verified | The fd-level diagnostics fix makes the guard evidence observable to piped `spawnSync` callers again. |
-| Docs update | Review README and delivery docs for `dist/public`, static-copy behavior, and `public/vendor/**` exception wording | README and the main delivery docs distinguish the March 27 current-HEAD rerun from the March 19 and March 18 historical records, and `docs/requirements-analysis.md` now splits FR-2 / FR-3 correctly, but `round-5-summary.md` and `round-6-summary.md` still describe that split as FR-6, so the bookkeeping narrative still needs work. | Reopened | Keep this batch open until the round summaries and tracker closure state reflect the verified FR-2/FR-3 wording. |
+| Docs update | Review README and delivery docs for `dist/public`, static-copy behavior, and `public/vendor/**` exception wording | README and the main delivery docs distinguish the March 27 current-HEAD rerun from the March 19 and March 18 historical records, `docs/requirements-analysis.md` keeps the FR-2 / FR-3 March 19 vs March 27 evidence split explicit, and `round-5-summary.md` plus `round-6-summary.md` now describe that split accurately. | Verified | The Round 7 review reran `git status --short --branch` on current HEAD (`## main...origin/main [ahead 50]`), `git ls-files 'public/*.js' 'public/spa/**/*.js' 'public/vendor/**/*.js'` (only `public/vendor/leaflet/leaflet.js`), the documented `rg -n -e 'March 27' -e '2026 年 3 月 27 日' ...` command, and `npm test` (144 pass, 0 fail); keep AC-7 explicit here because the immutable section cannot change. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -76,6 +76,7 @@ Source plan: plan.md
 | 6 | Audit new or moved first-party public contracts for concise English JSDoc. | 0 | 0 | Reviewed touched code/comments for English-only and process-comment discipline; no new production public contract exports were introduced. |
 | 1, 3, 4 | Restore browser-build guard diagnostics so `spawnSync` callers capture the banner and every offending `public/*` path, then reverify the guard on current HEAD. | 4 | 4 | March 27, 2026 `npm test` passed 144 tests; the direct `spawnSync` repro exits `1` with stderr beginning at the guard banner while listing the injected `public/.../illegal-first-party.js`; `git ls-files 'public/*.js' 'public/spa/**/*.js' 'public/vendor/**/*.js'` still returns only `public/vendor/leaflet/leaflet.js`. |
 | 2, 3 | Replace the cwd regression with a child-process proof that loads the built server after `chdir()` and reverify the runtime-output contract. | 4 | 4 | `tests/support/built-server-cwd-proof.ts` changes cwd to `/tmp/...`, then requires `dist/src/server/index.js` plus `dist/src/services/index.js`; `node dist/tests/support/built-server-cwd-proof.js` exits `0`; March 27, 2026 `npm test` passed 144 tests. |
+| 5, 7 | Close the remaining round-summary and tracker bookkeeping after review verified the FR-2/FR-3 evidence split on current HEAD. | 7 | 7 | `round-5-summary.md` and `round-6-summary.md` now align with the FR-2/FR-3 split, and the Round 7 review reran `git status --short --branch` (clean `## main...origin/main [ahead 50]`), `git ls-files 'public/*.js' 'public/spa/**/*.js' 'public/vendor/**/*.js'` (only `public/vendor/leaflet/leaflet.js`), the documented `rg -n -e 'March 27' -e '2026 年 3 月 27 日' ...` command, and `npm test` (144 pass / 0 fail). |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
@@ -86,6 +87,4 @@ Source plan: plan.md
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| `round-5-summary.md` and `round-6-summary.md` still describe the March 19 and March 27 evidence split as part of FR-6 even though `docs/requirements-analysis.md` now separates them under FR-2 and FR-3, so the verification narrative and documentation bookkeeping are not aligned. | 5 | 5, 7 | Rewrite the summaries to describe the FR-2/FR-3 split accurately and reissue the bookkeeping status so the narrative matches the verified docs. |
-| The Round 6 summary omitted the Goal Tracker Update Request that should have accompanied its closure claim, so the next summary must restate the refreshed tracker state instead of claiming no remaining work. | 6 | 7 | Keep the mutable tracker aligned with the summary text and do not request closure until the round summaries describe the FR-2/FR-3 split accurately. |
 | The immutable tracker still omits original-plan AC-7 and cannot be edited under the RLCR rules. | 2 | 7 | Keep AC-7 explicit in mutable tracking via the batch-evidence table plus active/completed task mapping. |
