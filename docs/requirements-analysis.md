@@ -2,7 +2,11 @@
 
 ## Functional Requirements And Repository Mapping
 
-Evidence below refers to the March 27, 2026 rerun of `npm test` (which includes `npm run build`) for the automated tests, while the March 19, 2026 recorded runs provide the reference evidence for `npm run validate:data`, `npm run benchmark`, and `npm run demo`; the March 18 unrestricted startup and smoke record is historical.
+Evidence below keeps three boundaries explicit:
+
+- March 27, 2026 rerun: `npm test` only, and that command already includes `npm run build`.
+- March 19, 2026 recorded runs: `npm run validate:data`, `npm run benchmark`, and `npm run demo`.
+- March 18, 2026 historical record: unrestricted `npm run start` startup and browser/API smoke.
 
 ### FR-1 Data And Validation
 
@@ -13,7 +17,7 @@ Implemented in:
 - `src/data/validation.ts`
 - `scripts/validate-data.ts`
 
-- Recorded evidence (March 19, 2026 run, not rerun this round):
+Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - The real seed validated at `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` edges, `12` users, `12` journals, and `880` foods.
 - Validation rejects broken coordinates, missing metadata, invalid travel-mode bindings, and broken graph references.
@@ -39,13 +43,14 @@ Recorded evidence (March 27, 2026 rerun):
 - The rerun's runtime-service suite now exercises the route, facility, food, journal, and exchange selectors against the authoritative destination-option pipeline so every selector surface stays aligned.
 - Those selector runs confirm duplicate destination names stay disambiguated consistently across the surfaces while preserving stable destination ids, providing explicit regression coverage for the selector-parity behavior.
 
-### FR-3 Routing And Facility Lookup
+### FR-3 Routing, World Routing, And Facility Lookup
 
 Implemented in:
 
 - `src/algorithms/graph.ts`
 - `src/algorithms/multi-route.ts`
 - `src/services/route-service.ts`
+- `src/services/world-route-service.ts`
 - `src/services/facility-service.ts`
 
 Recorded evidence (March 19, 2026 run, not rerun this round):
@@ -55,12 +60,14 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 - The exposed travel modes are `walk`, `bike`, `shuttle`, and `mixed`.
 - Indoor route coverage is exercised by both runtime-service tests and the deterministic demo.
 - Nearby facilities are filtered by category and ordered by network distance.
+- The recorded demo surface includes the implemented world view and world-route planning entrypoints.
 
 Recorded evidence (March 27, 2026 rerun):
 
 - The rerun's graph and runtime-service tests now verify fallback runtime generation uses deterministic scenic and campus graph variants instead of reusing a single template, locking in the rerun's graph-variant regression coverage.
+- The rerun also covers explicit world-route invalid-request and error-contract behavior through the automated test suite.
 
-### FR-4 Journals, Search, Compression, And Storyboard Output
+### FR-4 Journals, Feed, Search, Compression, And Storyboard Output
 
 Implemented in:
 
@@ -72,6 +79,7 @@ Implemented in:
 Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Journals can be created, listed, viewed, rated, updated, deleted, and recommended.
+- The social surface includes feed-oriented browsing in addition to per-journal detail access.
 - Exchange supports exact-title lookup and full-text search without relying on database-native search.
 - Compression is reversible on the exposed exchange surface, and the deterministic demo records actual payload metrics.
 - Storyboard generation is available from the same exchange surface.
@@ -96,8 +104,9 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 Implemented in:
 
 - `src/server/index.ts`
-- `public/` (first-party browser source assets)
-- `dist/public/` (served browser runtime output with stable public URLs)
+- `src/services/world-service.ts`
+- `public/` (first-party browser source assets, including feed and world UI sources)
+- `dist/public/` (generated and served browser runtime output with stable public URLs)
 - `scripts/demo.ts`
 - `scripts/run-benchmarks.ts`
 - `tests/`
@@ -105,7 +114,7 @@ Implemented in:
 
 Recorded evidence (March 19, 2026 run, not rerun this round):
 
-- The browser surface covers destinations, routes, facilities, journals, exchange, and food.
+- The browser and API surface covers destinations, local routes, world summary/details, world route planning, facilities, journals, feed, exchange, and food.
 - The March 19 recorded `npm run demo` provides a deterministic report centered on `dest-002` / `River Polytechnic`.
 - `README.md` and the delivery docs now align with the implemented module structure and recorded outputs while explicitly distinguishing the March 27 rerun, the March 19 recorded command runs, and the March 18 historical startup evidence.
 
@@ -118,6 +127,7 @@ Recorded evidence (March 27, 2026 rerun):
 - Managed dependencies: satisfied. The package declares external/runtime and development dependencies, and the documented flow requires `npm install`.
 - Project-local toolchain usage: satisfied. The documented command flow references the recorded npm scripts that consume project dependencies (including local TypeScript tooling).
 - Recorded deterministic command surface: satisfied for build, validation, tests, and demo. Benchmark timings remain representative because wall-clock results vary.
+- Generated browser runtime boundary: satisfied. `dist/public/**` is documented as generated runtime output rather than authored source.
 - Multi-worker readability: satisfied through clear module boundaries across `src/algorithms/`, `src/services/`, `src/server/`, `scripts/`, and `tests/`.
 - Controlled startup errors: satisfied. Restricted environments still surface a clear `Server failed to start: listen EPERM...` message through the CLI wrapper, and the March 18 unrestricted-environment verification remains the recorded proof that a live bind succeeded on `127.0.0.1:3000`.
 
