@@ -88,7 +88,8 @@ Current evidence:
 Implemented in:
 
 - `src/server/index.ts`
-- `public/`
+- `public/` (first-party browser source assets)
+- `dist/public/` (served browser runtime output with stable public URLs)
 - `scripts/demo.ts`
 - `scripts/run-benchmarks.ts`
 - `tests/`

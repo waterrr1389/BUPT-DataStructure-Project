@@ -15,7 +15,7 @@ The implemented repository satisfies the project boundary expected by the course
 
 - Dataset scale exceeds the minimum requirements with `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` graph edges, and `12` users.
 - Core algorithms are implemented in project code under `src/algorithms/` rather than delegated to database-native search, ranking, or routing.
-- The demo surface is exposed through `src/server/index.ts`, `public/`, and the package scripts in `scripts/`.
+- The demo surface is exposed through `src/server/index.ts`, source assets under `public/`, served runtime output under `dist/public/`, and the package scripts in `scripts/`. Public browser URLs remain stable.
 - Automated verification lives under `tests/`, and the delivery documents live under `docs/`.
 
 ## Implemented Repository Boundary
@@ -29,6 +29,7 @@ The active implementation now lives in these paths:
 - `src/services/**`
 - `src/server/index.ts`
 - `public/**`
+- `dist/public/**`
 - `scripts/*.ts`
 - `tests/**`
 
