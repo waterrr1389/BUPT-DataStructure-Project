@@ -32,9 +32,12 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Destination search supports query, category, and `sortBy` handling.
 - Destination recommendation uses bounded top-k ranking.
-- Route, facility, food, journal, and exchange selectors all consume one authoritative destination-option preparation path backed by the full destination catalog.
-- Duplicate destination names are disambiguated consistently across those selectors while preserving stable destination ids.
 - Invalid destination `sortBy` values are rejected, and the runtime-service tests cover that behavior.
+
+Recorded evidence (March 27, 2026 rerun):
+
+- The rerun's runtime-service suite now exercises the route, facility, food, journal, and exchange selectors against the authoritative destination-option pipeline so every selector surface stays aligned.
+- Those selector runs confirm duplicate destination names stay disambiguated consistently across the surfaces while preserving stable destination ids, providing explicit regression coverage for the selector-parity behavior.
 
 ### FR-3 Routing And Facility Lookup
 
@@ -50,9 +53,12 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 - Routing supports shortest-path and multi-stop planning.
 - The exposed strategy set is `distance`, `time`, and `mixed`.
 - The exposed travel modes are `walk`, `bike`, `shuttle`, and `mixed`.
-- Fallback runtime generation uses deterministic scenic and campus graph variants rather than one effectively reused graph template.
 - Indoor route coverage is exercised by both runtime-service tests and the deterministic demo.
 - Nearby facilities are filtered by category and ordered by network distance.
+
+Recorded evidence (March 27, 2026 rerun):
+
+- The rerun's graph and runtime-service tests now verify fallback runtime generation uses deterministic scenic and campus graph variants instead of reusing a single template, locking in the rerun's graph-variant regression coverage.
 
 ### FR-4 Journals, Search, Compression, And Storyboard Output
 
