@@ -216,12 +216,15 @@ function estimateTraversalTime<Mode extends string>(
   const crowdFactor = edge.crowdFactor;
 
   if (mode !== null) {
+    // Time resolution prefers explicit per-mode duration before any speed-based estimate.
     const explicitTime = edge.timeByMode?.[mode];
 
     if (explicitTime !== undefined) {
+      // Lower crowdFactor increases the effective traversal time.
       return explicitTime / crowdFactor;
     }
 
+    // If no explicit duration exists, fall back to edge speed, then graph-level default speed.
     const speed = edge.speedByMode?.[mode] ?? defaultSpeedByMode?.[mode];
 
     if (speed !== undefined) {
@@ -229,6 +232,7 @@ function estimateTraversalTime<Mode extends string>(
     }
   }
 
+  // A null mode, or a mode with no time/speed data, falls back to distance scaled by crowdFactor.
   return edge.distance / crowdFactor;
 }
 

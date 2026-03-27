@@ -131,6 +131,7 @@ function buildPairwisePaths<Mode extends string, NodeMeta, EdgeMeta>(
   const lookup = new Map<string, ShortestPathResult<Mode, EdgeMeta>>();
   const unreachablePairs: Array<{ from: string; to: string }> = [];
 
+  // Each source checkpoint builds one shortest-path tree that is reused for every target from that source.
   for (const source of checkpoints) {
     const tree = findShortestPathTree(graph, source, options);
 
@@ -142,6 +143,7 @@ function buildPairwisePaths<Mode extends string, NodeMeta, EdgeMeta>(
       const path = tree.get(target);
 
       if (!path || !path.reachable) {
+        // Direction matters here: { from, to } means source can not reach target under the current options.
         unreachablePairs.push({ from: source, to: target });
         continue;
       }
