@@ -42,22 +42,23 @@ Source plan: plan.md
 | Round | Change | Reason | Impact on AC |
 |-------|--------|--------|--------------|
 | 0 | Initialized goal, acceptance criteria, and workstreams from `plan.md` | Establish a stable execution anchor before parallel work begins | Defined AC1-AC6 |
+| 0 | Synchronized tracker state with integrated Round 0 outcomes and local verification evidence | Close out launched workstreams after merge to `main` without changing the plan | No AC change |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion -->
 | Task | Target AC | Status | Notes |
 |------|-----------|--------|-------|
-| Add high-value comments to algorithm hotspots | AC1 | in_progress | Focus on invariants, ordering rules, compression behavior, and graph or multi-route constraints in the named algorithm files. |
-| Add high-value comments to services and server entrypoints | AC2 | in_progress | Cover runtime orchestration, fallback selection, data sourcing boundaries, and server bootstrap assumptions. |
-| Align core design and requirements documents | AC3 | in_progress | Normalize terminology, module roles, repository paths, commands, and current capability descriptions across design and requirements docs. |
-| Align user-facing and reference documents | AC4 | in_progress | Update usage, examples, outputs, and reference guidance to match the current repository behavior and layout. |
-| Clarify world, history, and process document boundaries | AC5 | in_progress | Mark special-mode, retrospective, and process material with explicit scope or historical context. |
-| Run final verification and consistency checks | AC6 | pending | Execute existing tests and targeted `rg` checks after the content workstreams land. |
 
 ### Completed and Verified
-<!-- Only move tasks here after Codex verification -->
+<!-- Track completed tasks together with their current verification state -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
+| AC1 | Added high-value comments to algorithm hotspots | 0 | 0 (integrated on `main`; gate review pending) | `src/algorithms/graph.ts`, `src/algorithms/multi-route.ts`, and `src/algorithms/compression.ts` now carry the planned explanatory comments. |
+| AC2 | Added high-value comments to services and server entrypoints | 0 | 0 (integrated on `main`; gate review pending) | `src/services/runtime.ts`, `src/services/fallback-algorithms.ts`, `src/services/fallback-data.ts`, and `src/server/index.ts` now carry the planned orchestration and boundary comments. |
+| AC3 | Aligned core design and requirements documents | 0 | 0 (integrated on `main`; gate review pending) | Core docs updated on `main`: `README.md`, `docs/overall-design.md`, `docs/module-design.md`, `docs/task-description.md`, `docs/requirements-analysis.md`, `docs/data-structures-and-dictionary.md`, `docs/evaluation-and-improvements.md`, `docs/innovation-notes.md`, and `docs/journal-social-design-style.md`. |
+| AC4 | Aligned user-facing and reference documents | 0 | 0 (integrated on `main`; gate review pending) | User/reference docs updated on `main`: `docs/user-guide.md` and `docs/example-results-and-tests.md`, alongside the integrated repository-facing guidance in `README.md`. |
+| AC5 | Clarified world, history, and process document boundaries | 0 | 0 (integrated on `main`; gate review pending) | Boundary docs updated on `main`: `docs/world/README.md`, `docs/world/spec.md`, `docs/world/contract.md`, `docs/world/plan.md`, `docs/agent-usage.md`, and `docs/rlcr-concurrency-retrospective-2026-03-20.md`. |
+| AC6 | Completed unified verification and consistency checks | 0 | 0 (local verification complete; gate review pending) | Local verification on `main` passed: `npm test` reported `144 passed, 0 failed`, and the worktree was clean after integration. |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->
