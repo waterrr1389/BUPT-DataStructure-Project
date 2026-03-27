@@ -12,6 +12,7 @@ import {
   requireElement,
   settleAsync,
 } from "../support/spa-harness";
+import { getRuntimePublicAssetPath } from "../support/runtime-public";
 import {
   type AppShellModule,
   compactText,
@@ -33,6 +34,18 @@ const PUBLIC_PAGE_BOOTSTRAP_SCRIPTS = [
 
 function normalizeVmSnapshot<TValue>(value: TValue): TValue {
   return JSON.parse(JSON.stringify(value)) as TValue;
+}
+
+function requireRuntimePublicModule<TModule>(relativePath: string): TModule {
+  return require(getRuntimePublicAssetPath(relativePath)) as TModule;
+}
+
+function installJournalHelperGlobals(globals: {
+  JournalConsumers?: unknown;
+  JournalPresentation?: unknown;
+}): void {
+  globals.JournalPresentation = requireRuntimePublicModule("journal-presentation.js");
+  globals.JournalConsumers = requireRuntimePublicModule("journal-consumers.js");
 }
 
 test("explore facility result map links stay clean without actor context", async () => {
@@ -108,11 +121,7 @@ test("map falls back to a valid destination when the query points at a missing d
   const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
 
   try {
-    globals.RouteVisualizationMarkers = require(path.join(
-      process.cwd(),
-      "public",
-      "route-visualization-markers.js",
-    ));
+    globals.RouteVisualizationMarkers = requireRuntimePublicModule("route-visualization-markers.js");
 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
@@ -174,11 +183,7 @@ test("map preserves actor context on fallback, return links, and renderless URL 
   const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
 
   try {
-    globals.RouteVisualizationMarkers = require(path.join(
-      process.cwd(),
-      "public",
-      "route-visualization-markers.js",
-    ));
+    globals.RouteVisualizationMarkers = requireRuntimePublicModule("route-visualization-markers.js");
 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
@@ -244,11 +249,7 @@ test("map keeps clean URLs when no actor is present during renderless rewrites",
   const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
 
   try {
-    globals.RouteVisualizationMarkers = require(path.join(
-      process.cwd(),
-      "public",
-      "route-visualization-markers.js",
-    ));
+    globals.RouteVisualizationMarkers = requireRuntimePublicModule("route-visualization-markers.js");
 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
@@ -308,11 +309,7 @@ test("map renders planning controls and switches legend hooks from preview to ac
   const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
 
   try {
-    globals.RouteVisualizationMarkers = require(path.join(
-      process.cwd(),
-      "public",
-      "route-visualization-markers.js",
-    ));
+    globals.RouteVisualizationMarkers = requireRuntimePublicModule("route-visualization-markers.js");
 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
@@ -488,11 +485,7 @@ test("map ignores stale node loads after destination changes", async () => {
   let delayDest2 = false;
 
   try {
-    globals.RouteVisualizationMarkers = require(path.join(
-      process.cwd(),
-      "public",
-      "route-visualization-markers.js",
-    ));
+    globals.RouteVisualizationMarkers = requireRuntimePublicModule("route-visualization-markers.js");
 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
@@ -1925,11 +1918,7 @@ test("map local view keeps using local route planning endpoints after world rout
   const previousRouteVisualizationMarkers = globals.RouteVisualizationMarkers;
 
   try {
-    globals.RouteVisualizationMarkers = require(path.join(
-      process.cwd(),
-      "public",
-      "route-visualization-markers.js",
-    ));
+    globals.RouteVisualizationMarkers = requireRuntimePublicModule("route-visualization-markers.js");
 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
@@ -2253,8 +2242,7 @@ test("feed fallback preserves viewer context when the social feed endpoint is un
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    installJournalHelperGlobals(globals);
 
     const requests: string[] = [];
     globalThis.fetch = (async (input: string | URL) => {
@@ -2305,8 +2293,7 @@ test("feed fallback surfaces social feed errors instead of swapping to the journ
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    installJournalHelperGlobals(globals);
 
     const requests: string[] = [];
     globalThis.fetch = (async (input: string | URL) => {
@@ -2355,8 +2342,7 @@ test("comments fallback returns an unavailable response when the endpoint is mis
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    installJournalHelperGlobals(globals);
 
     const requests: string[] = [];
     globalThis.fetch = (async (input: string | URL) => {
@@ -2405,8 +2391,7 @@ test("comments failures reject when the endpoint exists but returns an error", a
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    installJournalHelperGlobals(globals);
 
     const requests: string[] = [];
     globalThis.fetch = (async (input: string | URL) => {
@@ -2451,8 +2436,7 @@ test("shell nav links preserve actor context after non-rendering navigation", as
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    installJournalHelperGlobals(globals);
 
     env.window.history.replaceState({}, "", "/feed?actor=user-1");
 
@@ -2536,8 +2520,7 @@ test("app shell parseRoute preserves the world view param alongside actor and de
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    installJournalHelperGlobals(globals);
 
     const root = env.createRoot();
     const module = await importSpaModule<AppShellModule>("app-shell.js");
@@ -2621,7 +2604,7 @@ test("classic helper evaluation hides CommonJS bindings and keeps browser global
         windowMatchesGlobalThis: window === globalThis,
         documentMatchesWindow: document === window.document
       })`,
-      path.join(process.cwd(), "public", "__classic-helper-contract-a__.js"),
+      getRuntimePublicAssetPath("__classic-helper-contract-a__.js"),
     ) as Record<string, unknown>);
 
     assert.deepEqual(snapshot, {
@@ -2647,7 +2630,7 @@ test("classic helper evaluation preserves cross-script globals between helper fi
     const evaluator = createClassicScriptEvaluator();
     evaluator.evaluate(
       "var sharedClassicBinding = 'kept';",
-      path.join(process.cwd(), "public", "__classic-helper-contract-b__.js"),
+      getRuntimePublicAssetPath("__classic-helper-contract-b__.js"),
     );
     const snapshot = normalizeVmSnapshot(evaluator.evaluate(
       `({
@@ -2656,7 +2639,7 @@ test("classic helper evaluation preserves cross-script globals between helper fi
         sharedOnWindow: window.sharedClassicBinding,
         thisMatchesGlobalThis: globalThis === this
       })`,
-      path.join(process.cwd(), "public", "__classic-helper-contract-c__.js"),
+      getRuntimePublicAssetPath("__classic-helper-contract-c__.js"),
     ) as Record<string, unknown>);
 
     assert.deepEqual(snapshot, {
@@ -2752,8 +2735,7 @@ test("shell navigation surfaces route-load failures instead of leaving the loadi
   const previousJournalPresentation = globals.JournalPresentation;
 
   try {
-    globals.JournalPresentation = require(path.join(process.cwd(), "public", "journal-presentation.js"));
-    globals.JournalConsumers = require(path.join(process.cwd(), "public", "journal-consumers.js"));
+    installJournalHelperGlobals(globals);
 
     env.window.history.replaceState({}, "", "/compose");
 

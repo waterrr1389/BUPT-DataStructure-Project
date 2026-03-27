@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import test from "node:test";
+import { getRuntimePublicAssetPath } from "./support/runtime-public";
 
 type DestinationOption = {
   id: string;
@@ -59,7 +59,7 @@ type RequireWithCache = NodeRequire & {
   resolve(id: string): string;
 };
 
-const journalPresentationPath = path.join(process.cwd(), "public", "journal-presentation.js");
+const journalPresentationPath = getRuntimePublicAssetPath("journal-presentation.js");
 const runtimeRequire = require as RequireWithCache;
 
 const { createDestinationSelectOptions, formatJournalMetadata, summarizeText } = runtimeRequire(

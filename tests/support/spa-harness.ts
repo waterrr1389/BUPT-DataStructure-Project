@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getRuntimePublicAssetPath, readRuntimePublicTextAsset } from "./runtime-public";
 
 type EventListener = (event: TestEvent) => unknown;
 type PublicPageScriptType = "classic" | "module";
@@ -73,7 +74,7 @@ function createImportSpecifier(absolutePath: string): string {
 }
 
 function createClassicScriptFilename(relativePath: string): string {
-  return path.join(process.cwd(), "public", relativePath);
+  return getRuntimePublicAssetPath(relativePath);
 }
 
 type ClassicScriptEvaluator = {
@@ -116,9 +117,7 @@ function ensureRouteVisualizationMarkers(): void {
     RouteVisualizationMarkers?: unknown;
   };
   if (!runtimeGlobals.RouteVisualizationMarkers) {
-    runtimeGlobals.RouteVisualizationMarkers = require(
-      path.join(process.cwd(), "public", "route-visualization-markers.js"),
-    );
+    runtimeGlobals.RouteVisualizationMarkers = require(getRuntimePublicAssetPath("route-visualization-markers.js"));
   }
 }
 
@@ -194,7 +193,7 @@ export function parsePublicPageScriptContract(html: string): PublicPageScriptCon
 }
 
 async function readPublicPageScriptContract(): Promise<PublicPageScriptContract[]> {
-  const html = await fs.readFile(path.join(process.cwd(), "public", PUBLIC_INDEX_FILE), "utf8");
+  const html = await readRuntimePublicTextAsset(PUBLIC_INDEX_FILE);
   return parsePublicPageScriptContract(html);
 }
 
@@ -619,7 +618,7 @@ async function ensureSpaModuleRoot(): Promise<string> {
 
       await Promise.all(
         publicRootFiles.map(async (relativePath) => {
-          const sourcePath = path.join(process.cwd(), "public", relativePath);
+          const sourcePath = getRuntimePublicAssetPath(relativePath);
           const targetPath = path.join(moduleRoot, relativePath);
           await fs.mkdir(path.dirname(targetPath), { recursive: true });
           await fs.writeFile(targetPath, await fs.readFile(sourcePath, "utf8"), "utf8");
@@ -628,7 +627,7 @@ async function ensureSpaModuleRoot(): Promise<string> {
 
       await Promise.all(
         SPA_MODULE_FILES.map(async (relativePath) => {
-          const sourcePath = path.join(process.cwd(), "public", "spa", relativePath);
+          const sourcePath = getRuntimePublicAssetPath(path.join("spa", relativePath));
           const targetPath = path.join(moduleRoot, "spa", relativePath);
           await fs.mkdir(path.dirname(targetPath), { recursive: true });
           await fs.writeFile(targetPath, await fs.readFile(sourcePath, "utf8"), "utf8");
@@ -657,7 +656,7 @@ export async function importPublicModule<TModule>(relativePath: string): Promise
 }
 
 export async function loadPublicPageFromIndexHtml(): Promise<PublicPageScriptContract[]> {
-  const html = await fs.readFile(path.join(process.cwd(), "public", PUBLIC_INDEX_FILE), "utf8");
+  const html = await readRuntimePublicTextAsset(PUBLIC_INDEX_FILE);
   const scripts = parsePublicPageScriptContract(html);
   const moduleRoot = await ensureSpaModuleRoot();
   const classicEvaluator = createClassicScriptEvaluator();

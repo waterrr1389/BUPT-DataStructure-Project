@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import path from "node:path";
 import test from "node:test";
 
 import { createAppServices, type AppServices } from "../src/services/index";
+import { getRuntimePublicAssetPath } from "./support/runtime-public";
 
 type Destination = {
   id: string;
@@ -136,8 +136,8 @@ const SEEDED_JOURNAL_DESTINATION_IDS = [
   "dest-034",
 ] as const;
 
-const journalPresentationPath = path.join(process.cwd(), "public", "journal-presentation.js");
-const journalConsumersPath = path.join(process.cwd(), "public", "journal-consumers.js");
+const journalPresentationPath = getRuntimePublicAssetPath("journal-presentation.js");
+const journalConsumersPath = getRuntimePublicAssetPath("journal-consumers.js");
 const runtimeRequire = require as RequireWithCache;
 
 const { createDestinationSelectOptions, formatJournalMetadata } = runtimeRequire(
@@ -163,7 +163,7 @@ function loadFreshJournalConsumersModule(): JournalConsumersModule {
 }
 
 async function createIsolatedApp(name: string): Promise<AppServices> {
-  const runtimeDir = path.join("/tmp", `ds-ts-journal-consumers-${name}`);
+  const runtimeDir = `/tmp/ds-ts-journal-consumers-${name}`;
   await fs.mkdir(runtimeDir, { recursive: true });
   const app = await createAppServices({ runtimeDir });
   await app.journalStore.reset();

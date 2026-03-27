@@ -10,6 +10,7 @@ import { WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER } from "../src/services/co
 import { createAppServices, type AppServices } from "../src/services/index";
 import { deriveWorldRuntimeState } from "../src/services/runtime";
 import { parsePublicPageScriptContract } from "./support/spa-harness";
+import { readRuntimePublicTextAsset } from "./support/runtime-public";
 
 type JsonResponse<T> = {
   body: T;
@@ -820,8 +821,16 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
         method: "DELETE",
       },
     );
+    const builtIndexHtml = await readRuntimePublicTextAsset("index.html");
+    const builtRouteMarkersAsset = await readRuntimePublicTextAsset("route-visualization-markers.js");
+    const builtJournalPresentationAsset = await readRuntimePublicTextAsset("journal-presentation.js");
+    const builtJournalConsumersAsset = await readRuntimePublicTextAsset("journal-consumers.js");
+    const builtAppAsset = await readRuntimePublicTextAsset("app.js");
+    const builtSpaAsset = await readRuntimePublicTextAsset("spa/app-shell.js");
+    const builtCssAsset = await readRuntimePublicTextAsset("styles.css");
     const spaRoute = await requestText("/feed");
     const spaScripts = parsePublicPageScriptContract(spaRoute.text);
+    const builtSpaScripts = parsePublicPageScriptContract(builtIndexHtml);
     const routeMarkersAsset = await requestText("/route-visualization-markers.js");
     const journalPresentationAsset = await requestText("/journal-presentation.js");
     const journalConsumersAsset = await requestText("/journal-consumers.js");
@@ -890,6 +899,8 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(spaRoute.status, 200);
     assert.equal(spaRoute.headers["cache-control"], "no-store");
     expectMatches(spaRoute.text, /<!DOCTYPE html>/i);
+    assert.equal(spaRoute.text, builtIndexHtml);
+    assert.deepEqual(spaScripts, builtSpaScripts);
     assert.deepEqual(spaScripts, [
       { src: "/route-visualization-markers.js", type: "classic" },
       { src: "/journal-presentation.js", type: "classic" },
@@ -899,20 +910,27 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(routeMarkersAsset.status, 200);
     assert.equal(routeMarkersAsset.headers["cache-control"], "no-store");
     expectMatches(routeMarkersAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(routeMarkersAsset.text, builtRouteMarkersAsset);
     assert.equal(journalPresentationAsset.status, 200);
     assert.equal(journalPresentationAsset.headers["cache-control"], "no-store");
     expectMatches(journalPresentationAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(journalPresentationAsset.text, builtJournalPresentationAsset);
     assert.equal(journalConsumersAsset.status, 200);
     assert.equal(journalConsumersAsset.headers["cache-control"], "no-store");
     expectMatches(journalConsumersAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(journalConsumersAsset.text, builtJournalConsumersAsset);
     assert.equal(appAsset.status, 200);
     assert.equal(appAsset.headers["cache-control"], "no-store");
     expectMatches(appAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(appAsset.text, builtAppAsset);
     assert.equal(spaAsset.status, 200);
     assert.equal(spaAsset.headers["cache-control"], "no-store");
     expectMatches(spaAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(spaAsset.text, builtSpaAsset);
     assert.equal(cssAsset.status, 200);
     assert.equal(cssAsset.headers["cache-control"], "no-store");
+    expectMatches(cssAsset.headers["content-type"] ?? "", /css/i);
+    assert.equal(cssAsset.text, builtCssAsset);
   });
 });
 

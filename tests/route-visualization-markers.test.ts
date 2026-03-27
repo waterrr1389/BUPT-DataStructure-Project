@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import test from "node:test";
 import { importSpaModule } from "./support/spa-harness";
+import { getRuntimePublicAssetPath } from "./support/runtime-public";
 
 type Point = {
   x: number;
@@ -83,11 +83,7 @@ type RequireWithCache = NodeRequire & {
   resolve(id: string): string;
 };
 
-const routeVisualizationMarkersPath = path.join(
-  process.cwd(),
-  "public",
-  "route-visualization-markers.js",
-);
+const routeVisualizationMarkersPath = getRuntimePublicAssetPath("route-visualization-markers.js");
 const runtimeRequire = require as RequireWithCache;
 
 const { createPreviewMarkers, createRouteMarkerLayout } = runtimeRequire(
