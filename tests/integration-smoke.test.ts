@@ -828,6 +828,8 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     const builtAppAsset = await readRuntimePublicTextAsset("app.js");
     const builtSpaAsset = await readRuntimePublicTextAsset("spa/app-shell.js");
     const builtCssAsset = await readRuntimePublicTextAsset("styles.css");
+    const builtLeafletCssAsset = await readRuntimePublicTextAsset("vendor/leaflet/leaflet.css");
+    const builtLeafletJsAsset = await readRuntimePublicTextAsset("vendor/leaflet/leaflet.js");
     const spaRoute = await requestText("/feed");
     const spaScripts = parsePublicPageScriptContract(spaRoute.text);
     const builtSpaScripts = parsePublicPageScriptContract(builtIndexHtml);
@@ -837,6 +839,8 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     const appAsset = await requestText("/app.js");
     const spaAsset = await requestText("/spa/app-shell.js");
     const cssAsset = await requestText("/styles.css");
+    const leafletCssAsset = await requestText("/vendor/leaflet/leaflet.css");
+    const leafletJsAsset = await requestText("/vendor/leaflet/leaflet.js");
 
     assert.equal(health.status, 200);
     assert.equal(health.text.includes("\n"), false, health.text);
@@ -931,6 +935,14 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(cssAsset.headers["cache-control"], "no-store");
     expectMatches(cssAsset.headers["content-type"] ?? "", /css/i);
     assert.equal(cssAsset.text, builtCssAsset);
+    assert.equal(leafletCssAsset.status, 200);
+    assert.equal(leafletCssAsset.headers["cache-control"], "no-store");
+    expectMatches(leafletCssAsset.headers["content-type"] ?? "", /css/i);
+    assert.equal(leafletCssAsset.text, builtLeafletCssAsset);
+    assert.equal(leafletJsAsset.status, 200);
+    assert.equal(leafletJsAsset.headers["cache-control"], "no-store");
+    expectMatches(leafletJsAsset.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(leafletJsAsset.text, builtLeafletJsAsset);
   });
 });
 
