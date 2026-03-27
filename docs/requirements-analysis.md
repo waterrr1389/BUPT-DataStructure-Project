@@ -40,8 +40,8 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 Recorded evidence (March 27, 2026 rerun):
 
-- The rerun's selector-binding and browser-side regression coverage now exercises the route, facility, food, journal, and exchange selectors against the authoritative destination-option pipeline so every selector surface stays aligned.
-- Those selector-binding and browser-side runs confirm duplicate destination names stay disambiguated consistently across the surfaces while preserving stable destination ids, providing explicit regression coverage for the selector-parity behavior.
+- The rerun's selector-binding tests now exercise the route, facility, food, journal, and exchange selectors against the authoritative destination-option pipeline so every selector surface stays aligned.
+- Those selector-binding tests confirm duplicate destination names stay disambiguated consistently across the selector surfaces while preserving stable destination ids, providing explicit regression coverage for the selector-parity behavior.
 
 ### FR-3 Routing, World Routing, And Facility Lookup
 
