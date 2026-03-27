@@ -43,7 +43,7 @@ Evidence:
 
 - `tests/runtime-services.test.ts` checks that a typo query such as `nodle` still returns `noodle lab kitchen 4`.
 - `tests/integration-smoke.test.ts` covers deterministic food search and recommendation results for `dest-002`.
-- `public/index.html` and `public/app.js` expose both food search and recommendation actions.
+- `dist/public/index.html` and `dist/public/app.js` expose both food search and recommendation actions at stable public URLs.
 
 ### 4. Zero-Dependency Delivery Keeps The System Inspectable
 

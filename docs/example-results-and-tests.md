@@ -54,7 +54,7 @@ This round did not rerun the unrestricted March 18 smoke pass.
   - deterministic graph-variant regression coverage in `tests/runtime-services.test.ts` for distinct scenic and campus fallback graph structures
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
-- March 19 code inspection also confirmed that `public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail was not rerun in the older March 18 live browser smoke.
+- March 19 code inspection also confirmed that `dist/public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail was not rerun in the older March 18 live browser smoke, and the public browser URL remains stable.
 
 ### Benchmarks
 
