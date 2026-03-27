@@ -43,6 +43,9 @@
 - `dist/public/vendor/**`
 - `dist/public/styles.css`
 - `scripts/validate-data.ts`
+- `scripts/benchmark-support.ts`
+- `scripts/sample-data.ts`
+- `scripts/browser-build.js`
 - `scripts/run-benchmarks.ts`
 - `scripts/demo.ts`
 - `scripts/demo-support.ts`
@@ -95,6 +98,9 @@
 
 ### Scripts And Tests
 
+- `scripts/browser-build.js` compiles the first-party browser TypeScript into `dist/public/`, copies first-party static assets, and keeps the served runtime tree aligned with `public/`.
+- `scripts/benchmark-support.ts` provides reusable benchmark fixtures and measurement helpers for the benchmark entrypoint.
+- `scripts/sample-data.ts` generates deterministic sample seed data for script and smoke-test scenarios.
 - `scripts/validate-data.ts` validates the real seed dataset and prints the current counts.
 - `scripts/run-benchmarks.ts` reports representative benchmark timings for ranking, search, graph, and compression work.
 - `scripts/demo.ts` and `scripts/demo-support.ts` produce the deterministic end-to-end report centered on `dest-002`.
@@ -104,7 +110,8 @@
 
 - `src/algorithms/` depends only on shared data contracts and local helpers.
 - `src/services/` depends on `src/domain/`, `src/data/`, and `src/algorithms/`.
-- `src/server/` and `scripts/` depend on the service layer.
+- `src/server/` depends on the service layer.
+- Runtime-oriented scripts in `scripts/` may depend on the service layer, while browser-build helpers depend on Node tooling plus `public/` and `dist/public/`.
 - `tests/` may depend on any public project module.
 
 This split keeps the custom algorithms independently testable while still exposing them through a single demo runtime.

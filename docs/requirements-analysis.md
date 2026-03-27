@@ -58,14 +58,14 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 - Routing supports shortest-path and multi-stop planning.
 - The exposed strategy set is `distance`, `time`, and `mixed`.
 - The exposed travel modes are `walk`, `bike`, `shuttle`, and `mixed`.
-- Indoor route coverage is exercised by both runtime-service tests and the deterministic demo.
+- Indoor route coverage appears in the deterministic demo.
 - Nearby facilities are filtered by category and ordered by network distance.
 - The recorded demo surface includes the implemented world view and world-route planning entrypoints.
 
 Recorded evidence (March 27, 2026 rerun):
 
 - The rerun's graph and runtime-service tests now verify fallback runtime generation uses deterministic scenic and campus graph variants instead of reusing a single template, locking in the rerun's graph-variant regression coverage.
-- The rerun also covers explicit world-route invalid-request and error-contract behavior through the automated test suite.
+- The rerun's runtime-service and world-route suites cover indoor route behavior plus explicit world-route invalid-request and error-contract behavior through the automated test suite.
 
 ### FR-4 Journals, Feed, Search, Compression, And Storyboard Output
 
@@ -79,10 +79,13 @@ Implemented in:
 Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Journals can be created, listed, viewed, rated, updated, deleted, and recommended.
-- The social surface includes feed-oriented browsing in addition to per-journal detail access.
 - Exchange supports exact-title lookup and full-text search without relying on database-native search.
 - Compression is reversible on the exposed exchange surface, and the deterministic demo records actual payload metrics.
 - Storyboard generation is available from the same exchange surface.
+
+Recorded evidence (March 27, 2026 rerun):
+
+- The rerun's runtime-service and SPA/browser-facing regression suites cover feed browsing, post-detail behavior, and exchange-facing social navigation on the implemented surface.
 
 ### FR-5 Food Discovery
 
@@ -97,7 +100,10 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - Food recommendation blends heat, rating, dietary preference matching, and graph distance.
 - Food search supports cuisine filtering and typo-tolerant text matching.
-- Runtime and integration smoke tests both cover real food-discovery behavior.
+
+Recorded evidence (March 27, 2026 rerun):
+
+- The rerun's runtime-service and integration-smoke suites exercise the implemented food recommendation and food search surfaces against the current runtime.
 
 ### FR-6 Demo And Delivery
 
@@ -114,13 +120,11 @@ Implemented in:
 
 Recorded evidence (March 19, 2026 run, not rerun this round):
 
-- The browser and API surface covers destinations, local routes, world summary/details, world route planning, facilities, journals, feed, exchange, and food.
 - The March 19 recorded `npm run demo` provides a deterministic report centered on `dest-002` / `River Polytechnic`.
-- `README.md` and the delivery docs now align with the implemented module structure and recorded outputs while explicitly distinguishing the March 27 rerun, the March 19 recorded command runs, and the March 18 historical startup evidence.
 
 Recorded evidence (March 27, 2026 rerun):
 
-- The March 27 rerun of `npm test` now includes explicit selector-parity coverage and graph-variant structure/regression coverage.
+- The March 27 rerun of `npm test` now includes explicit selector-parity coverage, graph-variant structure/regression coverage, and browser-facing SPA regressions for feed and map-shell behavior.
 
 ## Non-Functional Requirements
 

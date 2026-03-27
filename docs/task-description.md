@@ -17,7 +17,7 @@ The implemented repository satisfies the project boundary expected by the course
 - Core algorithms are implemented in project code under `src/algorithms/` rather than delegated to database-native search, ranking, or routing.
 - The demo surface is exposed through `src/server/index.ts`, current browser source assets under `public/`, generated runtime output under `dist/public/`, and the package scripts in `scripts/`. Public browser URLs remain stable.
 - The current JSON/API surface includes bootstrap, destination, route, facility, journal, feed, world, world-route, journal-exchange, and food endpoints.
-- Browser static assets under `public/` only include first-party TypeScript sources plus the third-party `public/vendor/**`; the repository no longer keeps first-party browser runtime `.js` files under `public/`, and `npm run build` emits those scripts into `dist/public/` while copying `public/index.html`, `public/styles.css`, `public/assets/**`, and `public/vendor/**` into the served runtime tree.
+- Browser source assets under `public/` include first-party TypeScript, HTML, CSS, and copied assets alongside the third-party `public/vendor/**`; the repository no longer keeps first-party browser runtime `.js` files under `public/`, and `npm run build` emits compiled scripts into `dist/public/` while copying `public/index.html`, `public/styles.css`, `public/assets/**`, and `public/vendor/**` into the served runtime tree.
 - Automated verification lives under `tests/`, and the delivery documents live under `docs/`.
 
 ## Implemented Repository Boundary
@@ -32,7 +32,7 @@ The active implementation now lives in these paths:
 - `src/server/index.ts`
 - `public/**`
 - `dist/public/**`
-- `scripts/*.ts`
+- `scripts/**`
 - `tests/**`
 
 ## Success Definition

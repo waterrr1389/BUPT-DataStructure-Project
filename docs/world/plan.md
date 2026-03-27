@@ -102,7 +102,7 @@ seed world? -> validation -> runtime world capability
 - `public/spa/map-rendering.ts` - 当前 local SVG map 渲染基线，world work 不应破坏这里的 local behavior。
 - `tests/data-seed.test.ts` - 适合补 seed/world validation 覆盖。
 - `tests/integration-smoke.test.ts` - 适合补 world HTTP contract 与 unavailable 降级验证。
-- `tests/spa-regressions.test.ts` - 适合补 `/map?view=world` 渲染与 local map 无回归的浏览器侧测试。
+- `tests/spa-regressions/map-and-shell.test.ts` - 适合补 `/map?view=world` 渲染与 local map 无回归的浏览器侧测试。
 - `docs/world/contract.md` - world 数据与 HTTP 合同的冻结来源。
 - `docs/world/examples/boston-inspired.seed-fragment.json` - world 样例数据与 Boston-inspired 空间逻辑对照。
 
