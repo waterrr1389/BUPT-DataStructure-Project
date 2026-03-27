@@ -13,7 +13,7 @@ Close the remaining summary/bookkeeping mismatch identified after Round 6 and co
 - `.humanize/rlcr/2026-03-27_12-31-07/round-7-summary.md` (created)
 
 ## Verification Conclusions
-- `git status --short --branch` output is exactly:
+- At the pre-summary/pre-final-bookkeeping verification checkpoint, `git status --short --branch` output was exactly:
   `## main...origin/main [ahead 47]`
   ` M .humanize/rlcr/2026-03-27_12-31-07/goal-tracker.md`
 - Doc/date consistency rerun command was exactly:
@@ -24,7 +24,7 @@ Close the remaining summary/bookkeeping mismatch identified after Round 6 and co
 - `npm test` passed on current HEAD with 144 passing tests and 0 failures.
 
 ## Remaining Items
-Implementation and runtime validation are green. The only open item is the review-managed mutable tracker state, which remains intentionally uncommitted until review accepts or updates it.
+Implementation and runtime validation were green at the checkpoint. The tracker update was the last open bookkeeping item at that checkpoint before review acceptance/update and final bookkeeping commit flow.
 
 ## Goal Tracker Update Request
 - If review confirms the corrected `round-5-summary.md` and `round-6-summary.md` now align with the FR-2/FR-3 March 19 vs March 27 evidence split and tracker framing, please close the remaining summary/bookkeeping task.
