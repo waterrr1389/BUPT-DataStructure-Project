@@ -6,6 +6,9 @@ const { spawnSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..");
 const publicRoot = path.join(repoRoot, "public");
+const browserBuildLockPath = path.join(repoRoot, ".browser-build.lock");
+const browserBuildLockPollMs = 100;
+const browserBuildLockTimeoutMs = 30000;
 const managedBrowserBoundaries = [
   { kind: "file", sourcePath: path.join(publicRoot, "app.ts") },
   { kind: "tree", directoryPath: path.join(publicRoot, "spa") },
@@ -25,7 +28,9 @@ function fail(message, exitCode = 1) {
 }
 
 function getTscCommand() {
-  return process.platform === "win32" ? "tsc.cmd" : "tsc";
+  const command = process.platform === "win32" ? "tsc.cmd" : "tsc";
+  const localCommand = path.join(repoRoot, "node_modules", ".bin", command);
+  return fs.existsSync(localCommand) ? localCommand : command;
 }
 
 function runTsc(args, options = {}) {
@@ -84,6 +89,81 @@ function listFiles(directoryPath, extension) {
 
 function uniqueSorted(paths) {
   return Array.from(new Set(paths)).sort();
+}
+
+function sleep(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+function readBuildLockPid() {
+  try {
+    const rawPid = fs.readFileSync(browserBuildLockPath, "utf8").trim();
+    const pid = Number(rawPid);
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+function acquireBuildLock() {
+  const waitStart = Date.now();
+
+  while (true) {
+    try {
+      const lockHandle = fs.openSync(browserBuildLockPath, "wx");
+      fs.writeFileSync(lockHandle, `${process.pid}\n`);
+      return lockHandle;
+    } catch (error) {
+      if (error.code !== "EEXIST") {
+        fail(`Unable to acquire browser build lock: ${error.message}`);
+      }
+
+      const lockPid = readBuildLockPid();
+      if (lockPid !== null && !isProcessAlive(lockPid)) {
+        try {
+          fs.unlinkSync(browserBuildLockPath);
+          continue;
+        } catch (unlinkError) {
+          if (unlinkError.code === "ENOENT") {
+            continue;
+          }
+          fail(`Unable to clear stale browser build lock: ${unlinkError.message}`);
+        }
+      }
+
+      if (Date.now() - waitStart >= browserBuildLockTimeoutMs) {
+        const owner = lockPid === null ? "an unknown process" : `pid ${lockPid}`;
+        fail(`Timed out waiting for browser build lock held by ${owner}.`);
+      }
+
+      sleep(browserBuildLockPollMs);
+    }
+  }
+}
+
+function releaseBuildLock(lockHandle) {
+  if (lockHandle == null) {
+    return;
+  }
+
+  fs.closeSync(lockHandle);
+
+  try {
+    fs.unlinkSync(browserBuildLockPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
 }
 
 function listManagedSourcePaths() {
@@ -216,16 +296,22 @@ function verifyOutputs(sourcePaths) {
 }
 
 function main() {
-  const managedOutputPaths = listManagedOutputPaths();
-  const outputSnapshots = snapshotManagedOutputs(managedOutputPaths);
+  let buildLockHandle = null;
+  let outputSnapshots = new Map();
+  let shouldRestoreOutputs = false;
 
   try {
+    buildLockHandle = acquireBuildLock();
+
+    const managedOutputPaths = listManagedOutputPaths();
+    outputSnapshots = snapshotManagedOutputs(managedOutputPaths);
     const sourcePaths = listManagedSourcePaths();
 
     if (sourcePaths.length === 0) {
       fail("No browser TypeScript sources were resolved for browser build verification.");
     }
 
+    shouldRestoreOutputs = true;
     removeManagedOutputs(managedOutputPaths);
 
     for (const build of browserBuilds) {
@@ -234,14 +320,19 @@ function main() {
     }
 
     verifyOutputs(sourcePaths);
+    shouldRestoreOutputs = false;
 
     console.log(`Verified ${sourcePaths.length} browser runtime assets.`);
   } catch (error) {
-    restoreManagedOutputs(outputSnapshots);
+    if (shouldRestoreOutputs) {
+      restoreManagedOutputs(outputSnapshots);
+    }
     if (error?.message) {
       console.error(error.message);
     }
     process.exit(error?.exitCode ?? 1);
+  } finally {
+    releaseBuildLock(buildLockHandle);
   }
 }
 
