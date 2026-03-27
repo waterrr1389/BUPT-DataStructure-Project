@@ -15,7 +15,7 @@ Evidence:
 
 - `tests/runtime-services.test.ts` verifies indoor routing and nearby facility lookup on the real dataset.
 - `tests/integration-smoke.test.ts` asserts the deterministic `River Polytechnic` indoor path.
-- `public/index.html` exposes route-strategy and route-mode controls in the browser demo.
+- `dist/public/index.html` exposes route-strategy and route-mode controls in the browser demo at stable public URLs.
 
 ### 2. Journal Exchange Goes Beyond Basic Diary CRUD
 

@@ -18,7 +18,7 @@
 ## 环境要求
 - Node `>=20`。
 - `package.json` 当前包含 `Leaflet` 相关依赖，仍依赖全局 `tsc`。
-- 脚本包括：`build`、`validate:data`、`test`、`benchmark`、`demo`、`start`，其中 `build` 会先执行 `build:browser:esm`、`build:browser:script`，再执行现有服务端构建；`start` 默认监听 `127.0.0.1:3000`。
+- 脚本包括：`build`、`validate:data`、`test`、`benchmark`、`demo`、`start`，其中 `build` 会先执行 `build:browser`（统一完成浏览器侧构建与运行时资源输出），再执行服务端构建；`start` 默认监听 `127.0.0.1:3000`。
 
 ## 快速开始
 1. 安装或确认有全局 `tsc`。
