@@ -1131,3 +1131,43 @@ test("server keeps feed and comment cursors valid when the anchor item is delete
     assert.equal(nextCommentPage.body.items[0]?.id, firstComment.body.item.id, nextCommentPage.text);
   });
 });
+
+test("GET / returns built index.html with text/html and no-store", async () => {
+  await withServer("built-index-root", async ({ requestText }) => {
+    const builtIndexHtml = await readRuntimePublicTextAsset("index.html");
+    const response = await requestText("/");
+
+    assert.equal(response.status, 200, response.text);
+    assert.equal(response.headers["content-type"], "text/html; charset=utf-8");
+    assert.equal(response.headers["cache-control"], "no-store");
+    assert.equal(response.text, builtIndexHtml);
+  });
+});
+
+test("changing cwd outside repo still serves / and /app.js", async () => {
+  const originalCwd = process.cwd();
+  const repoRoot = path.resolve(originalCwd);
+  const outsideCwd = path.join(
+    path.dirname(repoRoot),
+    `ds-ts-cwd-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
+  await fs.mkdir(outsideCwd, { recursive: true });
+  const processWithChdir = process as typeof process & { chdir(directory: string): void };
+
+  try {
+    processWithChdir.chdir(outsideCwd);
+    await withServer("cwd-change-root", async ({ requestText }) => {
+      const rootResponse = await requestText("/");
+      assert.equal(rootResponse.status, 200, rootResponse.text);
+      assert.equal(rootResponse.headers["content-type"], "text/html; charset=utf-8");
+      assert.equal(rootResponse.headers["cache-control"], "no-store");
+
+      const appResponse = await requestText("/app.js");
+      assert.equal(appResponse.status, 200, appResponse.text);
+      assert.equal(appResponse.headers["cache-control"], "no-store");
+      expectMatches(appResponse.headers["content-type"] ?? "", /javascript/i);
+    });
+  } finally {
+    processWithChdir.chdir(originalCwd);
+  }
+});
