@@ -5,7 +5,7 @@ import { parseDestinationSortBy, type WorldRoutePlanInvalidRequestRecord } from 
 import { createAppServices, type AppServices } from "../services/index";
 import { isWorldRouteServiceError } from "../services/world-route-service";
 
-const publicDir = path.resolve(process.cwd(), "public");
+const publicDir = path.resolve(process.cwd(), "dist/public");
 const WORLD_ROUTE_INVALID_REQUEST_MESSAGE = "Invalid world route request.";
 
 class RequestBodyError extends Error {
