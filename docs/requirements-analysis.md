@@ -107,8 +107,11 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 - The browser surface covers destinations, routes, facilities, journals, exchange, and food.
 - The March 19 recorded `npm run demo` provides a deterministic report centered on `dest-002` / `River Polytechnic`.
-- The March 27 rerun of `npm test` now includes explicit selector-parity coverage and graph-variant structure/regression coverage.
 - `README.md` and the delivery docs now align with the implemented module structure and recorded outputs while explicitly distinguishing the March 27 rerun, the March 19 recorded command runs, and the March 18 historical startup evidence.
+
+Recorded evidence (March 27, 2026 rerun):
+
+- The March 27 rerun of `npm test` now includes explicit selector-parity coverage and graph-variant structure/regression coverage.
 
 ## Non-Functional Requirements
 
