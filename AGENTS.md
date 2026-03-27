@@ -36,5 +36,7 @@
 ## 禁止事项
 - 永远不要使用 `/init`。
 - `Agent.md` 应按项目实际需求编写，不要套用空泛模板。
+- 不要提交.humanize目录的内容
+- 不要在README内添加开发过程描述
 - Avoid terms to describe development progress (`FIXED`, `Step`, `Week`, `Section`, `Phase`, `AC-x`, etc) in code comments or commit message or PR body.
 - Avoid AI tools name (like Codex, Claude, Grok, Gemini, ...) in code comments or git commit message (including authorship) or PR body.
