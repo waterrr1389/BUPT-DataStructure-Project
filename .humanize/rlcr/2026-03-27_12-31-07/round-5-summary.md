@@ -9,7 +9,7 @@ Capture the doc-only adjustments that resolve the remaining FR-2/FR-3 evidence l
 
 ## Verification Conclusions
 - `npm test` (the `npm run build` + `node dist/tests/index.js` combo) passes on this HEAD with 144 tests, reaffirming that the rerun used for FR-2/FR-3 evidence is green.
-- `git status --short --branch` shows `## main...origin/main [ahead 36]` with only `.humanize/rlcr/2026-03-27_12-31-07/goal-tracker.md` still modified after landing these docs and summary edits, so the working tree otherwise matches the committed HEAD.
+- Only `.humanize/rlcr/2026-03-27_12-31-07/goal-tracker.md` remains modified after landing these docs and summary edits, so the working tree otherwise matches the committed HEAD once the tracker diff is staged.
 - `rg -n \"March 27\" README.md docs/evaluation-and-improvements.md docs/example-results-and-tests.md docs/requirements-analysis.md .humanize/rlcr/2026-03-27_12-31-07/round-4-summary.md .humanize/rlcr/2026-03-27_12-31-07/goal-tracker.md` highlights the rerun references in every targeted doc, confirming the March 27 rerun framing propagates through the README, the evaluation notes, the example-results log, the requirements analysis, and the summary tracker when needed.
 
 ## Residual Risks
