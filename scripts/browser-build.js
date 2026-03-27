@@ -12,6 +12,17 @@ const publicVendorRoot = path.join(publicRoot, "vendor");
 const browserBuildLockPath = path.join(repoRoot, ".browser-build.lock");
 const browserBuildLockPollMs = 100;
 const browserBuildLockTimeoutMs = 30000;
+const diagnosticsStderrFd = (() => {
+  try {
+    const stderrStream = process.stderr;
+    if (stderrStream && typeof stderrStream.fd === "number") {
+      return stderrStream.fd;
+    }
+  } catch (error) {
+    // ignore; fallback to standard descriptor
+  }
+  return 2;
+})();
 const managedBrowserBoundaries = [
   { kind: "file", sourcePath: path.join(publicRoot, "app.ts") },
   { kind: "tree", directoryPath: path.join(publicRoot, "spa") },
@@ -30,7 +41,8 @@ function reportDiagnostics(message) {
   }
 
   const normalized = message.endsWith("\n") ? message : `${message}\n`;
-  process.stderr.write(normalized);
+  const buffer = Buffer.from(normalized, "utf8");
+  fs.writeSync(diagnosticsStderrFd, buffer, 0, buffer.length);
 }
 
 function fail(message, exitCode = 1) {
@@ -508,7 +520,7 @@ function main() {
     exitCode = error?.exitCode ?? 1;
     removeDirectoryIfPresent(stagingRoot);
     if (!error?.diagnosticsReported && error?.message) {
-      console.error(error.message);
+      reportDiagnostics(error.message);
     }
   } finally {
     try {
@@ -518,7 +530,7 @@ function main() {
         throw error;
       }
       const lockReleaseMessage = error?.message ?? String(error);
-      console.error(`Unable to release browser build lock: ${lockReleaseMessage}`);
+      reportDiagnostics(`Unable to release browser build lock: ${lockReleaseMessage}`);
     }
   }
 

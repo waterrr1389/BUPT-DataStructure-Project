@@ -36,6 +36,14 @@ function toRepoRelativePath(repoRoot: string, targetPath: string): string {
     : normalizedTargetPath;
 }
 
+const guardBanner =
+  "Unexpected JavaScript files were found under public/ outside the allowed third-party tree public/vendor/:";
+
+function assertGuardBannerLine(stderr: string, context: string) {
+  const firstLine = stderr.trim().split("\n")[0] ?? "";
+  assert.equal(firstLine, guardBanner, context);
+}
+
 test("browser build fails when first-party JavaScript is present under public", () => {
   const repoRoot = process.cwd();
   const publicRoot = path.join(repoRoot, "public");
@@ -67,11 +75,7 @@ test("browser build fails when first-party JavaScript is present under public", 
       true,
       output,
     );
-    assert.equal(
-      stderr.includes("Unexpected JavaScript files were found"),
-      true,
-      "stderr should contain the guard banner",
-    );
+    assertGuardBannerLine(stderr, "stderr should start with the guard banner");
     assert.equal(
       stderr.includes(illegalRelativePath),
       true,
@@ -103,7 +107,9 @@ test("browser build guard lists each unexpected public JavaScript path", () => {
       encoding: "utf8",
     });
 
-    const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+    const stdout = result.stdout ?? "";
+    const stderr = result.stderr ?? "";
+    const output = `${stdout}\n${stderr}`;
     const illegalRelativePaths = illegalFiles.map((filePath) => toRepoRelativePath(repoRoot, filePath));
 
     assert.equal(
@@ -119,16 +125,12 @@ test("browser build guard lists each unexpected public JavaScript path", () => {
       output,
     );
 
-    assert.equal(
-      result.stderr?.includes("Unexpected JavaScript files were found"),
-      true,
-      "stderr should contain the guard banner",
-    );
+    assertGuardBannerLine(stderr, "stderr should start with the guard banner");
 
     for (const illegalRelativePath of illegalRelativePaths) {
       assert.equal(new RegExp(escapeRegExp(illegalRelativePath)).test(output), true, output);
       assert.equal(
-        result.stderr?.includes(illegalRelativePath),
+        stderr.includes(illegalRelativePath),
         true,
         `stderr should mention ${illegalRelativePath}`,
       );
