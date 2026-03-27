@@ -12,11 +12,12 @@ Consolidate Round 1 remediation outcomes into a bookkeeping summary, reflecting 
 - Browser-build failure path lock release fix landed at commit `1c86499`.
 - Browser-build guard test self-contained adjustment landed at commit `fd91415`.
 - Dependency description refinement landed at commit `2f156665`, clarifying that `leaflet` plus TypeScript tooling are managed via npm rather than under a zero-dependency/global-only assumption.
+- Agent toolchain history clarification landed at commit `fd4c989`, noting that npm scripts run using the global `node` runtime while the repository-managed `tsc`, `leaflet`, and TypeScript tooling remain under npm control rather than an assumed global-only setup.
 
 ## Verification Conclusions
 - Full verification passed with `npm test` (`144 passing`).
-- `git status --short --branch` reports `## main...origin/main [ahead 20]` with no staged or unstaged changes, so the worktree remains clean.
-- Targeted search for `no npm dependencies` or `global-only` within `docs/evaluation-and-improvements.md` and `docs/agent-usage.md` returns no matches, confirming the stale dependency claims are removed.
+- `git status --short --branch` reports `## main...origin/main [ahead 23]` with a clean working tree, confirming no changes outside the summary file edits.
+- Targeted search for `zero-dependency`, `no npm dependencies`, or `global \`tsc\`` within `docs/evaluation-and-improvements.md` and `docs/agent-usage.md` only hits the historical Round 0 summary entry and the explanatory note that the project relies on `leaflet`/TypeScript tooling via npm rather than claiming a zero-dependency runtime, so no active content asserts a stale dependency claim.
 
 ## Residual Risks
 - Goal tracker entries are read-only in this round, so acceptance evidence is not yet reflected there.
