@@ -11,23 +11,23 @@ The repository regression surface is:
 - `npm run demo`
 - `npm run start`
 
-## Current Verified Results
+## Recorded Evidence Summary
 
 The notes below combine two evidence sets:
 
 - March 19, 2026 automated-test evidence from this round, plus targeted code-level confirmation where noted
-- March 18, 2026 unrestricted live-start and browser/API smoke evidence
+- March 18, 2026 unrestricted live-start and browser/API smoke evidence (historical)
 
-This round did not rerun the unrestricted March 18 smoke pass.
+This round did not rerun the unrestricted March 18 smoke pass; that live-start record remains historical.
 
 ### Build
 
-- `npm run build` passed.
+- Recorded in the March 19, 2026 run: `npm run build` passed.
 
 ### Data Validation
 
-- `npm run validate:data` passed against `src/data/seed.ts`.
-- Reported counts:
+- Recorded in the March 19, 2026 run, `npm run validate:data` passed against `src/data/seed.ts`.
+- Recorded counts:
   - destinations: `220`
   - buildings: `660`
   - facilityCategories: `10`
@@ -39,8 +39,8 @@ This round did not rerun the unrestricted March 18 smoke pass.
 
 ### Automated Tests
 
-- `npm test` passed with `30` tests.
-- March 19 automated-test evidence from this round includes:
+- `npm test` passed with `30` tests on March 19, 2026.
+- Recorded March 19 automated-test evidence from this round includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
   - external runtime/source verification
@@ -54,12 +54,12 @@ This round did not rerun the unrestricted March 18 smoke pass.
   - deterministic graph-variant regression coverage in `tests/runtime-services.test.ts` for distinct scenic and campus fallback graph structures
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
-- March 19 code inspection also confirmed that `dist/public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail was not rerun in the older March 18 live browser smoke, and the public browser URL remains stable.
+- A March 19 recorded code inspection also confirmed that `dist/public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail was not rerun in the older March 18 live browser smoke, and the public browser URL remains stable.
 
 ### Benchmarks
 
-- `npm run benchmark` passed.
-- Representative output from one verified run:
+- Recorded in the March 19, 2026 benchmarking run, `npm run benchmark` passed.
+- Representative output from that recorded run:
   - `top-k: 6.250 ms over 25 iteration(s) with sample size 1000`
   - `search: 27.531 ms over 25 iteration(s) with sample size 1000`
   - `graph: 3.149 ms over 25 iteration(s) with sample size 64`
@@ -69,9 +69,9 @@ The benchmark harness uses fixed workloads, but the wall-clock timings vary by r
 
 ## Example Demo Results
 
-`npm run demo` currently produces a deterministic report built from `createAppServices()` and the real seed/runtime data.
+`npm run demo` produced a deterministic report in the recorded March 19, 2026 run, built from `createAppServices()` and the real seed/runtime data.
 
-Representative deterministic outputs:
+Representative deterministic outputs recorded from that run:
 
 - Runtime:
   - dataSource: `external`
@@ -108,9 +108,9 @@ Representative deterministic outputs:
   - top food id: `dest-002-food-3`
   - top food cuisine: `noodle lab`
 
-## Startup Behavior
+## Historical Startup Behavior
 
-- On March 18, 2026, `node dist/src/server/index.js` successfully listened on `http://127.0.0.1:3000` in an unrestricted environment after the build step completed.
+- Recorded on March 18, 2026, `node dist/src/server/index.js` successfully listened on `http://127.0.0.1:3000` in an unrestricted environment after the build step completed.
 - The March 18 unrestricted live browser/API smoke verification against that server succeeded for:
   - `/`
   - `/api/health`

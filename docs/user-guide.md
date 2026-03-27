@@ -59,7 +59,7 @@ The demo covers:
 
 ## Troubleshooting
 
-- If `npm run start` fails with `EPERM` on `127.0.0.1:3000` inside a restricted sandbox, treat that as an environment limitation rather than a known compile/runtime issue in the repo. The March 18 unrestricted-environment verification recorded elsewhere in the delivery docs confirmed that the app can also start successfully and serve the browser/API surface.
+- If `npm run start` fails with `EPERM` on `127.0.0.1:3000` inside a restricted sandbox, treat that as an environment limitation rather than a known compile/runtime issue in the repo. The March 18 unrestricted-environment verification recorded elsewhere in the delivery docs remains the historical confirmation that the app can also start successfully and serve the browser/API surface.
 - If you change browser TypeScript under `public/*.ts` or `public/spa/**/*.ts`, rerun `npm run build` so the served JavaScript in `dist/public/` is refreshed.
 - If you change `public/journal-consumers.ts`, `public/journal-presentation.ts`, or `public/route-visualization-markers.ts`, keep their browser-global and CommonJS-compatible behavior intact because they are compiled as script-style helpers rather than ESM modules.
 - If demo output changes, rerun `npm test` because `tests/integration-smoke.test.ts` asserts the deterministic demo report structure.

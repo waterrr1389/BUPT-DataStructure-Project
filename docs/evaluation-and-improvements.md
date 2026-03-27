@@ -1,13 +1,13 @@
 # Evaluation and Improvements
 
-## Current Evaluation
+## Recent Recorded Evaluation
 
 - Feature coverage: the repository implements destination recommendation and search, routing, nearby facilities, journals, journal exchange, food discovery, benchmarks, demo scripting, and a browser-facing surface.
-- Data scale: `npm run validate:data` currently reports `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` edges, `12` users, `12` journals, and `880` foods.
+- Data scale: the March 19 recorded `npm run validate:data` run reported `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` edges, `12` users, `12` journals, and `880` foods.
 - Algorithm ownership: ranking, prefix/text search, fuzzy matching, routing, multi-stop planning, and compression all live in `src/algorithms/`.
-- Verification: `npm run build`, `npm run validate:data`, `npm test`, `npm run benchmark`, and `npm run demo` pass in the verified post-fix workspace state, and March 18 unrestricted-environment checks confirmed successful browser/API startup verification on `127.0.0.1:3000`.
-- Startup behavior: the CLI now supports both verified unrestricted-environment startup and clean restricted-environment failure reporting when a sandbox returns `EPERM`.
-- Documentation: the delivery docs now describe the implemented repository and current evidence instead of Round 0 planning assumptions.
+- Verification: the March 19 recorded runs for `npm run build`, `npm run validate:data`, `npm test`, `npm run benchmark`, and `npm run demo` passed in the post-fix workspace; the March 18 unrestricted-environment checks remain the historical record that browser/API startup worked on `127.0.0.1:3000`.
+- Startup behavior: the CLI now supports both the verified unrestricted-environment startup path and clean restricted-environment failure reporting when a sandbox returns `EPERM`.
+- Documentation: the delivery docs now describe the implemented repository and recorded evidence instead of Round 0 planning assumptions.
 
 ## Strengths
 
@@ -21,7 +21,7 @@
 
 ## Operational Note
 
-There is no remaining live-start verification blocker in the documented March 18 state. Restricted sandboxes may still refuse socket binds with `EPERM`, but the repository now has both clean failure handling for that case and recorded unrestricted-environment startup/smoke evidence.
+There is no remaining live-start verification blocker in the documented March 18 state, and that recorded unrestricted-environment startup/smoke evidence shows a successful bind while the CLI still reports clean `EPERM` failures when restricted sandboxes refuse socket binds.
 
 ## Improvement Directions
 
