@@ -16,6 +16,7 @@ The implemented repository satisfies the project boundary expected by the course
 - Dataset scale exceeds the minimum requirements with `220` destinations, `660` buildings, `10` facility categories, `1100` facilities, `4070` graph edges, and `12` users.
 - Core algorithms are implemented in project code under `src/algorithms/` rather than delegated to database-native search, ranking, or routing.
 - The demo surface is exposed through `src/server/index.ts`, source assets under `public/`, served runtime output under `dist/public/`, and the package scripts in `scripts/`. Public browser URLs remain stable.
+- Browser static assets under `public/` only include first-party TypeScript sources plus the third-party `public/vendor/**`; the repository no longer keeps first-party browser runtime `.js` files under `public/`, and `npm run build` emits those scripts into `dist/public/` while copying `public/index.html`, `public/styles.css`, `public/assets/**`, and `public/vendor/**` into the served runtime tree.
 - Automated verification lives under `tests/`, and the delivery documents live under `docs/`.
 
 ## Implemented Repository Boundary
@@ -37,11 +38,11 @@ The active implementation now lives in these paths:
 
 The project is successful when a reviewer can:
 
-- build the repository with the zero-dependency `node` + `tsc` toolchain,
+- build the repository via the npm `build` script, which runs the repository-installed `tsc` and Leaflet tooling rather than depending on a preinstalled global toolchain,
 - validate the real seed dataset,
 - run the automated tests,
 - inspect representative benchmark output,
 - execute the deterministic demo flow, and
 - see the browser/API surface expose recommendation, routing, facilities, journals, exchange, and food discovery.
 
-That success definition is supported by the current verified command results recorded in `README.md` and `docs/example-results-and-tests.md`.
+That success definition can be compared to the command outputs recorded in `README.md` and `docs/example-results-and-tests.md`.

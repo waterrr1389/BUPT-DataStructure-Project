@@ -29,8 +29,9 @@
 
 ## 项目结构
 - `src/`: 领域模型、数据、算法、服务与 `server/index.ts`。
-- `public/`: 浏览器 SPA 第一方 TypeScript 源码与静态输入资源，其中 `public/vendor/**` 为第三方依赖资源。
+- `public/`: 浏览器 SPA 第一方 TypeScript 源码与静态输入资源，其中 `public/vendor/**` 为第三方依赖资源。仓库中不再保留第一方浏览器运行时 `.js` 源文件；除 `public/vendor/**` 外，`public/` 源树不含 JavaScript，所有第一方脚本由 TypeScript 编译输出到 `dist/public/`。
 - `dist/public/`: 浏览器运行时产物目录（构建输出），服务端对外提供该目录并保持既有浏览器访问 URL 不变。
+- `npm run build` 会将 `public/` 的第一方 TypeScript 编译到 `dist/public/`，并将 `public/index.html`、`public/styles.css`、`public/assets/**` 与 `public/vendor/**` 及编译产物一同复制到 `dist/public/`，以构成完整浏览器运行时目录。
 - `scripts/`: 含 `validate-data.ts`、`run-benchmarks.ts`、`demo.ts`。
 - `tests/` 与 `docs/`：测试与交付文档。
 

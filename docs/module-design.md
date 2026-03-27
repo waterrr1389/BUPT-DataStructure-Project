@@ -77,11 +77,13 @@
 
 - `src/server/index.ts` exposes a lightweight HTTP server, static asset serving, and JSON API routes for every feature area.
 - `public/app.ts` and `public/spa/**/*.ts` are the browser-maintained TypeScript sources for the module-based SPA runtime.
+- No first-party browser runtime `.js` files are kept under `public/`; only `public/vendor/**` may contain source-tree JavaScript, and every first-party script is emitted through the compilation pipeline into `dist/public/`.
 - `public/journal-consumers.ts`, `public/journal-presentation.ts`, and `public/route-visualization-markers.ts` compile to stable script URLs while keeping browser-global and CommonJS-compatible behavior.
 - `dist/public/*.js` and `dist/public/spa/**/*.js` are the served browser runtime output; build output moved from source `public/` to `dist/public/` while keeping public URLs unchanged.
 - `public/vendor/**` remains third-party browser JavaScript and CSS source assets rather than project-authored TypeScript.
 - `dist/public/vendor/**` is the third-party exception in served runtime output and stays non-authored.
 - Source `public/` provides browser source inputs, while served UI assets are read from `dist/public/`.
+- `npm run build` compiles the first-party TypeScript from `public/` into `dist/public/` and copies `public/index.html`, `public/styles.css`, `public/assets/**`, and `public/vendor/**` into that runtime tree together with the generated scripts.
 
 ### Scripts And Tests
 
