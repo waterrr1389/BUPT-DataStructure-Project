@@ -104,8 +104,8 @@ Current evidence:
 
 ## Non-Functional Requirements
 
-- Zero dependencies: satisfied. The package uses no external npm dependencies.
-- Global toolchain only: satisfied. The documented flow uses global `node` and `tsc`.
+- Managed dependencies: satisfied. The package declares external/runtime and development dependencies, and the documented flow requires `npm install`.
+- Project-local toolchain usage: satisfied. The documented command flow runs through npm scripts that consume project dependencies (including local TypeScript tooling).
 - Deterministic command surface: satisfied for build, validation, tests, and demo. Benchmark timings remain representative because wall-clock results vary.
 - Multi-worker readability: satisfied through clear module boundaries across `src/algorithms/`, `src/services/`, `src/server/`, `scripts/`, and `tests/`.
 - Controlled startup errors: satisfied. Restricted environments still surface a clear `Server failed to start: listen EPERM...` message through the CLI wrapper, and the March 18 unrestricted-environment verification also confirmed a successful live bind on `127.0.0.1:3000`.

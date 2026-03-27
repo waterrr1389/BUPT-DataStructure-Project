@@ -3,8 +3,7 @@
 ## Prerequisites
 
 - Node.js 20 or newer available globally
-- TypeScript compiler `tsc` available globally
-- No package installation step is required
+- Install project dependencies with `npm install`
 
 ## Core Commands
 
@@ -18,7 +17,7 @@ npm run benchmark
 npm run demo
 ```
 
-`npm run build` now runs the browser ESM build, the browser script-helper build, and then the existing server build.
+`npm run build` runs the browser build flow and then the server build flow, using project-installed dependencies from `node_modules` (including TypeScript).
 
 Start the browser-facing app with:
 

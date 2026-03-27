@@ -45,14 +45,14 @@ Evidence:
 - `tests/integration-smoke.test.ts` covers deterministic food search and recommendation results for `dest-002`.
 - `dist/public/index.html` and `dist/public/app.js` expose both food search and recommendation actions at stable public URLs.
 
-### 4. Zero-Dependency Delivery Keeps The System Inspectable
+### 4. Lightweight Dependency Delivery Keeps The System Inspectable
 
-The project uses no external npm dependencies. That keeps the ranking, search, routing, compression, demo, and server logic directly inspectable for course review.
+The project keeps external dependencies limited while preserving direct inspectability for ranking, search, routing, compression, demo, and server logic.
 
 Evidence:
 
-- `package.json` has no dependency sections.
-- The verified command surface uses only `node`, `tsc`, and in-repo source files.
+- `package.json` declares external/runtime and development dependencies (`leaflet`, `@types/leaflet`, `typescript`).
+- The verified command surface uses npm scripts after dependency installation, including project-local TypeScript tooling.
 - `npm run benchmark` reports representative timings for the custom top-k, search, graph, and compression modules.
 
 ## Boundaries

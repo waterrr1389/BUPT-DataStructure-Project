@@ -1,7 +1,7 @@
 # Trail Atlas
 
 ## 项目简介
-`Trail Atlas` 是一个以 TypeScript 为主的出行与探索产品，不只是教学脚手架，而是具备完整功能的课程项目。仓库内包含目的地探索、推荐、路线规划、周边设施查找、餐饮推荐以及日记与交换机制，配套 SPA 界面与 JSON API，且依赖全局 `tsc` 编译。浏览器侧第一方源码位于 `public/*.ts` 与 `public/spa/**/*.ts`，构建后运行时资源输出到 `dist/public/**` 并保持既有公开 URL；`public/vendor/**` 仍保留第三方 JavaScript 资源。
+`Trail Atlas` 是一个以 TypeScript 为主的出行与探索产品，不只是教学脚手架，而是具备完整功能的课程项目。仓库内包含目的地探索、推荐、路线规划、周边设施查找、餐饮推荐以及日记与交换机制，配套 SPA 界面与 JSON API。浏览器侧第一方源码位于 `public/*.ts` 与 `public/spa/**/*.ts`，构建后运行时资源输出到 `dist/public/**` 并保持既有公开 URL；`public/vendor/**` 仍保留第三方 JavaScript 资源。
 
 ## 当前能力
 - 目的地探索与推荐：通过自定义排名和全文索引，对目的地与推荐结果提供搜索与排序。
@@ -17,12 +17,13 @@
 
 ## 环境要求
 - Node `>=20`。
-- `package.json` 当前包含 `Leaflet` 相关依赖，仍依赖全局 `tsc`。
+- 需要先执行 `npm install` 安装项目依赖。
+- `package.json` 当前包含外部依赖（如 `leaflet`）与开发依赖（如 `typescript`、`@types/leaflet`）。
 - 脚本包括：`build`、`validate:data`、`test`、`benchmark`、`demo`、`start`，其中 `build` 会先执行 `build:browser`（统一完成浏览器侧构建与运行时资源输出），再执行服务端构建；`start` 默认监听 `127.0.0.1:3000`。
 
 ## 快速开始
-1. 安装或确认有全局 `tsc`。
-2. 运行 `npm run build` 生成产物。
+1. 运行 `npm install` 安装项目依赖。
+2. 运行 `npm run build` 生成产物（通过 npm scripts 使用项目内依赖完成浏览器与服务端构建）。
 3. 依次执行 `npm run validate:data`、`npm test`、`npm run benchmark` 保证数据与功能完整。
 4. 若需本地演示，执行 `npm run demo` 或 `npm run start` 并访问 `http://127.0.0.1:3000`。
 
