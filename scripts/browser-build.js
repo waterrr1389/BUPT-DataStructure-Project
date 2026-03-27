@@ -449,6 +449,7 @@ function activateRuntimeTree(stagingRoot) {
 function main() {
   let buildLockHandle = null;
   const stagingRoot = path.join(distRoot, `.public-staging-${process.pid}`);
+  let exitCode = 0;
 
   try {
     buildLockHandle = acquireBuildLock();
@@ -480,13 +481,25 @@ function main() {
       `Verified ${sourcePaths.length} browser runtime assets and ${staticAssetSourcePaths.length} copied static assets.`,
     );
   } catch (error) {
+    exitCode = error?.exitCode ?? 1;
     removeDirectoryIfPresent(stagingRoot);
     if (error?.message) {
       console.error(error.message);
     }
-    process.exit(error?.exitCode ?? 1);
   } finally {
-    releaseBuildLock(buildLockHandle);
+    try {
+      releaseBuildLock(buildLockHandle);
+    } catch (error) {
+      if (exitCode === 0) {
+        throw error;
+      }
+      const lockReleaseMessage = error?.message ?? String(error);
+      console.error(`Unable to release browser build lock: ${lockReleaseMessage}`);
+    }
+  }
+
+  if (exitCode !== 0) {
+    process.exitCode = exitCode;
   }
 }
 
