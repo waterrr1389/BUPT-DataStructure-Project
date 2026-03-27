@@ -9,6 +9,7 @@ Record what Round 0 implemented for the comment-enrichment and documentation-ali
 - Aligned user-facing and reference docs to the current browser and API surface. `docs/user-guide.md`, `docs/example-results-and-tests.md`, `docs/evaluation-and-improvements.md`, `docs/innovation-notes.md`, `docs/data-structures-and-dictionary.md`, and `docs/journal-social-design-style.md` now reflect the routed browser shell, feed/detail flow, world-mode browsing and routing, shared selector behavior, and the distinction between authored browser source and generated runtime output.
 - Clarified world/history/process context boundaries. `docs/world/README.md`, `docs/world/spec.md`, `docs/world/contract.md`, `docs/agent-usage.md`, and `docs/rlcr-concurrency-retrospective-2026-03-20.md` now state whether they are world-mode references, contracts, or historical/process records so they cannot be misread as the current repository's primary source of truth.
 - Reworked `docs/world/plan.md` into a planning and reference artifact for world mode rather than a current-state primary spec, while still documenting how the current repository has moved beyond the original read-only rollout boundary.
+- Follow-up indexing aligned the maintained world-mode document set by having `docs/world/README.md` explicitly list `docs/world/plan.md` alongside the other world-mode references.
 
 ## Files By Area
 - Algorithm and runtime/server comments:
