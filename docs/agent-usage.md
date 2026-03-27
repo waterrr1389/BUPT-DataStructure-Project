@@ -20,7 +20,7 @@
 - Filesystem mode during that loop: `workspace-write`
 - Network access during that loop: restricted
 - Approval policy during that loop: `never`
-- Project toolchain: global `node` and `tsc` invoked via npm scripts, with `leaflet` (runtime) and TypeScript tooling (`@types/leaflet`, `typescript`) managed through the repository's npm dependencies rather than assuming a zero-dependency install.
+- Project toolchain: npm scripts run using the globally provided `node` runtime alongside the repository-installed `tsc`, while `leaflet` (runtime) and TypeScript tooling (`@types/leaflet`, `typescript`) are managed through the repository's npm dependencies.
 
 ## Historical RLCR Artifacts
 
