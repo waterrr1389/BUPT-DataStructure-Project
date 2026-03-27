@@ -124,7 +124,7 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 Recorded evidence (March 27, 2026 rerun):
 
-- The March 27 rerun of `npm test` now includes explicit selector-binding/browser-side selector-parity coverage, runtime-service graph-variant structure/regression coverage, and browser-facing SPA regressions for feed and map-shell behavior.
+- The March 27 rerun of `npm test` now includes explicit selector-parity coverage through the selector-binding tests, runtime-service graph-variant structure/regression coverage, and browser-facing SPA regressions for feed and map-shell behavior.
 
 ## Non-Functional Requirements
 
