@@ -15,8 +15,8 @@
     "typescript": "^5.6.3"
   },
   "scripts": {
-    "build:browser:esm": "tsc -p tsconfig.browser-esm.json",
-    "build:browser:script": "tsc -p tsconfig.browser-script.json",
+    "build:browser:esm": "node scripts/browser-build.js",
+    "build:browser:script": "node scripts/browser-build.js",
     "build:browser": "node scripts/browser-build.js",
     "build:server": "tsc -p tsconfig.json",
     "build": "npm run build:browser && npm run build:server",
