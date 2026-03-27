@@ -40,8 +40,8 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 Recorded evidence (March 27, 2026 rerun):
 
-- The rerun's runtime-service suite now exercises the route, facility, food, journal, and exchange selectors against the authoritative destination-option pipeline so every selector surface stays aligned.
-- Those selector runs confirm duplicate destination names stay disambiguated consistently across the surfaces while preserving stable destination ids, providing explicit regression coverage for the selector-parity behavior.
+- The rerun's selector-binding and browser-side regression coverage now exercises the route, facility, food, journal, and exchange selectors against the authoritative destination-option pipeline so every selector surface stays aligned.
+- Those selector-binding and browser-side runs confirm duplicate destination names stay disambiguated consistently across the surfaces while preserving stable destination ids, providing explicit regression coverage for the selector-parity behavior.
 
 ### FR-3 Routing, World Routing, And Facility Lookup
 
@@ -63,7 +63,7 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 Recorded evidence (March 27, 2026 rerun):
 
-- The rerun's graph and runtime-service tests now verify fallback runtime generation uses deterministic scenic and campus graph variants instead of reusing a single template, locking in the rerun's graph-variant regression coverage.
+- The rerun's runtime-service suite now verifies fallback runtime generation uses deterministic scenic and campus graph variants instead of reusing a single template, locking in the rerun's graph-variant regression coverage.
 - The rerun's runtime-service and world-route suites cover indoor route behavior plus explicit world-route invalid-request and error-contract behavior through the automated test suite.
 - The rerun's SPA/browser-facing regression suite covers the implemented world-view and world-route browser surfaces under `/map?view=world`.
 
@@ -124,7 +124,7 @@ Recorded evidence (March 19, 2026 run, not rerun this round):
 
 Recorded evidence (March 27, 2026 rerun):
 
-- The March 27 rerun of `npm test` now includes explicit selector-parity coverage, graph-variant structure/regression coverage, and browser-facing SPA regressions for feed and map-shell behavior.
+- The March 27 rerun of `npm test` now includes explicit selector-binding/browser-side selector-parity coverage, runtime-service graph-variant structure/regression coverage, and browser-facing SPA regressions for feed and map-shell behavior.
 
 ## Non-Functional Requirements
 

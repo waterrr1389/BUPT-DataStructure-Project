@@ -32,6 +32,7 @@
 - `public/route-visualization-markers.ts`
 - `public/spa/**/*.ts`
 - `public/spa/world-rendering.ts`
+- `public/assets/**`
 - `public/vendor/**`
 - `public/styles.css`
 - `dist/public/index.html`
@@ -40,6 +41,7 @@
 - `dist/public/journal-presentation.js`
 - `dist/public/route-visualization-markers.js`
 - `dist/public/spa/**/*.js`
+- `dist/public/assets/**`
 - `dist/public/vendor/**`
 - `dist/public/styles.css`
 - `scripts/validate-data.ts`
