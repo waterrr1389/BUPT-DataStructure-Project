@@ -1144,30 +1144,71 @@ test("GET / returns built index.html with text/html and no-store", async () => {
   });
 });
 
-test("changing cwd outside repo still serves / and /app.js", async () => {
+test("changing cwd outside repo still serves built assets via the compiled handler", async () => {
   const originalCwd = process.cwd();
   const repoRoot = path.resolve(originalCwd);
+  const runtimeFs = fs as unknown as RuntimeFs;
   const outsideCwd = path.join(
-    path.dirname(repoRoot),
-    `ds-ts-cwd-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    "/tmp",
+    `ds-ts-built-server-cwd-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
   );
-  await fs.mkdir(outsideCwd, { recursive: true });
+  await runtimeFs.mkdir(outsideCwd, { recursive: true });
   const processWithChdir = process as typeof process & { chdir(directory: string): void };
+  let runtimeDir: string | null = null;
 
   try {
     processWithChdir.chdir(outsideCwd);
-    await withServer("cwd-change-root", async ({ requestText }) => {
-      const rootResponse = await requestText("/");
-      assert.equal(rootResponse.status, 200, rootResponse.text);
-      assert.equal(rootResponse.headers["content-type"], "text/html; charset=utf-8");
-      assert.equal(rootResponse.headers["cache-control"], "no-store");
 
-      const appResponse = await requestText("/app.js");
-      assert.equal(appResponse.status, 200, appResponse.text);
-      assert.equal(appResponse.headers["cache-control"], "no-store");
-      expectMatches(appResponse.headers["content-type"] ?? "", /javascript/i);
-    });
+    const builtServerModulePath = path.join(repoRoot, "dist", "src", "server", "index.js");
+    const builtServicesModulePath = path.join(repoRoot, "dist", "src", "services", "index.js");
+    const builtServerModule = require(builtServerModulePath) as {
+      createServerHandler: typeof createServerHandler;
+    };
+    const builtServicesModule = require(builtServicesModulePath) as {
+      createAppServices: typeof createAppServices;
+    };
+    const builtHandler = builtServerModule.createServerHandler;
+    const builtCreateAppServices = builtServicesModule.createAppServices;
+
+    runtimeDir = path.join(
+      "/tmp",
+      `ds-ts-built-runtime-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    );
+    await runtimeFs.mkdir(runtimeDir, { recursive: true });
+    const services = await builtCreateAppServices({ runtimeDir });
+    await services.journalStore.reset();
+    const handler = builtHandler(services);
+
+    async function requestTextBuilt(requestPath: string, options: RequestOptions = {}): Promise<TextResponse> {
+      const request = createMockRequest(requestPath, options);
+      const response = createMockResponse();
+      await handler(request as never, response as never);
+      return {
+        headers: response.headers,
+        status: response.statusCode,
+        text: Buffer.concat(response.body).toString("utf8"),
+      };
+    }
+
+    const builtIndexHtml = await fs.readFile(path.join(repoRoot, "dist", "public", "index.html"), "utf8");
+    const builtAppJs = await fs.readFile(path.join(repoRoot, "dist", "public", "app.js"), "utf8");
+
+    const rootResponse = await requestTextBuilt("/");
+    assert.equal(rootResponse.status, 200, rootResponse.text);
+    assert.equal(rootResponse.headers["content-type"], "text/html; charset=utf-8");
+    assert.equal(rootResponse.headers["cache-control"], "no-store");
+    assert.equal(rootResponse.text, builtIndexHtml);
+
+    const appResponse = await requestTextBuilt("/app.js");
+    assert.equal(appResponse.status, 200, appResponse.text);
+    assert.equal(appResponse.headers["cache-control"], "no-store");
+    expectMatches(appResponse.headers["content-type"] ?? "", /javascript/i);
+    assert.equal(appResponse.text, builtAppJs);
   } finally {
     processWithChdir.chdir(originalCwd);
+    if (runtimeDir) {
+      await runtimeFs.rm(runtimeDir, { force: true, recursive: true });
+    }
+    await runtimeFs.rm(outsideCwd, { force: true, recursive: true });
   }
 });
