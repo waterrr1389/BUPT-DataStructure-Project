@@ -5,7 +5,9 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..");
+const distRoot = path.join(repoRoot, "dist");
 const publicRoot = path.join(repoRoot, "public");
+const runtimePublicRoot = path.join(distRoot, "public");
 const browserBuildLockPath = path.join(repoRoot, ".browser-build.lock");
 const browserBuildLockPollMs = 100;
 const browserBuildLockTimeoutMs = 30000;
@@ -71,6 +73,11 @@ function listFiles(directoryPath, extension) {
     }
 
     if (!entry.isFile()) {
+      continue;
+    }
+
+    if (extension == null) {
+      filePaths.push(entryPath);
       continue;
     }
 
@@ -183,70 +190,49 @@ function listManagedSourcePaths() {
   return uniqueSorted(sourcePaths);
 }
 
-function listManagedOutputPaths() {
+function listManagedOutputPathsInRoot(outputRoot) {
   const outputPaths = [];
 
   for (const boundary of managedBrowserBoundaries) {
     if (boundary.kind === "file") {
-      const outputPath = toOutputPath(boundary.sourcePath);
+      const outputPath = toOutputPath(boundary.sourcePath, outputRoot);
       if (fs.existsSync(outputPath) && fs.statSync(outputPath).isFile()) {
         outputPaths.push(outputPath);
       }
       continue;
     }
 
-    outputPaths.push(...listFiles(boundary.directoryPath, ".js"));
+    outputPaths.push(...listFiles(path.join(outputRoot, path.relative(publicRoot, boundary.directoryPath)), ".js"));
   }
 
   return uniqueSorted(outputPaths);
 }
 
-function toOutputPath(sourcePath) {
-  return sourcePath.slice(0, -3) + ".js";
+function getPublicRelativePath(targetPath) {
+  return path.relative(publicRoot, targetPath);
 }
 
-function toSourcePath(outputPath) {
-  return outputPath.slice(0, -3) + ".ts";
+function toOutputRelativePath(sourcePath) {
+  return getPublicRelativePath(sourcePath).slice(0, -3) + ".js";
 }
 
-function removeManagedOutputs(outputPaths) {
-  for (const outputPath of outputPaths) {
-    if (fs.existsSync(outputPath)) {
-      fs.unlinkSync(outputPath);
-    }
-  }
+function toOutputPath(sourcePath, outputRoot = runtimePublicRoot) {
+  return path.join(outputRoot, toOutputRelativePath(sourcePath));
 }
 
-function snapshotManagedOutputs(outputPaths) {
-  const outputSnapshots = new Map();
-
-  for (const outputPath of outputPaths) {
-    if (fs.existsSync(outputPath)) {
-      outputSnapshots.set(outputPath, fs.readFileSync(outputPath));
-    }
-  }
-
-  return outputSnapshots;
+function toSourcePath(outputPath, outputRoot = runtimePublicRoot) {
+  return path.join(publicRoot, path.relative(outputRoot, outputPath).slice(0, -3) + ".ts");
 }
 
-function restoreManagedOutputs(outputSnapshots) {
-  const managedOutputPaths = listManagedOutputPaths();
-  removeManagedOutputs(managedOutputPaths);
-
-  for (const [outputPath, content] of outputSnapshots.entries()) {
-    fs.writeFileSync(outputPath, content);
-  }
-}
-
-function findMissingOutputs(sourcePaths) {
+function findMissingOutputs(sourcePaths, outputRoot) {
   return sourcePaths
-    .map((sourcePath) => ({ sourcePath, outputPath: toOutputPath(sourcePath) }))
+    .map((sourcePath) => ({ sourcePath, outputPath: toOutputPath(sourcePath, outputRoot) }))
     .filter(({ outputPath }) => !fs.existsSync(outputPath));
 }
 
-function findOrphanOutputs(outputPaths, sourcePaths) {
+function findOrphanOutputs(outputPaths, sourcePaths, outputRoot) {
   const sourceSet = new Set(sourcePaths);
-  return outputPaths.filter((outputPath) => !sourceSet.has(toSourcePath(outputPath)));
+  return outputPaths.filter((outputPath) => !sourceSet.has(toSourcePath(outputPath, outputRoot)));
 }
 
 function formatMissingOutputs(missingOutputs) {
@@ -259,11 +245,11 @@ function formatMissingOutputs(missingOutputs) {
     .join("\n");
 }
 
-function formatOrphanOutputs(orphanOutputs, label) {
+function formatOrphanOutputs(orphanOutputs, outputRoot, label) {
   const details = orphanOutputs
     .map((outputPath) => {
       const relativeOutput = path.relative(repoRoot, outputPath);
-      const relativeSource = path.relative(repoRoot, toSourcePath(outputPath));
+      const relativeSource = path.relative(repoRoot, toSourcePath(outputPath, outputRoot));
       return `${relativeOutput} has no matching TypeScript source at ${relativeSource}`;
     })
     .join("\n");
@@ -271,23 +257,128 @@ function formatOrphanOutputs(orphanOutputs, label) {
   return `${label}\n${details}`;
 }
 
-function verifyOutputs(sourcePaths) {
+function isManagedOutputRelativePath(relativePath, sourcePaths) {
+  const managedOutputs = new Set(sourcePaths.map((sourcePath) => toOutputRelativePath(sourcePath)));
+  return managedOutputs.has(relativePath);
+}
+
+function listStaticAssetSourcePaths(sourcePaths) {
+  return listFiles(publicRoot, null).filter((filePath) => {
+    if (filePath.endsWith(".ts") || filePath.endsWith(".d.ts")) {
+      return false;
+    }
+
+    return !isManagedOutputRelativePath(getPublicRelativePath(filePath), sourcePaths);
+  });
+}
+
+function copyFile(sourcePath, targetPath) {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.copyFileSync(sourcePath, targetPath);
+}
+
+function copyStaticAssets(sourcePaths, outputRoot) {
+  const staticAssetSourcePaths = listStaticAssetSourcePaths(sourcePaths);
+
+  for (const sourcePath of staticAssetSourcePaths) {
+    copyFile(sourcePath, path.join(outputRoot, getPublicRelativePath(sourcePath)));
+  }
+
+  return staticAssetSourcePaths;
+}
+
+function formatMissingStaticAssets(missingStaticAssets) {
+  return missingStaticAssets
+    .map((assetPath) => {
+      const relativeOutput = path.relative(repoRoot, assetPath);
+      return `Missing copied runtime asset: expected ${relativeOutput}`;
+    })
+    .join("\n");
+}
+
+function findMissingStaticAssets(staticAssetSourcePaths, outputRoot) {
+  return staticAssetSourcePaths
+    .map((sourcePath) => path.join(outputRoot, getPublicRelativePath(sourcePath)))
+    .filter((assetPath) => !fs.existsSync(assetPath));
+}
+
+function listReferencedPublicAssetPaths(outputRoot) {
+  const indexPath = path.join(outputRoot, "index.html");
+
+  if (!fs.existsSync(indexPath)) {
+    return [];
+  }
+
+  const html = fs.readFileSync(indexPath, "utf8");
+  const referencedAssets = new Set();
+  const assetPattern = /<(?:script|link)\b[^>]*(?:src|href)=["']([^"']+)["']/gi;
+
+  for (const match of html.matchAll(assetPattern)) {
+    const assetPath = match[1];
+
+    if (!assetPath || !assetPath.startsWith("/")) {
+      continue;
+    }
+
+    referencedAssets.add(path.join(outputRoot, assetPath.slice(1)));
+  }
+
+  return [...referencedAssets].sort();
+}
+
+function formatMissingReferencedAssets(missingReferencedAssets) {
+  return missingReferencedAssets
+    .map((assetPath) => {
+      const relativeOutput = path.relative(repoRoot, assetPath);
+      return `Runtime entrypoint references a missing asset: ${relativeOutput}`;
+    })
+    .join("\n");
+}
+
+function findMissingRequiredAssets(outputRoot) {
+  return ["index.html"]
+    .map((relativePath) => path.join(outputRoot, relativePath))
+    .filter((assetPath) => !fs.existsSync(assetPath));
+}
+
+function verifyOutputs(sourcePaths, staticAssetSourcePaths, outputRoot) {
   const failures = [];
-  const missingOutputs = findMissingOutputs(sourcePaths);
+  const missingOutputs = findMissingOutputs(sourcePaths, outputRoot);
 
   if (missingOutputs.length > 0) {
     failures.push(formatMissingOutputs(missingOutputs));
   }
 
-  const postBuildOrphans = findOrphanOutputs(listManagedOutputPaths(), sourcePaths);
+  const postBuildOrphans = findOrphanOutputs(listManagedOutputPathsInRoot(outputRoot), sourcePaths, outputRoot);
 
   if (postBuildOrphans.length > 0) {
     failures.push(
       formatOrphanOutputs(
         postBuildOrphans,
+        outputRoot,
         "Managed browser JavaScript exists after rebuild without a matching TypeScript source of truth:"
       )
     );
+  }
+
+  const missingRequiredAssets = findMissingRequiredAssets(outputRoot);
+
+  if (missingRequiredAssets.length > 0) {
+    failures.push(formatMissingStaticAssets(missingRequiredAssets));
+  }
+
+  const missingStaticAssets = findMissingStaticAssets(staticAssetSourcePaths, outputRoot);
+
+  if (missingStaticAssets.length > 0) {
+    failures.push(formatMissingStaticAssets(missingStaticAssets));
+  }
+
+  const missingReferencedAssets = listReferencedPublicAssetPaths(outputRoot).filter(
+    (assetPath) => !fs.existsSync(assetPath),
+  );
+
+  if (missingReferencedAssets.length > 0) {
+    failures.push(formatMissingReferencedAssets(missingReferencedAssets));
   }
 
   if (failures.length > 0) {
@@ -295,38 +386,66 @@ function verifyOutputs(sourcePaths) {
   }
 }
 
+function ensureEmptyDirectory(directoryPath) {
+  fs.rmSync(directoryPath, { recursive: true, force: true });
+  fs.mkdirSync(directoryPath, { recursive: true });
+}
+
+function removeDirectoryIfPresent(directoryPath) {
+  fs.rmSync(directoryPath, { recursive: true, force: true });
+}
+
+function activateRuntimeTree(stagingRoot) {
+  const backupRoot = path.join(distRoot, ".public-backup");
+  const hasExistingRuntimeTree = fs.existsSync(runtimePublicRoot);
+
+  removeDirectoryIfPresent(backupRoot);
+
+  if (hasExistingRuntimeTree) {
+    fs.renameSync(runtimePublicRoot, backupRoot);
+  }
+
+  try {
+    fs.renameSync(stagingRoot, runtimePublicRoot);
+  } catch (error) {
+    if (hasExistingRuntimeTree && fs.existsSync(backupRoot) && !fs.existsSync(runtimePublicRoot)) {
+      fs.renameSync(backupRoot, runtimePublicRoot);
+    }
+    throw error;
+  }
+
+  removeDirectoryIfPresent(backupRoot);
+}
+
 function main() {
   let buildLockHandle = null;
-  let outputSnapshots = new Map();
-  let shouldRestoreOutputs = false;
+  const stagingRoot = path.join(distRoot, `.public-staging-${process.pid}`);
 
   try {
     buildLockHandle = acquireBuildLock();
-
-    const managedOutputPaths = listManagedOutputPaths();
-    outputSnapshots = snapshotManagedOutputs(managedOutputPaths);
     const sourcePaths = listManagedSourcePaths();
 
     if (sourcePaths.length === 0) {
       fail("No browser TypeScript sources were resolved for browser build verification.");
     }
 
-    shouldRestoreOutputs = true;
-    removeManagedOutputs(managedOutputPaths);
+    ensureEmptyDirectory(stagingRoot);
+    const staticAssetSourcePaths = copyStaticAssets(sourcePaths, stagingRoot);
 
     for (const build of browserBuilds) {
       console.log(`Compiling browser ${build.name} sources with ${build.config}`);
-      runTsc(["-p", build.config]);
+      runTsc(["-p", build.config, "--rootDir", publicRoot, "--outDir", stagingRoot]);
     }
 
-    verifyOutputs(sourcePaths);
-    shouldRestoreOutputs = false;
+    verifyOutputs(sourcePaths, staticAssetSourcePaths, stagingRoot);
+    activateRuntimeTree(stagingRoot);
+    verifyOutputs(sourcePaths, staticAssetSourcePaths, runtimePublicRoot);
 
-    console.log(`Verified ${sourcePaths.length} browser runtime assets.`);
+    console.log(
+      `Verified ${sourcePaths.length} browser runtime assets and ${staticAssetSourcePaths.length} copied static assets.`,
+    );
   } catch (error) {
-    if (shouldRestoreOutputs) {
-      restoreManagedOutputs(outputSnapshots);
-    }
+    removeDirectoryIfPresent(stagingRoot);
     if (error?.message) {
       console.error(error.message);
     }
