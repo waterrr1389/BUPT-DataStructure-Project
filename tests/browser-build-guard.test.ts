@@ -1,17 +1,39 @@
-/// <reference path="./node-ambient.d.ts" />
-
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path, { relative } from "node:path";
+import path from "node:path";
 import test from "node:test";
+
+const { spawnSync } = require("node:child_process") as {
+  spawnSync(
+    command: string,
+    args: string[],
+    options: {
+      cwd: string;
+      encoding: "utf8";
+    },
+  ): {
+    status: number | null;
+    stderr?: string;
+    stdout?: string;
+  };
+};
+const fs = require("node:fs") as {
+  mkdtempSync(prefix: string): string;
+  mkdirSync(path: string, options?: { recursive?: boolean }): void;
+  rmSync(path: string, options: { force?: boolean; recursive?: boolean }): void;
+  writeFileSync(path: string, data: string, encoding: "utf8"): void;
+};
 
 function escapeRegExp(source: string): string {
   return source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function toRepoRelativePath(repoRoot: string, targetPath: string): string {
-  return relative(repoRoot, targetPath).replace(/\\/g, "/");
+  const normalizedTargetPath = targetPath.replace(/\\/g, "/");
+  const normalizedRepoRoot = repoRoot.replace(/\\/g, "/").replace(/\/$/, "");
+  const repoPrefix = `${normalizedRepoRoot}/`;
+  return normalizedTargetPath.startsWith(repoPrefix)
+    ? normalizedTargetPath.slice(repoPrefix.length)
+    : normalizedTargetPath;
 }
 
 test("browser build fails when first-party JavaScript is present under public", () => {
@@ -23,7 +45,7 @@ test("browser build fails when first-party JavaScript is present under public", 
   try {
     fs.writeFileSync(illegalPublicPath, "console.log('unexpected runtime artifact');\n", "utf8");
 
-    const result = spawnSync(process.execPath, [path.join("scripts", "browser-build.js")], {
+    const result = spawnSync("node", [path.join("scripts", "browser-build.js")], {
       cwd: repoRoot,
       encoding: "utf8",
     });
@@ -64,7 +86,7 @@ test("browser build guard lists each unexpected public JavaScript path", () => {
       fs.writeFileSync(illegalFile, "console.log('illegal first-party');\n", "utf8");
     }
 
-    const result = spawnSync(process.execPath, [path.join("scripts", "browser-build.js")], {
+    const result = spawnSync("node", [path.join("scripts", "browser-build.js")], {
       cwd: repoRoot,
       encoding: "utf8",
     });
