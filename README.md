@@ -1,52 +1,46 @@
 # Trail Atlas
 
 ## 项目简介
-`Trail Atlas` 是一个以 TypeScript 为主的出行与探索产品，不只是教学脚手架，而是具备完整功能的课程项目。仓库内包含目的地探索、推荐、路线规划、周边设施查找、餐饮推荐以及日记与交换机制，配套 SPA 界面与 JSON API。浏览器侧第一方源码位于 `public/*.ts` 与 `public/spa/**/*.ts`，构建后运行时资源输出到 `dist/public/**` 并保持既有公开 URL；`public/vendor/**` 仍保留第三方 JavaScript 资源。
+`Trail Atlas` 是一个围绕出行与探索体验设计的产品。它把目的地浏览、推荐、路线规划、周边设施查找、餐饮发现以及日记交流放在同一个整体流程里，让用户可以从“想去哪里”一路走到“怎么去、吃什么、记录什么”。
 
-## 当前能力
-- 目的地探索与推荐：通过自定义排名和全文索引，对目的地与推荐结果提供搜索与排序。
-- 路线规划：支持 `distance` / `time` / `mixed` 策略和 `walk` / `bike` / `shuttle` / `mixed` 出行模式的室内外路径规划。
-- 周边设施：依据图距离排序附近设施，避免直线误差。
-- 餐饮：提供推荐列表、按菜系筛选及容错搜索。
-- 日记与社交：支持日记撰写、查看、评分、推荐，搭配 Exchange 搜索、压缩/解压与故事板生成功能。
-- 运行时体验：SPA 通过 actor/user 选择替代身份系统，数据持久保存在 `.runtime/*.json`，未引入传统 auth/session。
+这个项目强调连续、真实的探索过程，而不是拆散的单点功能。用户既可以查看目的地信息、获取推荐、规划不同方式的路线，也可以在途中寻找设施与餐饮，并通过日记、评分与搜索继续沉淀自己的体验与内容。
 
-## 页面与接口概览
-- SPA 路由：`/`、`/explore`、`/map`、`/feed`、`/compose`、`/posts/:journalId`。
-- 主要 JSON API：`/api/health`、`/api/bootstrap`、目的地与推荐接口、距离/时间/混合路由规划、附近设施、日记/Feed/评论/点赞/评分/查看、Exchange 相关、餐饮接口。
+## 核心体验
+- 浏览目的地并获得推荐
+- 规划不同方式与策略的路线
+- 查找周边设施与餐饮
+- 发布、查看、评分和推荐日记内容
+- 通过搜索与交换延展探索记录
+
+## 产品特点
+- 一个统一的探索闭环：从发现目的地到完成记录，都在同一套体验里完成
+- 强调实用场景而不是演示式拼接，让搜索、路线、设施、餐饮和内容彼此关联
+- 既关注出行决策，也关注体验沉淀，让探索结果可以被保存、分享和再次发现
 
 ## 环境要求
-- Node `>=20`。
-- 需要先执行 `npm install` 安装项目依赖。
-- `package.json` 当前包含外部依赖（如 `leaflet`）与开发依赖（如 `typescript`、`@types/leaflet`）。
-- 脚本包括：`build`、`validate:data`、`test`、`benchmark`、`demo`、`start`，其中 `build` 会先执行 `build:browser`（统一完成浏览器侧构建与运行时资源输出），再执行服务端构建；`start` 默认监听 `127.0.0.1:3000`。
+- Git
+- Node.js `>=20`
+- npm
 
 ## 快速开始
-1. 运行 `npm install` 安装项目依赖。
-2. 运行 `npm run build` 生成产物（通过 npm scripts 使用项目内依赖完成浏览器与服务端构建）。
-3. 依次执行 `npm run validate:data`、`npm test`、`npm run benchmark` 保证数据与功能完整。
-4. 若需本地演示，执行 `npm run demo` 或 `npm run start` 并访问 `http://127.0.0.1:3000`。
+### Windows
+在 PowerShell 中运行：
 
-## 项目结构
-- `src/`: 领域模型、数据、算法、服务与 `server/index.ts`。
-- `public/`: 浏览器 SPA 第一方 TypeScript 源码与静态输入资源，其中 `public/vendor/**` 为第三方依赖资源。仓库中不再保留第一方浏览器运行时 `.js` 源文件；除 `public/vendor/**` 外，`public/` 源树不含 JavaScript，所有第一方脚本由 TypeScript 编译输出到 `dist/public/`。
-- `dist/public/`: 浏览器运行时产物目录（构建输出），服务端对外提供该目录并保持既有浏览器访问 URL 不变。
-- `npm run build` 会将 `public/` 的第一方 TypeScript 编译到 `dist/public/`，并将 `public/index.html`、`public/styles.css`、`public/assets/**` 与 `public/vendor/**` 及编译产物一同复制到 `dist/public/`，以构成完整浏览器运行时目录。
-- `scripts/`: 含 `validate-data.ts`、`run-benchmarks.ts`、`demo.ts`。
-- `tests/` 与 `docs/`：测试与交付文档。
+```powershell
+git clone https://github.com/waterrr1389/BUPT-DataStructure-Project.git
+cd BUPT-DataStructure-Project
+npm install
+npm run start
+```
 
-## 当前验证状态
-- 本轮（2026 年 3 月 27 日）重新运行了 `npm test`（该脚本会先执行 `npm run build`），并成功通过，因此构建与自动化测试在当前 HEAD 上都被验证过。
-- March 19, 2026 记录的运行仍是 `npm run validate:data`、`npm run benchmark`、`npm run demo` 等命令的基线成绩，而 March 18 的非受限环境启动与浏览器/API 烟雾记录保留为历史佐证。
+### macOS / Linux
+在终端中运行：
 
-## 文档索引
-- 用户指南：`docs/user-guide.md`。
-- 示例结果与测试：`docs/example-results-and-tests.md`。
-- 设计文档：`docs/overall-design.md`、`docs/module-design.md`。
-- World mode 交接文档：`docs/world/README.md`。
-- 数据结构与字典：`docs/data-structures-and-dictionary.md`。
-- 其他参考：任务/需求/评估/创新文档（可在 `docs/` 下查找相应文件）。
+```bash
+git clone https://github.com/waterrr1389/BUPT-DataStructure-Project.git
+cd BUPT-DataStructure-Project
+npm install
+npm run start
+```
 
-## 补充说明
-1. 所有运行时数据通过 `.runtime/*.json` 保留；SPA 通过选择 actor/user 展示作用，未引入账号系统。
-2. 本仓库当前就是可运行的 Trail Atlas 产品，后续更新应围绕功能拓展、数据优化与文档同步展开。 
+启动后打开 `http://127.0.0.1:3000`
