@@ -17,7 +17,7 @@
 - Journal exchange combines exact-title lookup, full-text search, reversible compression, decompression, and storyboard output in a single service surface.
 - Food discovery covers both recommendation and typo-tolerant search on the real dataset.
 - Deterministic scenic and campus fallback graph variants give regression tests more structural coverage than the earlier effectively reused template shape.
-- The project stays inspectable because the package uses no external npm dependencies.
+- The project stays inspectable while relying on `leaflet` for browser maps and on TypeScript tooling (`@types/leaflet`, `typescript`) during builds rather than claiming a zero-dependency runtime.
 
 ## Operational Note
 
