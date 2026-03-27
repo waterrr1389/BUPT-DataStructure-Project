@@ -4,6 +4,7 @@
 范围：`.humanize/rlcr/2026-03-19_19-29-46` 的 Round 0 到 Round 14 review 记录、对应 summary，以及 `main` 上已落地的修复提交
 
 > 注：本文按 2026-03-20 当时的 review 轨迹做历史复盘。文中提到的 `actor` 路由传播、Explore/Map/Post Detail hand-off、comments 错误分类退化和相关回归覆盖缺口，后续已经由 bounded SPA convergence pass 与当前为绿的 deterministic regression suite 收口；下面的“问题/缺口”应理解为当时观察到的阶段性状态，而不是当前 `main` 的未修复现状。
+> 本文中的 round、commit、缺口和建议都服务于该次复盘语境；除开头已明确更新的现状说明外，不应把它们直接当成当前仓库的实时待办或产品事实清单。
 
 ## 结论摘要
 

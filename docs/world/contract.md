@@ -10,6 +10,8 @@
 
 本文件默认服务于 `Leaflet + CRS.Simple` 的前端世界地图。
 
+本文只定义 world mode 的数据与接口合同。文中若提到当前仓库中的兼容实现，那只是帮助读者区分“合同”与“实现现状”的兼容性提示，不替代本文件的合同角色，也不是历史复盘记录。
+
 ## Data Model
 
 ## Top-Level Seed Shape
@@ -488,7 +490,7 @@ world 不可用时推荐返回：
 - `mode` 可为 `walk`、`bike`、`shuttle`、`mixed`
 - `mixed` 是规划模式，不是独立物理交通方式
 - `reachable = false` 时允许返回已成功规划出的前缀 `legs`
-- 当前仓库已落地 backend route planning 与 `/map?view=world` 的 route summary、local/world/local handoff、以及基于返回 steps 的有序 explanation 渲染；本节继续冻结该接口的请求与响应 contract
+- 当前仓库已有与本合同兼容的 backend route planning、`/map?view=world` route summary、local/world/local handoff，以及基于返回 steps 的有序 explanation 渲染；这条现状说明仅用于标记兼容实现存在，不替代本节的 contract 定义
 
 请求体固定为以下二选一：
 
@@ -620,6 +622,7 @@ world 不可用时推荐返回：
 
 ## Sample Data
 
-实现与审阅时使用：
+实现与审阅时可对照使用：
 
 - [boston-inspired.seed-fragment.json](/home/frisk/ds-ts/docs/world/examples/boston-inspired.seed-fragment.json)
+  - 该文件是示例/夹具片段，不是当前运行时 seed 的唯一事实来源

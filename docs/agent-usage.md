@@ -2,9 +2,12 @@
 
 ## Stable Recording Policy
 
+- This file is a dated process record. It does not define current product behavior, current architecture truth, or the live contents of active RLCR workspaces.
 - This file records the stable historical RLCR workspace that the current repository docs depend on; it is not a complete inventory of every workspace under `.humanize/rlcr/`.
+- Environment, toolchain, and runtime notes below are historical facts for the recorded loop unless a section explicitly says otherwise.
 - Active loops are intentionally excluded until they finish or stop, because current-round artifact inventories change as soon as review results land.
 - Cancelled or superseded workspaces such as `.humanize/rlcr/2026-03-18_20-24-46/` remain available in `.humanize/rlcr/` for auditability, but are omitted here unless they materially affect the project-facing documentation trail.
+- Temporary scratch files inside the recorded workspace, such as `state.md.tmp.*`, are intentionally excluded because they were not part of the stable review record.
 - The stable historical record below covers `.humanize/rlcr/2026-03-18_14-02-34/`, the loop that stopped after the Round 9 review identified a repeated current-round artifact drift.
 
 ## Historical RLCR Environment
