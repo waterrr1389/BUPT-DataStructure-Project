@@ -8,6 +8,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const distRoot = path.join(repoRoot, "dist");
 const publicRoot = path.join(repoRoot, "public");
 const runtimePublicRoot = path.join(distRoot, "public");
+const publicVendorRoot = path.join(publicRoot, "vendor");
 const browserBuildLockPath = path.join(repoRoot, ".browser-build.lock");
 const browserBuildLockPollMs = 100;
 const browserBuildLockTimeoutMs = 30000;
@@ -96,6 +97,11 @@ function listFiles(directoryPath, extension) {
 
 function uniqueSorted(paths) {
   return Array.from(new Set(paths)).sort();
+}
+
+function isPathInsideTree(rootPath, targetPath) {
+  const relativePath = path.relative(rootPath, targetPath);
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
 function sleep(milliseconds) {
@@ -262,10 +268,33 @@ function isManagedOutputRelativePath(relativePath, sourcePaths) {
   return managedOutputs.has(relativePath);
 }
 
+function isAllowedPublicJavaScriptPath(filePath) {
+  return isPathInsideTree(publicVendorRoot, filePath);
+}
+
+function listUnexpectedPublicJavaScriptPaths() {
+  return listFiles(publicRoot, ".js").filter((filePath) => !isAllowedPublicJavaScriptPath(filePath));
+}
+
+function formatUnexpectedPublicJavaScriptPaths(filePaths) {
+  const details = filePaths
+    .map((filePath) => path.relative(repoRoot, filePath))
+    .join("\n");
+
+  return [
+    "Unexpected JavaScript files were found under public/ outside the allowed third-party tree public/vendor/:",
+    details,
+  ].join("\n");
+}
+
 function listStaticAssetSourcePaths(sourcePaths) {
   return listFiles(publicRoot, null).filter((filePath) => {
     if (filePath.endsWith(".ts") || filePath.endsWith(".d.ts")) {
       return false;
+    }
+
+    if (filePath.endsWith(".js")) {
+      return isAllowedPublicJavaScriptPath(filePath);
     }
 
     return !isManagedOutputRelativePath(getPublicRelativePath(filePath), sourcePaths);
@@ -427,6 +456,12 @@ function main() {
 
     if (sourcePaths.length === 0) {
       fail("No browser TypeScript sources were resolved for browser build verification.");
+    }
+
+    const unexpectedPublicJavaScriptPaths = listUnexpectedPublicJavaScriptPaths();
+
+    if (unexpectedPublicJavaScriptPaths.length > 0) {
+      fail(formatUnexpectedPublicJavaScriptPaths(unexpectedPublicJavaScriptPaths));
     }
 
     ensureEmptyDirectory(stagingRoot);
