@@ -24,9 +24,23 @@ const browserBuilds = [
   { name: "script", config: "tsconfig.browser-script.json" },
 ];
 
+function reportDiagnostics(message) {
+  if (!message) {
+    return;
+  }
+
+  const normalized = message.endsWith("\n") ? message : `${message}\n`;
+  process.stderr.write(normalized);
+}
+
 function fail(message, exitCode = 1) {
+  reportDiagnostics(message);
+
   const error = new Error(message);
   error.exitCode = exitCode;
+  if (message) {
+    error.diagnosticsReported = true;
+  }
   throw error;
 }
 
@@ -52,7 +66,17 @@ function runTsc(args, options = {}) {
       process.stdout.write(result.stdout ?? "");
       process.stderr.write(result.stderr ?? "");
     }
-    fail("", result.status ?? 1);
+
+    const capturedOutput = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+    const summaryParts = [
+      `tsc ${args.join(" ")} exited with code ${result.status ?? 1}.`,
+    ];
+
+    if (capturedOutput) {
+      summaryParts.push(capturedOutput);
+    }
+
+    fail(summaryParts.join("\n\n"), result.status ?? 1);
   }
 
   return `${result.stdout ?? ""}${result.stderr ?? ""}`;
@@ -483,7 +507,7 @@ function main() {
   } catch (error) {
     exitCode = error?.exitCode ?? 1;
     removeDirectoryIfPresent(stagingRoot);
-    if (error?.message) {
+    if (!error?.diagnosticsReported && error?.message) {
       console.error(error.message);
     }
   } finally {

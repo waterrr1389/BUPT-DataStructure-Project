@@ -50,7 +50,9 @@ test("browser build fails when first-party JavaScript is present under public", 
       encoding: "utf8",
     });
 
-    const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+    const stdout = result.stdout ?? "";
+    const stderr = result.stderr ?? "";
+    const output = `${stdout}\n${stderr}`;
     const illegalRelativePath = toRepoRelativePath(repoRoot, illegalPublicPath);
 
     assert.equal(
@@ -64,6 +66,16 @@ test("browser build fails when first-party JavaScript is present under public", 
       ),
       true,
       output,
+    );
+    assert.equal(
+      stderr.includes("Unexpected JavaScript files were found"),
+      true,
+      "stderr should contain the guard banner",
+    );
+    assert.equal(
+      stderr.includes(illegalRelativePath),
+      true,
+      "stderr should mention the illegal path",
     );
     assert.equal(new RegExp(escapeRegExp(illegalRelativePath)).test(output), true, output);
   } finally {
@@ -107,8 +119,19 @@ test("browser build guard lists each unexpected public JavaScript path", () => {
       output,
     );
 
+    assert.equal(
+      result.stderr?.includes("Unexpected JavaScript files were found"),
+      true,
+      "stderr should contain the guard banner",
+    );
+
     for (const illegalRelativePath of illegalRelativePaths) {
       assert.equal(new RegExp(escapeRegExp(illegalRelativePath)).test(output), true, output);
+      assert.equal(
+        result.stderr?.includes(illegalRelativePath),
+        true,
+        `stderr should mention ${illegalRelativePath}`,
+      );
     }
   } finally {
     fs.rmSync(tempDirectoryPath, { recursive: true, force: true });
