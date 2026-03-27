@@ -25,15 +25,19 @@ Start the browser-facing app with:
 npm run start
 ```
 
+`npm run start` runs `npm run build` and then launches `dist/src/server/index.js`, the built output of `src/server/index.ts`.
+
 ## What The System Exposes
 
+- Routed browser shell views for Home, Explore, Map, Feed, Compose, and Post Detail
 - Destination recommendation and search
-- Single-target and indoor route planning
+- Single-target, indoor, and world-mode route planning
 - Nearby facility lookup by category and network distance
-- Journal create, browse, view, rate, and recommend flows
+- Journal create, browse, view, rate, recommend, and feed flows
 - Journal exchange: exact-title lookup, full-text search, compression/decompression, and storyboard generation
 - Food recommendation and typo-tolerant search
 - Map-based routing anchors cohesive planning: origin/destination, segment details, and overlays are arranged in a single hierarchy, the map legend tracks the visible path types (outdoor route, indoor route, bike lane, shuttle lane) and marker cues (start, end, transition, turn) so the colors and labels match what is on-screen, the copy guides the next action, and the route cards borrow the journal/feed treatment so everything feels connected.
+- The homepage featured deck remains a curated 12-item subset; route, facility, food, journal, exchange, and feed selectors use the full destination catalog.
 
 ## Deterministic Demo
 
@@ -51,10 +55,12 @@ The demo covers:
 ## Browser/API Notes
 
 - `GET /api/health` reports the runtime source bundle, including whether data/algorithms/validation are external or fallback.
-- The server serves `dist/public/` plus JSON API endpoints from `src/server/index.ts`, so browser runtime URLs stay stable while source and runtime directories remain separated.
-- Browser-maintained first-party sources live in `public/*.ts` and `public/spa/**/*.ts`; served runtime output is built into `dist/public/*.js` and `dist/public/spa/**/*.js`.
-- `public/vendor/**` remains vendored third-party JavaScript and CSS rather than project-authored TypeScript, and is emitted to `dist/public/vendor/**` as a served exception.
-- Route, facility, food, journal, and exchange destination selectors now draw from the same full destination catalog and use the same duplicate-name disambiguation. The featured destination subset is still reserved for homepage cards.
+- `src/server/index.ts` is the server entry source. The running server serves generated browser assets from `dist/public/**` plus JSON API endpoints, so source and served runtime output stay separated.
+- First-party browser sources live in `public/*.ts` and `public/spa/**/*.ts`.
+- `dist/public/**` is generated runtime output only, not an authored source tree.
+- `public/vendor/**` remains the third-party browser asset exception and is emitted to `dist/public/vendor/**`.
+- The current browser/API surface includes local routing endpoints, world-summary/detail/plan endpoints under `/api/world*`, and the journal feed endpoint at `GET /api/feed`.
+- Route, facility, food, journal, exchange, and feed destination selectors draw from the same full destination catalog and use the same duplicate-name disambiguation. The featured destination subset stays reserved for homepage cards.
 - Invalid destination `sortBy` inputs are rejected instead of being silently treated as `rating`.
 
 ## Troubleshooting

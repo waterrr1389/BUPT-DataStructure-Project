@@ -2,11 +2,12 @@
 
 ## Implemented Innovation Points
 
-### 1. One Graph Model Covers Scenic, Campus, And Indoor Routing
+### 1. One Graph Family Covers Local And World Routing
 
-The repository uses a single destination graph model for scenic areas, campuses, and building interiors. That model supports:
+The repository combines destination graphs with a world graph and destination portals so local and cross-map travel can stay within one routing vocabulary. The implemented model supports:
 
 - outdoor and indoor nodes in the same destination record,
+- world-level regions, nodes, edges, and destination portals,
 - `distance`, `time`, and `mixed` route strategies,
 - `walk`, `bike`, `shuttle`, and `mixed` travel modes, and
 - nearby-facility ranking by network distance instead of Euclidean distance.
@@ -14,8 +15,9 @@ The repository uses a single destination graph model for scenic areas, campuses,
 Evidence:
 
 - `tests/runtime-services.test.ts` verifies indoor routing and nearby facility lookup on the real dataset.
+- `tests/runtime-services.test.ts`, `tests/world-route-invalid-request.test.ts`, and `tests/world-route-error-contracts.test.ts` verify world summary/detail availability plus world-route request and error contracts.
 - `tests/integration-smoke.test.ts` asserts the deterministic `River Polytechnic` indoor path.
-- `dist/public/index.html` exposes route-strategy and route-mode controls in the browser demo at stable public URLs.
+- `public/spa/views/map.ts` and `public/spa/world-rendering.ts` expose both local map planning and world-view route planning in the routed browser shell.
 
 ### 2. Journal Exchange Goes Beyond Basic Diary CRUD
 
@@ -43,9 +45,24 @@ Evidence:
 
 - `tests/runtime-services.test.ts` checks that a typo query such as `nodle` still returns `noodle lab kitchen 4`.
 - `tests/integration-smoke.test.ts` covers deterministic food search and recommendation results for `dest-002`.
-- `dist/public/index.html` and `dist/public/app.js` expose both food search and recommendation actions at stable public URLs.
+- `public/spa/views/explore.ts` and `public/spa/views/map.ts` keep food discovery and map handoff in the authored browser source.
 
-### 4. Lightweight Dependency Delivery Keeps The System Inspectable
+### 4. Journals Now Sit Inside A Routed Feed Surface
+
+Journal functionality is no longer limited to CRUD forms and detail pages. The browser shell also exposes:
+
+- a dedicated Feed view,
+- post-detail routes at `/posts/<journalId>`,
+- graceful social fallback when `/api/feed` or backend like/comment support is unavailable, and
+- exchange tooling that remains reachable without leaving the feed flow.
+
+Evidence:
+
+- `public/spa/views/home.ts` loads a feed preview into the landing shell.
+- `public/spa/views/feed.ts` renders the feed, post-link flow, exchange tools, and fallback messaging.
+- `tests/integration-smoke.test.ts` and `tests/spa-regressions/map-and-shell.test.ts` cover `/api/feed` behavior and browser-shell feed interactions.
+
+### 5. Lightweight Dependency Delivery Keeps The System Inspectable
 
 The project keeps external dependencies limited while preserving direct inspectability for ranking, search, routing, compression, demo, and server logic.
 

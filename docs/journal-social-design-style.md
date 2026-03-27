@@ -1,11 +1,11 @@
 # Journal Social Design Style Reference
 
 ## Purpose
-This document preserves the design language from `draft.md` so implementation stages can reference a stable visual source of truth instead of relying on scattered notes. It is intended to be consulted during route-shell construction, page-level layout work, and final visual polish.
+This document preserves the design language for the journal- and map-facing browser surfaces as a stable visual reference. It is meant to guide page hierarchy, tone, and visual acceptance without acting as an implementation plan.
 
 ## Core Product Feeling
 
-The redesign should not feel like a course-project control panel. It should feel closer to a quiet premium travel journal product where technology supports the experience without dominating it.
+The browser shell should not feel like a course-project control panel. It should feel closer to a quiet premium travel journal product where technology supports the experience without dominating it.
 
 The intended emotional frame is:
 
@@ -115,6 +115,12 @@ Do not:
 - Routes, nodes, buildings, and turn cues should share one gentle visual system.
 - Map-based routing follows a cohesive hierarchy: origin and destination controls lead, segment details expand beneath, and overlays live in unified panels so the planner feels like a single journey. The legend mirrors each rendered trace by type (outdoor route, indoor route, bike lane, shuttle lane) and the marker cues (start, end, transition, turn) so the copy matches the visible cues, and the route-summary cards borrow the same spacing and tone as the feed's journal cards so no surface feels orphaned.
 
+### World Map
+
+- World view should feel like the broadest spatial surface in the system while still belonging to the same calm journal product.
+- Region context, destination markers, and local/world/local handoff links should read as orientation aids rather than transport-console chrome.
+- World-route explanations should stay readable and secondary to the sense of movement across places.
+
 ### Feed
 
 - Feed should feel like a calm travel community, not a raw list of records.
@@ -142,7 +148,7 @@ Do not:
 - Avoid large UI frameworks or heavy media backgrounds solely for atmosphere.
 - Motion choices must respect map and feed performance budgets.
 
-## Stage Usage
+## Reference Usage
 
-- Milestone 4 in `plan.md`: use this document when defining route shells, page hierarchy, above-the-fold composition, and the balance between primary and advanced controls.
-- Milestone 6 in `plan.md`: use this document as the final visual acceptance reference for color, typography, spacing, motion, and page-specific mood.
+- Use this document when evaluating page hierarchy, above-the-fold composition, and the balance between primary and advanced controls.
+- Use this document as the visual acceptance reference for color, typography, spacing, motion, and page-specific mood.

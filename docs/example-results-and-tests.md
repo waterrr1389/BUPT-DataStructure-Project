@@ -46,16 +46,20 @@ This round reran only `npm test`/`npm run build`; the remaining command evidence
   - sample and real-seed validation
   - external runtime/source verification
   - bootstrap contract coverage for the `12`-item featured deck plus the full destination catalog used by route, facility, food, journal, and exchange selectors
+  - SPA/browser-shell coverage for Home, Explore, Map, Feed, Compose, Post Detail, and the `/map?view=world` handoff
   - invalid destination `sortBy` rejection
   - typo-tolerant food search
   - journal exact-title and full-text search behavior
+  - `/api/feed` cursor, filter, and limit behavior plus graceful social fallback paths in the browser shell
+  - `/api/world`, `/api/world/details`, and `/api/world/routes/plan` request/response contracts
   - duplicate destination-label disambiguation while preserving stable destination ids across every destination selector
   - readable journal and exchange destination and user labels with safe fallback when lookups are missing
   - selector-parity coverage in `tests/journal-consumers.test.ts` for one authoritative destination-option preparation path, shared selector bindings, full-catalog reachability from `bootstrap.destinations`, and journal actions remaining anchored to `data-journal-id`
   - deterministic graph-variant regression coverage in `tests/runtime-services.test.ts` for distinct scenic and campus fallback graph structures
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
-- A March 19 recorded code inspection also confirmed that `dist/public/app.js` uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail remains tied to the March 19 run because it was not rerun this round, and the public browser URL remains stable.
+- A March 19 recorded code inspection also confirmed that the authored browser shell uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail remains tied to the March 19 record because it was not rerun this round, and the public browser URL remains stable.
+- The March 27 automated-test rerun, not the March 18 live smoke pass, is the current evidence boundary for the newer world-mode and feed contracts.
 
 ### Benchmarks
 
@@ -130,6 +134,7 @@ Representative deterministic outputs recorded from that run:
   - `/api/journal-exchange/storyboard`
   - `/api/foods/recommendations`
   - `/api/foods/search`
+- That March 18 live smoke record remains historical only. Current repo surfaces such as `/api/feed` and `/api/world*` are documented from the March 27 automated-test rerun rather than from a new unrestricted live-start pass.
 - Verified smoke highlights from the March 18 live run:
   - `/api/health` returned `ok: true` with external data, algorithms, and validation sources
   - `/api/bootstrap` returned `12` users, `12` featured destinations, `20` categories, and `8` cuisines

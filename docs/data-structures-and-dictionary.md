@@ -11,9 +11,13 @@
 - `FacilityCategoryDefinition`: facility taxonomy entry with label, summary, and keywords.
 - `Facility`: nearby-service record with category, node binding, and opening hours.
 - `FoodVenue`: food record with venue name, cuisine, rating, heat, price, node binding, and keywords.
+- `WorldMapRecord`: optional world-level map with regions, destination placements, a world graph, and destination portals.
+- `WorldRegionRecord`, `WorldDestinationPlacement`, `WorldNodeRecord`, `WorldEdgeRecord`, and `DestinationPortalRecord`: supporting records for world-mode browsing and cross-map routing.
 - `UserProfile`: recommendation profile with interests, dietary preferences, and home destination.
 - `JournalEntry`: travel journal record with title, body, tags, media metadata, views, ratings, and recommendation targets.
 - `JournalMedia` and `JournalRating`: supporting value objects for journal content and scoring.
+
+`src/services/contracts.ts` mirrors the public service contracts and also defines cursor-based feed and world-routing payloads such as `CursorPage`, `JournalFeedItem`, `WorldSummaryRecord`, `WorldDetailsRecord`, and the world-route request/response records.
 
 ## Validation Rules In Use
 
@@ -25,7 +29,8 @@
 - required coordinates, names, categories, keywords, and timestamps;
 - positive distances and valid congestion bounds;
 - road-type to travel-mode compatibility;
-- indoor edges staying within a single building when both endpoints are building-bound.
+- indoor edges staying within a single building when both endpoints are building-bound;
+- world-map bounds, region polygons, destination placements, world-graph nodes and edges, and destination-portal consistency when `SeedData.world` is present.
 
 ## Implemented Algorithm Data Structures
 
@@ -51,6 +56,7 @@
 - `src/algorithms/multi-route.ts` extends the routing layer for multi-stop closed walks.
 - Route requests use the shared `RouteStrategy` union: `distance`, `time`, or `mixed`.
 - Travel-mode constraints use the shared `TravelMode` union: `walk`, `bike`, `shuttle`, or `mixed`.
+- World-mode routing composes `WorldGraphRecord` plus `DestinationPortalRecord` so `/api/world/routes/plan` can bridge local and cross-map itinerary legs.
 
 ### Compression
 
@@ -60,5 +66,6 @@
 ## Storage Notes
 
 - Seed data is loaded from `src/data/seed.ts`.
+- The seed payload can include `world` data in the same source tree; it is validated as part of the runtime dataset rather than treated as separate browser-only content.
 - Runtime journal mutations are persisted by `src/services/journal-store.ts` inside the chosen runtime directory.
 - Stable string identifiers are used throughout the dataset so the API, tests, and deterministic demo can refer to the same records.
