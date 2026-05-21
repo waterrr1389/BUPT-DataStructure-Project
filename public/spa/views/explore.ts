@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import {
+  appCopy,
   displayCuisineLabel,
   displayDestinationCategoryLabel,
   displayDestinationMeta,
@@ -36,6 +37,7 @@ function buildContextualMapHref(app: SpaApp, params, context = null) {
  * Renders a destination card with stable map and compose handoff URLs.
  */
 function destinationCardMarkup(app: SpaApp, item, context = null) {
+  const copy = appCopy.explore;
   const mapHref = buildContextualMapHref(app, { destinationId: item.id }, context);
   const composeHref = createRouteContextHref("/compose", { destinationId: item.id }, context);
   const tags = safeArray(item.categories).map((category) => displayDestinationTagLabel(category));
@@ -44,12 +46,12 @@ function destinationCardMarkup(app: SpaApp, item, context = null) {
     <article class="story-card destination-card">
       <p class="muted">${escapeHtml(displayDestinationMeta(item.type, item.region))}</p>
       <h3>${escapeHtml(item.name)}</h3>
-      ${resultMetaMarkup([`热度 ${item.heat}`, `评分 ${item.rating}`, `${item.nodeCount} 个节点`])}
+      ${resultMetaMarkup([copy.metrics.heat(item.heat), copy.metrics.rating(item.rating), copy.metrics.nodeCount(item.nodeCount)])}
       <p>${escapeHtml(item.description)}</p>
       ${app.tagsMarkup(tags)}
       <div class="story-card-actions">
-        <a class="inline-link" href="${mapHref}" data-nav="true">在地图中打开</a>
-        <a class="inline-link" href="${composeHref}" data-nav="true">写一篇笔记</a>
+        <a class="inline-link" href="${mapHref}" data-nav="true">${copy.actions.openInMap}</a>
+        <a class="inline-link" href="${composeHref}" data-nav="true">${copy.actions.writeJournal}</a>
       </div>
     </article>
   `;
@@ -59,11 +61,12 @@ function destinationCardMarkup(app: SpaApp, item, context = null) {
  * Renders a facility result card that deep-links into the map preview state.
  */
 function facilityCardMarkup(app: SpaApp, item, context) {
+  const copy = appCopy.explore;
   return `
     <article class="story-card compact-story-card">
       <p class="muted">${escapeHtml(displayLabel(facilityCategoryLabels, item.category, text(item.category)))} · ${escapeHtml(item.openHours)}</p>
       <h3>${escapeHtml(item.name)}</h3>
-      ${resultMetaMarkup([`距离 ${item.distance} 米`, `${safeArray(item.nodePath).length} 段路径`])}
+      ${resultMetaMarkup([copy.metrics.distanceMeters(item.distance), copy.metrics.pathSegments(safeArray(item.nodePath).length)])}
       <p class="muted">${safeArray(item.nodePath).map((nodeId) => escapeHtml(nodeId)).join(" → ")}</p>
       <div class="story-card-actions">
         <a
@@ -75,7 +78,7 @@ function facilityCardMarkup(app: SpaApp, item, context) {
           }, context)}"
           data-nav="true"
         >
-          在地图中打开
+          ${copy.actions.openInMap}
         </a>
       </div>
     </article>
@@ -86,13 +89,14 @@ function facilityCardMarkup(app: SpaApp, item, context) {
  * Renders a food result card with a direct contextual map link.
  */
 function foodCardMarkup(app: SpaApp, item, context) {
+  const copy = appCopy.explore;
   const keywords = safeArray(item.keywords).map((keyword) => displayFoodKeywordLabel(keyword));
 
   return `
     <article class="story-card compact-story-card">
       <p class="muted">${escapeHtml(displayFoodMeta(item.cuisine, item.venue))}</p>
       <h3>${escapeHtml(item.name)}</h3>
-      ${resultMetaMarkup([`评分 ${item.rating}`, `热度 ${item.heat}`, `均价 US$${item.avgPrice}`])}
+      ${resultMetaMarkup([copy.metrics.rating(item.rating), copy.metrics.heat(item.heat), copy.metrics.averagePrice(item.avgPrice)])}
       ${app.tagsMarkup(keywords)}
       <div class="story-card-actions">
         <a
@@ -100,7 +104,7 @@ function foodCardMarkup(app: SpaApp, item, context) {
           href="${buildContextualMapHref(app, { destinationId: context.destinationId }, context)}"
           data-nav="true"
         >
-          在地图中打开
+          ${copy.actions.openInMap}
         </a>
       </div>
     </article>
@@ -115,7 +119,8 @@ export async function render(
   route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
-  app.setDocumentTitle("探索");
+  const copy = appCopy.explore;
+  app.setDocumentTitle(copy.documentTitle);
 
   const routeActor = resolveRouteActor(route);
   const bootstrap = await app.loadBootstrap();
@@ -135,18 +140,16 @@ export async function render(
   root.innerHTML = `
     <section class="route-hero route-hero-explore">
       <div class="route-hero-copy">
-        <p class="eyebrow">探索</p>
-        <h1>先找到下一个地点，再在需要时展开更重的工具。</h1>
+        <p class="eyebrow">${copy.hero.eyebrow}</p>
+        <h1>${copy.hero.title}</h1>
         <p class="route-lede">
-          目的地卡片先引导浏览，美食发现和附近设施作为辅助工作区保留。只有在地图相关控件需要时，页面才会加载完整目的地图结构。
+          ${copy.hero.lede}
         </p>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">信息结构</p>
+        <p class="section-tag">${copy.hero.panelTag}</p>
         <ul class="hero-list">
-          <li>目的地推荐和搜索仍然是主入口。</li>
-          <li>美食和设施工具保持可用，但不压过首屏内容。</li>
-          <li>相关结果都可以直接交接到地图。</li>
+          ${copy.hero.panelItems.map((item) => `<li>${item}</li>`).join("")}
         </ul>
       </div>
     </section>
@@ -155,31 +158,31 @@ export async function render(
       <article class="surface-card span-two">
         <div class="section-head">
           <div>
-            <p class="section-tag">目的地卡组</p>
-            <h2>由推荐引导的发现</h2>
+            <p class="section-tag">${copy.destinationSurface.tag}</p>
+            <h2>${copy.destinationSurface.heading}</h2>
           </div>
-          <button id="explore-refresh-destinations" class="ghost" type="button">刷新精选</button>
+          <button id="explore-refresh-destinations" class="ghost" type="button">${copy.destinationSurface.refreshButton}</button>
         </div>
         <form class="control-grid" id="explore-destination-form">
           <label>
-            旅行者视角
+            ${copy.destinationSurface.labels.traveler}
             <select id="explore-user-filter"></select>
           </label>
           <label>
-            搜索词
-            <input id="explore-query" type="text" placeholder="港湾、博物馆、校园庭院" />
+            ${copy.destinationSurface.labels.query}
+            <input id="explore-query" type="text" placeholder="${copy.destinationSurface.placeholders.query}" />
           </label>
           <label>
-            分类
+            ${copy.destinationSurface.labels.category}
             <select id="explore-category"></select>
           </label>
           <label>
-            数量
+            ${copy.destinationSurface.labels.limit}
             <input id="explore-limit" type="number" min="1" max="18" value="8" />
           </label>
           <div class="button-row">
-            <button type="submit">搜索目的地</button>
-            <button type="button" id="explore-destination-recommend" class="ghost">获取推荐</button>
+            <button type="submit">${copy.destinationSurface.buttons.search}</button>
+            <button type="button" id="explore-destination-recommend" class="ghost">${copy.destinationSurface.buttons.recommend}</button>
           </div>
         </form>
         <div id="explore-destination-results" class="story-grid">
@@ -190,21 +193,21 @@ export async function render(
       <article class="surface-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">附近设施</p>
-            <h2>保留实用工具，不做成仪表盘</h2>
+            <p class="section-tag">${copy.facilitySurface.tag}</p>
+            <h2>${copy.facilitySurface.heading}</h2>
           </div>
         </div>
         <form class="control-grid" id="explore-facility-form">
           <label>
-            目的地
+            ${copy.facilitySurface.labels.destination}
             <select id="explore-facility-destination"></select>
           </label>
           <label>
-            起始节点
+            ${copy.facilitySurface.labels.startNode}
             <select id="explore-facility-node"></select>
           </label>
           <label>
-            分类
+            ${copy.facilitySurface.labels.category}
             <select id="explore-facility-category">
               <option value="all">${displayLabel(facilityCategoryLabels, "all")}</option>
               <option value="restroom">${displayLabel(facilityCategoryLabels, "restroom")}</option>
@@ -220,15 +223,15 @@ export async function render(
             </select>
           </label>
           <label>
-            半径
+            ${copy.facilitySurface.labels.radius}
             <input id="explore-facility-radius" type="number" min="100" step="50" value="900" />
           </label>
-          <button type="submit">查找设施</button>
+          <button type="submit">${copy.facilitySurface.button}</button>
         </form>
         <div id="explore-facility-results">
           ${emptyStateMarkup({
-            title: "按需查找设施",
-            body: "选择目的地和起始节点后，这里会显示附近洗手间、医疗点、休息区和其他场地设施。",
+            title: copy.facilitySurface.empty.initialTitle,
+            body: copy.facilitySurface.empty.initialBody,
           })}
         </div>
       </article>
@@ -236,36 +239,36 @@ export async function render(
       <article class="surface-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">美食指南</p>
-            <h2>让吃饭选择容易被发现，而不是被埋起来</h2>
+            <p class="section-tag">${copy.foodSurface.tag}</p>
+            <h2>${copy.foodSurface.heading}</h2>
           </div>
         </div>
         <form class="control-grid" id="explore-food-form">
           <label>
-            目的地
+            ${copy.foodSurface.labels.destination}
             <select id="explore-food-destination"></select>
           </label>
           <label>
-            旅行者视角
+            ${copy.foodSurface.labels.traveler}
             <select id="explore-food-user"></select>
           </label>
           <label>
-            菜系
+            ${copy.foodSurface.labels.cuisine}
             <select id="explore-food-cuisine"></select>
           </label>
           <label>
-            搜索词
-            <input id="explore-food-query" type="text" placeholder="茶、烧烤、面、点心" />
+            ${copy.foodSurface.labels.query}
+            <input id="explore-food-query" type="text" placeholder="${copy.foodSurface.placeholders.query}" />
           </label>
           <div class="button-row">
-            <button type="submit">搜索美食</button>
-            <button type="button" id="explore-food-recommend" class="ghost">获取推荐</button>
+            <button type="submit">${copy.foodSurface.buttons.search}</button>
+            <button type="button" id="explore-food-recommend" class="ghost">${copy.foodSurface.buttons.recommend}</button>
           </div>
         </form>
         <div id="explore-food-results">
           ${emptyStateMarkup({
-            title: "美食推荐已准备好",
-            body: "可以用菜系、旅行者视角或自由文本查找附近餐饮地点，无需离开探索页。",
+            title: copy.foodSurface.empty.initialTitle,
+            body: copy.foodSurface.empty.initialBody,
           })}
         </div>
       </article>
@@ -274,23 +277,23 @@ export async function render(
 
   fillSelect(root.querySelector("#explore-user-filter"), users, {
     includeBlank: true,
-    blankLabel: "任意旅行者",
+    blankLabel: copy.destinationSurface.blankLabels.traveler,
   });
   fillSelect(root.querySelector("#explore-food-user"), users, {
     includeBlank: true,
-    blankLabel: "任意旅行者",
+    blankLabel: copy.foodSurface.blankLabels.traveler,
   });
   fillSelect(root.querySelector("#explore-category"), categories, {
     value: "id",
     label: "name",
     includeBlank: true,
-    blankLabel: "任意分类",
+    blankLabel: copy.destinationSurface.blankLabels.category,
   });
   fillSelect(root.querySelector("#explore-food-cuisine"), cuisines, {
     value: "id",
     label: "name",
     includeBlank: true,
-    blankLabel: "任意菜系",
+    blankLabel: copy.foodSurface.blankLabels.cuisine,
   });
   app.applySelectorBindings(root, destinationBindings?.selectorBindings);
   root.querySelector("#explore-facility-destination").value = defaultDestinationId;
@@ -332,14 +335,14 @@ export async function render(
 
     if (!destinationId) {
       facilityNodesLoadedFor = "";
-      setFacilityNodePlaceholder("选择目的地后加载节点");
+      setFacilityNodePlaceholder(copy.facilitySurface.placeholders.chooseDestination);
       return;
     }
     if (!options.force && facilityNodesLoadedFor === destinationId) {
       return;
     }
 
-    setFacilityNodePlaceholder("正在加载节点...");
+    setFacilityNodePlaceholder(copy.facilitySurface.placeholders.loadingNodes);
     const details = await app.ensureDestinationDetails(destinationId);
     if (
       disposed ||
@@ -355,7 +358,7 @@ export async function render(
     }));
     facilityNodesLoadedFor = destinationId;
     if (!nodes.length) {
-      setFacilityNodePlaceholder("此目的地暂无可用节点");
+      setFacilityNodePlaceholder(copy.facilitySurface.placeholders.noNodes);
       return;
     }
     fillSelect(facilityNodeSelect, nodes);
@@ -402,8 +405,8 @@ export async function render(
     destinationResults.innerHTML = items.length
       ? items.map((item) => destinationCardMarkup(app, item, route)).join("")
       : emptyStateMarkup({
-          title: "没有匹配的目的地",
-          body: "可以放宽搜索词，或切换到推荐模式重新开始。",
+          title: copy.destinationSurface.empty.noMatchesTitle,
+          body: copy.destinationSurface.empty.noMatchesBody,
         });
   }
 
@@ -448,8 +451,8 @@ export async function render(
           )
           .join("")}</div>`
       : emptyStateMarkup({
-          title: "暂时没有美食结果",
-          body: "调整菜系、旅行者视角或搜索词，查看其他附近选择。",
+          title: copy.foodSurface.empty.noMatchesTitle,
+          body: copy.foodSurface.empty.noMatchesBody,
         });
   }
 
@@ -459,7 +462,7 @@ export async function render(
     if (!query && !category) {
       return;
     }
-    void runDestinationSearch("search").catch(() => app.setStatus("目的地搜索失败。", "error"));
+    void runDestinationSearch("search").catch(() => app.setStatus(copy.status.destinationSearchFailed, "error"));
   }, 320);
 
   const debouncedFoodSearch = app.debounce(() => {
@@ -467,7 +470,7 @@ export async function render(
     if (!query) {
       return;
     }
-    void runFoodLookup("search").catch(() => app.setStatus("美食搜索失败。", "error"));
+    void runFoodLookup("search").catch(() => app.setStatus(copy.status.foodSearchFailed, "error"));
   }, 320);
 
   root.querySelector("#explore-destination-form").addEventListener("submit", async (event) => {
@@ -475,7 +478,7 @@ export async function render(
     try {
       await runDestinationSearch("search");
     } catch (error) {
-      app.setStatus("目的地搜索失败。", "error");
+      app.setStatus(copy.status.destinationSearchFailed, "error");
     }
   });
 
@@ -483,7 +486,7 @@ export async function render(
     try {
       await runDestinationSearch("recommend");
     } catch (error) {
-      app.setStatus("推荐加载失败。", "error");
+      app.setStatus(copy.status.recommendationFailed, "error");
     }
   });
 
@@ -491,8 +494,8 @@ export async function render(
     destinationResults.innerHTML = featuredDestinations.length
       ? featuredDestinations.map((item) => destinationCardMarkup(app, item, route)).join("")
       : emptyStateMarkup({
-          title: "精选目的地暂时不可用",
-          body: "基础数据未返回任何精选地点。",
+          title: copy.destinationSurface.empty.featuredUnavailableTitle,
+          body: copy.destinationSurface.empty.featuredUnavailableBody,
         });
   });
 
@@ -503,7 +506,7 @@ export async function render(
       return;
     }
     void primeFacilityNodes().catch((error) =>
-      app.setStatus("节点同步失败。", "error"),
+      app.setStatus(copy.status.facilitySyncFailed, "error"),
     );
   });
   facilityForm.addEventListener("pointerdown", () => {
@@ -511,13 +514,13 @@ export async function render(
       return;
     }
     void primeFacilityNodes().catch((error) =>
-      app.setStatus("节点同步失败。", "error"),
+      app.setStatus(copy.status.facilitySyncFailed, "error"),
     );
   });
   facilityDestinationSelect.addEventListener("change", () => {
     facilitySurfaceTouched = true;
     void syncFacilityNodes(facilityDestinationSelect.value, { force: true }).catch((error) =>
-      app.setStatus("节点同步失败。", "error"),
+      app.setStatus(copy.status.facilitySyncFailed, "error"),
     );
   });
 
@@ -546,11 +549,11 @@ export async function render(
             )
             .join("")}</div>`
         : emptyStateMarkup({
-            title: "范围内没有设施",
-            body: "扩大搜索半径或调整起始节点，查看更多附近设施。",
+            title: copy.facilitySurface.empty.noMatchesTitle,
+            body: copy.facilitySurface.empty.noMatchesBody,
           });
     } catch (error) {
-      app.setStatus("设施查找失败。", "error");
+      app.setStatus(copy.status.facilitySearchFailed, "error");
     }
   });
 
@@ -559,7 +562,7 @@ export async function render(
     try {
       await runFoodLookup("search");
     } catch (error) {
-      app.setStatus("美食搜索失败。", "error");
+      app.setStatus(copy.status.foodSearchFailed, "error");
     }
   });
 
@@ -567,21 +570,21 @@ export async function render(
     try {
       await runFoodLookup("recommend");
     } catch (error) {
-      app.setStatus("美食推荐失败。", "error");
+      app.setStatus(copy.status.foodRecommendationFailed, "error");
     }
   });
 
   foodQueryInput.addEventListener("input", debouncedFoodSearch);
   foodCuisineSelect.addEventListener("change", debouncedFoodSearch);
 
-  setFacilityNodePlaceholder("选择目的地后加载节点");
+  setFacilityNodePlaceholder(copy.facilitySurface.placeholders.chooseDestination);
   try {
     await runFoodLookup("recommend");
   } catch (error) {
     foodResults.innerHTML = noticeMarkup(
       "note",
-      "美食推荐暂时不可用",
-      "美食查找失败。",
+      copy.foodSurface.notice.unavailableTitle,
+      copy.foodSurface.notice.unavailableBody,
     );
   }
 

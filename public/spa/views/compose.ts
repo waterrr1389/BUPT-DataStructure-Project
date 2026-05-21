@@ -1,3 +1,4 @@
+import { appCopy } from "../copy.js";
 import {
   escapeHtml,
   fillSelect,
@@ -21,13 +22,14 @@ type ComposePreviewState = {
  * Builds the live preview card shown beside the compose form.
  */
 function previewMarkup(state: ComposePreviewState): string {
+  const copy = appCopy.compose.preview;
   return `
     <article class="story-card compose-preview-card">
-      <p class="muted">${escapeHtml(state.destinationLabel || "请选择目的地")} · ${escapeHtml(
-        state.authorLabel || "请选择作者",
+      <p class="muted">${escapeHtml(state.destinationLabel || copy.destinationFallback)} · ${escapeHtml(
+        state.authorLabel || copy.authorFallback,
       )}</p>
-      <h3>${escapeHtml(state.title || "未命名现场笔记")}</h3>
-      <p>${escapeHtml(state.body || "明信片式旅行笔记预览会显示在这里。")}</p>
+      <h3>${escapeHtml(state.title || copy.titleFallback)}</h3>
+      <p>${escapeHtml(state.body || copy.bodyFallback)}</p>
       ${state.tags.length ? `<div class="tag-row">${state.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     </article>
   `;
@@ -41,7 +43,8 @@ export async function render(
   route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
-  app.setDocumentTitle("写笔记");
+  const copy = appCopy.compose;
+  app.setDocumentTitle(copy.documentTitle);
 
   const bootstrap = await app.loadBootstrap();
   const journalBindings = app.getJournalBindings();
@@ -54,18 +57,16 @@ export async function render(
   root.innerHTML = `
     <section class="route-hero route-hero-compose">
       <div class="route-hero-copy">
-        <p class="eyebrow">写笔记</p>
-        <h1>像写明信片一样写现场笔记，而不是填写管理记录。</h1>
+        <p class="eyebrow">${escapeHtml(copy.hero.eyebrow)}</p>
+        <h1>${escapeHtml(copy.hero.title)}</h1>
         <p class="route-lede">
-          标题和目的地保持在上方，正文区域足够宽松，媒体占位只作为轻量辅助。提交成功后会直接回到阅读流程。
+          ${escapeHtml(copy.hero.lede)}
         </p>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">保留能力</p>
+        <p class="section-tag">${escapeHtml(copy.hero.panelTag)}</p>
         <ul class="hero-list">
-          <li>笔记创建仍然提交到既有后端契约。</li>
-          <li>目的地选择继续使用共享的消歧标签。</li>
-          <li>可选媒体占位保持零依赖。</li>
+          ${copy.hero.panelItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
         </ul>
       </div>
     </section>
@@ -74,67 +75,65 @@ export async function render(
       <article class="surface-card compose-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">撰写</p>
-            <h2>现场笔记</h2>
+            <p class="section-tag">${escapeHtml(copy.form.tag)}</p>
+            <h2>${escapeHtml(copy.form.heading)}</h2>
           </div>
-          <a class="inline-link" href="/feed" data-nav="true">返回动态</a>
+          <a class="inline-link" href="/feed" data-nav="true">${escapeHtml(copy.form.returnToFeed)}</a>
         </div>
         <form class="control-grid" id="compose-form">
           <label>
-            作者
+            ${escapeHtml(copy.form.labels.author)}
             <select id="compose-user"></select>
           </label>
           <label>
-            目的地
+            ${escapeHtml(copy.form.labels.destination)}
             <select id="compose-destination"></select>
           </label>
           <label class="span-all">
-            标题
-            <input id="compose-title" type="text" placeholder="金色时刻穿过港湾中庭的环线" />
+            ${escapeHtml(copy.form.labels.title)}
+            <input id="compose-title" type="text" placeholder="${escapeHtml(copy.form.placeholders.title)}" />
           </label>
           <label class="span-all">
-            正文
-            <textarea id="compose-body" rows="10" placeholder="写下路线、气氛，以及你想记住的那个瞬间。"></textarea>
+            ${escapeHtml(copy.form.labels.body)}
+            <textarea id="compose-body" rows="10" placeholder="${escapeHtml(copy.form.placeholders.body)}"></textarea>
           </label>
           <label class="span-all">
-            标签
-            <input id="compose-tags" type="text" placeholder="历史、湖边、茶歇、安静庭院" />
+            ${escapeHtml(copy.form.labels.tags)}
+            <input id="compose-tags" type="text" placeholder="${escapeHtml(copy.form.placeholders.tags)}" />
           </label>
           <details class="advanced-panel span-all">
-            <summary>可选媒体占位</summary>
+            <summary>${escapeHtml(copy.form.mediaSummary)}</summary>
             <div class="advanced-panel-grid">
               <label>
-                媒体标题
-                <input id="compose-media-title" type="text" placeholder="封面定帧" />
+                ${escapeHtml(copy.form.labels.mediaTitle)}
+                <input id="compose-media-title" type="text" placeholder="${escapeHtml(copy.form.placeholders.mediaTitle)}" />
               </label>
               <label>
-                媒体来源
-                <input id="compose-media-source" type="text" placeholder="generated://cover/demo-1" />
+                ${escapeHtml(copy.form.labels.mediaSource)}
+                <input id="compose-media-source" type="text" placeholder="${escapeHtml(copy.form.placeholders.mediaSource)}" />
               </label>
               <label class="span-all">
-                媒体说明
-                <textarea id="compose-media-note" rows="3" placeholder="简单说明这张图片或这段片段。"></textarea>
+                ${escapeHtml(copy.form.labels.mediaNote)}
+                <textarea id="compose-media-note" rows="3" placeholder="${escapeHtml(copy.form.placeholders.mediaNote)}"></textarea>
               </label>
             </div>
           </details>
-          <button type="submit">发布笔记</button>
+          <button type="submit">${escapeHtml(copy.form.submit)}</button>
         </form>
         <div id="compose-notice"></div>
       </article>
 
       <aside class="compose-sidebar">
         <article class="surface-card">
-          <p class="section-tag">实时预览</p>
-          <h2>笔记阅读效果</h2>
+          <p class="section-tag">${escapeHtml(copy.preview.tag)}</p>
+          <h2>${escapeHtml(copy.preview.heading)}</h2>
           <div id="compose-preview"></div>
         </article>
         <article class="surface-card">
-          <p class="section-tag">提醒</p>
-          <h2>可以写什么</h2>
+          <p class="section-tag">${escapeHtml(copy.prompts.tag)}</p>
+          <h2>${escapeHtml(copy.prompts.heading)}</h2>
           <ul class="hero-list">
-            <li>清楚写出地点，方便后续交接到地图。</li>
-            <li>描述一条路线、一种气氛和一个难忘细节。</li>
-            <li>标签保持克制；它们会参与后续发现和推荐。</li>
+            ${copy.prompts.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
           </ul>
         </article>
       </aside>
@@ -200,8 +199,8 @@ export async function render(
 
       notice.innerHTML = noticeMarkup(
         "success",
-        "笔记已发布",
-        "路由界面将从写笔记页进入新的笔记详情视图。",
+        copy.notices.createdTitle,
+        copy.notices.createdBody,
       );
       const createdId = payload.item?.id;
       if (createdId) {
@@ -212,8 +211,8 @@ export async function render(
     } catch (error) {
       notice.innerHTML = noticeMarkup(
         "note",
-        "写笔记出错",
-        "笔记创建失败。",
+        copy.notices.failedTitle,
+        copy.notices.failedBody,
       );
     }
   });

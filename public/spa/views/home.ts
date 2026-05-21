@@ -1,5 +1,5 @@
 import { escapeHtml, noticeMarkup, resultMetaMarkup, safeArray, text } from "../lib.js";
-import { displayDestinationMeta } from "../copy.js";
+import { appCopy, displayDestinationMeta } from "../copy.js";
 import type { JsonRecord, SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
 /**
@@ -17,7 +17,8 @@ export async function render(
   _route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
-  app.setDocumentTitle("Trail Atlas");
+  const copy = appCopy.home;
+  app.setDocumentTitle(copy.documentTitle);
 
   const bootstrap = await app.loadBootstrap();
   const featuredDestinations = app.getFeaturedDestinations().slice(0, 4);
@@ -29,35 +30,32 @@ export async function render(
     feedPreview = feed.items.slice(0, 3);
     feedNotice = feed.notice;
   } catch {
-    feedNotice = "动态预览暂时不可用。";
+    feedNotice = copy.feedPreview.unavailableNotice;
   }
 
   root.innerHTML = `
     <section class="route-hero route-hero-home">
       <div class="route-hero-copy">
-        <p class="eyebrow">安静精致的旅行日志</p>
-        <h1>记录路线，留住气氛，也能再次回到那个地点。</h1>
+        <p class="eyebrow">${escapeHtml(copy.hero.eyebrow)}</p>
+        <h1>${escapeHtml(copy.hero.title)}</h1>
         <p class="route-lede">
-          Trail Atlas 现在是一套按路线组织的浏览器体验。你可以探索目的地，在需要空间细节时打开地图，浏览克制的旅行笔记动态，也可以直接写下现场记录。
+          ${escapeHtml(copy.hero.lede)}
         </p>
         <div class="hero-actions">
-          <a class="primary-link" href="/explore" data-nav="true">打开探索</a>
-          <a class="secondary-link" href="/feed" data-nav="true">阅读动态</a>
-          <a class="secondary-link" href="/map" data-nav="true">进入地图</a>
+          <a class="primary-link" href="/explore" data-nav="true">${escapeHtml(copy.hero.actions.explore)}</a>
+          <a class="secondary-link" href="/feed" data-nav="true">${escapeHtml(copy.hero.actions.feed)}</a>
+          <a class="secondary-link" href="/map" data-nav="true">${escapeHtml(copy.hero.actions.map)}</a>
         </div>
         ${resultMetaMarkup([
-          `${safeArray(bootstrap?.destinations).length} 个目的地`,
-          `${safeArray(bootstrap?.users).length} 位本地旅行者`,
-          `${safeArray(bootstrap?.featured).length} 个精选地点`,
+          copy.hero.metrics.destinations(safeArray(bootstrap?.destinations).length),
+          copy.hero.metrics.travelers(safeArray(bootstrap?.users).length),
+          copy.hero.metrics.featured(safeArray(bootstrap?.featured).length),
         ], "result-meta hero-metrics")}
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">主要路径</p>
+        <p class="section-tag">${escapeHtml(copy.hero.panelTag)}</p>
         <ul class="hero-list">
-          <li>探索页保留目的地推荐、美食发现和附近设施。</li>
-          <li>地图页继续承载路线规划和目的地图结构可视化。</li>
-          <li>动态和笔记详情把旅行日志呈现为更像故事的阅读体验。</li>
-          <li>写笔记页保持宽松、轻量的创作流程。</li>
+          ${copy.hero.panelItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
         </ul>
       </div>
     </section>
@@ -66,10 +64,10 @@ export async function render(
       <article class="surface-card home-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">精选地点</p>
-            <h2>从目的地开始，而不是从控制面板开始</h2>
+            <p class="section-tag">${escapeHtml(copy.featured.tag)}</p>
+            <h2>${escapeHtml(copy.featured.heading)}</h2>
           </div>
-          <a class="inline-link" href="/explore" data-nav="true">浏览全部</a>
+          <a class="inline-link" href="/explore" data-nav="true">${escapeHtml(copy.featured.linkLabel)}</a>
         </div>
         <div class="story-grid">
           ${featuredDestinations
@@ -79,13 +77,13 @@ export async function render(
                   <p class="muted">${escapeHtml(displayDestinationMeta(destination.type, destination.region))}</p>
                   <h3>${escapeHtml(destination.name)}</h3>
                   ${resultMetaMarkup([
-                    `热度 ${destination.heat}`,
-                    `评分 ${destination.rating}`,
-                    `${destination.nodeCount} 个节点`,
+                    copy.featured.metrics.heat(destination.heat),
+                    copy.featured.metrics.rating(destination.rating),
+                    copy.featured.metrics.nodeCount(destination.nodeCount),
                   ])}
                   <p>${escapeHtml(destination.description)}</p>
                   <div class="story-card-actions">
-                    <a class="inline-link" href="/map?destinationId=${encodeURIComponent(text(destination.id))}" data-nav="true">在地图中打开</a>
+                    <a class="inline-link" href="/map?destinationId=${encodeURIComponent(text(destination.id))}" data-nav="true">${escapeHtml(copy.featured.openInMap)}</a>
                   </div>
                 </article>
               `,
@@ -97,12 +95,12 @@ export async function render(
       <article class="surface-card home-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">笔记预览</p>
-            <h2>最近笔记，无需完整社交层也能加载</h2>
+            <p class="section-tag">${escapeHtml(copy.feedPreview.tag)}</p>
+            <h2>${escapeHtml(copy.feedPreview.heading)}</h2>
           </div>
-          <a class="inline-link" href="/feed" data-nav="true">打开动态</a>
+          <a class="inline-link" href="/feed" data-nav="true">${escapeHtml(copy.feedPreview.linkLabel)}</a>
         </div>
-        ${feedNotice ? noticeMarkup("note", "动态备用来源", feedNotice) : ""}
+        ${feedNotice ? noticeMarkup("note", copy.feedPreview.fallbackNoticeTitle, feedNotice) : ""}
         ${
           feedPreview.length
             ? `<div class="story-grid">${feedPreview
@@ -110,8 +108,8 @@ export async function render(
                 .join("")}</div>`
             : noticeMarkup(
                 "quiet",
-                "暂无预览笔记",
-                "动态预览为空，但路由界面已经可以直接进入 /feed 和 /posts/<journalId>。",
+                copy.feedPreview.emptyTitle,
+                copy.feedPreview.emptyBody,
               )
         }
       </article>

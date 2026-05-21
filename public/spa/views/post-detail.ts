@@ -1,5 +1,6 @@
 // @ts-nocheck
 
+import { appCopy } from "../copy.js";
 import {
   createRouteContextHref,
   emptyStateMarkup,
@@ -15,16 +16,10 @@ import { getDestinationScene, renderRouteVisualization } from "../map-rendering.
 import type { SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
 const COMMENTS_PAGE_SIZE = 5;
-const mediaTypeLabels: Record<string, string> = {
-  image: "图片",
-  video: "视频",
-  audio: "音频",
-  media: "媒体",
-};
 
 function mediaTypeLabel(value: unknown): string {
   const key = typeof value === "string" ? value.trim() : "";
-  return mediaTypeLabels[key] || "媒体";
+  return appCopy.postDetail.mediaTypes[key] || appCopy.postDetail.mediaTypes.media;
 }
 
 /**
@@ -51,7 +46,8 @@ export async function render(
   route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
-  app.setDocumentTitle("笔记详情");
+  const copy = appCopy.postDetail;
+  app.setDocumentTitle(copy.documentTitle);
 
   await app.loadBootstrap();
   const users = safeArray(app.getBootstrap()?.users);
@@ -70,12 +66,12 @@ export async function render(
     root.innerHTML = `
       <section class="route-hero route-hero-feed">
         <div class="route-hero-copy">
-          <p class="eyebrow">笔记详情</p>
-          <h1>找不到这篇笔记。</h1>
-          <p class="route-lede">这篇笔记暂时无法加载。</p>
+          <p class="eyebrow">${escapeHtml(copy.hero.eyebrow)}</p>
+          <h1>${escapeHtml(copy.hero.notFoundTitle)}</h1>
+          <p class="route-lede">${escapeHtml(copy.hero.notFoundBody)}</p>
           <div class="hero-actions">
-            <a class="primary-link" href="${escapeHtml(feedHref)}" data-nav="true">返回动态</a>
-            <a class="secondary-link" href="${escapeHtml(composeHref)}" data-nav="true">写一篇新笔记</a>
+            <a class="primary-link" href="${escapeHtml(feedHref)}" data-nav="true">${escapeHtml(copy.hero.returnToFeed)}</a>
+            <a class="secondary-link" href="${escapeHtml(composeHref)}" data-nav="true">${escapeHtml(copy.hero.compose)}</a>
           </div>
         </div>
       </section>
@@ -90,27 +86,25 @@ export async function render(
   root.innerHTML = `
     <section class="route-hero route-hero-feed">
       <div class="route-hero-copy">
-        <p class="eyebrow">笔记详情</p>
+        <p class="eyebrow">${escapeHtml(copy.hero.eyebrow)}</p>
         <h1 id="post-hero-title">${escapeHtml(journal.title)}</h1>
         <p class="route-lede" id="post-hero-attribution">
           ${escapeHtml(destinationName)} / ${escapeHtml(authorName)}
         </p>
         <div id="post-hero-meta">
           ${resultMetaMarkup([
-            `浏览 ${journal.views || 0}`,
-            `评分 ${journal.averageRating || 0}`,
-            `${safeArray(journal.ratings).length} 个评分`,
-            journal.likeCount != null ? `${journal.likeCount} 个赞` : "",
-            journal.commentCount != null ? `${journal.commentCount} 条评论` : "",
+            copy.metrics.views(journal.views || 0),
+            copy.metrics.rating(journal.averageRating || 0),
+            copy.metrics.ratingCount(safeArray(journal.ratings).length),
+            journal.likeCount != null ? copy.metrics.likes(journal.likeCount) : "",
+            journal.commentCount != null ? copy.metrics.comments(journal.commentCount) : "",
           ])}
         </div>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">辅助上下文</p>
+        <p class="section-tag">${escapeHtml(copy.hero.panelTag)}</p>
         <ul class="hero-list">
-          <li>阅读质量优先；地图上下文作为可选辅助内容保留。</li>
-          <li>评论和点赞在社交接口缺失时按预期降级。</li>
-          <li>旧版笔记操作仍然可以在这里使用。</li>
+          ${copy.hero.panelItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
         </ul>
       </div>
     </section>
@@ -119,10 +113,10 @@ export async function render(
       <article class="surface-card detail-story-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">现场笔记</p>
+            <p class="section-tag">${escapeHtml(copy.article.tag)}</p>
             <h2 id="post-story-title">${escapeHtml(journal.title)}</h2>
           </div>
-          <a class="inline-link" href="${escapeHtml(feedHref)}" data-nav="true" data-feed-href="true">返回动态</a>
+          <a class="inline-link" href="${escapeHtml(feedHref)}" data-nav="true" data-feed-href="true">${escapeHtml(copy.hero.returnToFeed)}</a>
         </div>
         <div class="reading-flow">
           ${articleParagraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
@@ -135,7 +129,7 @@ export async function render(
                   (entry) => `
                     <article class="media-card">
                       <p class="section-tag">${escapeHtml(mediaTypeLabel(entry.type))}</p>
-                      <h3>${escapeHtml(entry.title || "未命名媒体")}</h3>
+                      <h3>${escapeHtml(entry.title || copy.article.mediaFallbackTitle)}</h3>
                       <p class="muted">${escapeHtml(entry.note || entry.source || "")}</p>
                     </article>
                   `,
@@ -147,23 +141,23 @@ export async function render(
 
       <aside class="detail-sidebar">
         <article class="surface-card">
-          <p class="section-tag">笔记操作</p>
-          <h2>轻量控制</h2>
+          <p class="section-tag">${escapeHtml(copy.actions.tag)}</p>
+          <h2>${escapeHtml(copy.actions.heading)}</h2>
           <form class="control-grid" id="post-action-form">
             <label>
-              当前身份
+              ${escapeHtml(copy.actions.labels.actor)}
               <select id="post-actor"></select>
             </label>
           </form>
           <div class="button-row">
-            <button type="button" id="post-view">增加浏览</button>
-            <button type="button" id="post-rate" class="ghost">评分 5</button>
-            <button type="button" id="post-like" class="ghost">点赞</button>
-            <button type="button" id="post-delete" class="ghost">删除</button>
+            <button type="button" id="post-view">${escapeHtml(copy.actions.buttons.view)}</button>
+            <button type="button" id="post-rate" class="ghost">${escapeHtml(copy.actions.buttons.rate)}</button>
+            <button type="button" id="post-like" class="ghost">${escapeHtml(copy.actions.buttons.like)}</button>
+            <button type="button" id="post-delete" class="ghost">${escapeHtml(copy.actions.buttons.delete)}</button>
           </div>
           ${resultMetaMarkup([
-            `创建于 ${formatDate(journal.createdAt)}`,
-            `更新于 ${formatDate(journal.updatedAt)}`,
+            copy.metrics.createdAt(formatDate(journal.createdAt)),
+            copy.metrics.updatedAt(formatDate(journal.updatedAt)),
           ])}
           <div class="story-card-actions">
             <a
@@ -172,29 +166,29 @@ export async function render(
               data-nav="true"
               data-map-href="true"
               data-map-destination="${escapeHtml(journal.destinationId)}"
-            >在地图中打开目的地</a>
+            >${escapeHtml(copy.actions.links.openMap)}</a>
             <a
               class="inline-link"
               href="${escapeHtml(buildComposeHref(actorDefault, journal.destinationId))}"
               data-nav="true"
               data-compose-href="true"
               data-compose-destination="${escapeHtml(journal.destinationId)}"
-            >写一篇附近笔记</a>
+            >${escapeHtml(copy.actions.links.composeNearby)}</a>
           </div>
         </article>
 
         <article class="surface-card">
           <div class="section-head">
             <div>
-              <p class="section-tag">地图上下文</p>
-              <h2>按需加载地点上下文</h2>
+              <p class="section-tag">${escapeHtml(copy.mapContext.tag)}</p>
+              <h2>${escapeHtml(copy.mapContext.heading)}</h2>
             </div>
           </div>
-          <button type="button" id="post-load-map" class="ghost">显示目的地上下文</button>
+          <button type="button" id="post-load-map" class="ghost">${escapeHtml(copy.actions.buttons.loadMap)}</button>
           <div id="post-map-context">
             ${emptyStateMarkup({
-              title: "地图上下文是辅助信息",
-              body: "只有当空间细节对这篇笔记有帮助时，再打开辅助目的地图结构。",
+              title: copy.mapContext.emptyTitle,
+              body: copy.mapContext.emptyBody,
             })}
           </div>
         </article>
@@ -204,22 +198,22 @@ export async function render(
     <section class="surface-card comments-card">
       <div class="section-head">
         <div>
-          <p class="section-tag">对话</p>
-          <h2>评论</h2>
+          <p class="section-tag">${escapeHtml(copy.commentsSurface.tag)}</p>
+          <h2>${escapeHtml(copy.commentsSurface.heading)}</h2>
         </div>
       </div>
       <form class="control-grid" id="post-comment-form">
         <label class="span-all">
-          添加评论
-          <textarea id="post-comment-body" rows="4" placeholder="分享一个安静的观察，或一条路线提示。"></textarea>
+          ${escapeHtml(copy.commentsSurface.label)}
+          <textarea id="post-comment-body" rows="4" placeholder="${escapeHtml(copy.commentsSurface.placeholder)}"></textarea>
         </label>
-        <button type="submit">发布评论</button>
+        <button type="submit">${escapeHtml(copy.commentsSurface.submit)}</button>
       </form>
       <div id="post-comment-notice"></div>
       <div id="post-comments">
         ${emptyStateMarkup({
-          title: "评论加载中",
-          body: "详情页会在这里检查社交接口；如果接口缺失，会按预期降级。",
+          title: copy.commentsSurface.loadingTitle,
+          body: copy.commentsSurface.loadingBody,
         })}
       </div>
       <div id="post-comments-footer"></div>
@@ -280,11 +274,11 @@ export async function render(
 
   function renderHeroMeta(item) {
     heroMeta.innerHTML = resultMetaMarkup([
-      `浏览 ${item.views || 0}`,
-      `评分 ${item.averageRating || 0}`,
-      `${safeArray(item.ratings).length} 个评分`,
-      item.likeCount != null ? `${item.likeCount} 个赞` : "",
-      item.commentCount != null ? `${item.commentCount} 条评论` : "",
+      copy.metrics.views(item.views || 0),
+      copy.metrics.rating(item.averageRating || 0),
+      copy.metrics.ratingCount(safeArray(item.ratings).length),
+      item.likeCount != null ? copy.metrics.likes(item.likeCount) : "",
+      item.commentCount != null ? copy.metrics.comments(item.commentCount) : "",
     ]);
   }
 
@@ -292,7 +286,8 @@ export async function render(
     journal = item;
     renderHeroMeta(journal);
     currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
-    likeButton.textContent = currentLikeAction === "like" ? "点赞" : "取消点赞";
+    likeButton.textContent =
+      currentLikeAction === "like" ? copy.actions.buttons.like : copy.actions.buttons.unlike;
     syncFeedLinks(actorSelect.value);
     syncMapLinks(actorSelect.value);
     syncComposeLinks(actorSelect.value);
@@ -301,21 +296,21 @@ export async function render(
   function renderComments() {
     commentsContainer.innerHTML = commentsLoading && !commentItems.length
       ? emptyStateMarkup({
-          title: "评论加载中",
-          body: "正在加载这篇笔记的当前评论页。",
+          title: copy.commentsSurface.loadingTitle,
+          body: copy.commentsSurface.pageLoadingBody,
         })
       : commentsError && !commentItems.length
       ? emptyStateMarkup({
-          title: "评论加载失败",
+          title: copy.commentsSurface.failedTitle,
           body: commentsError,
         })
       : commentItems.length
       ? commentItems.map((item) => commentMarkup(app, item)).join("")
       : emptyStateMarkup({
-          title: commentsAvailable ? "暂无评论" : "评论不可用",
+          title: commentsAvailable ? copy.commentsSurface.emptyTitle : copy.commentsSurface.unavailableTitle,
           body: commentsAvailable
-            ? "从这篇笔记开始一段安静的对话。"
-            : "当前工作区尚未提供后端评论接口。",
+            ? copy.commentsSurface.emptyBody
+            : copy.commentsSurface.unavailableBody,
         });
 
     if (!commentsAvailable) {
@@ -328,15 +323,17 @@ export async function render(
       footerParts.push(
         resultMetaMarkup([
           commentsNextCursor
-            ? `已显示 ${commentItems.length} / ${commentsTotalCount} 条评论`
-            : `${commentsTotalCount} 条评论`,
+            ? copy.commentsSurface.shownCount(commentItems.length, commentsTotalCount)
+            : copy.metrics.comments(commentsTotalCount),
         ]),
       );
     }
     if (commentsNextCursor) {
       footerParts.push(`
         <div class="button-row">
-          <button type="button" id="post-comments-more" class="ghost"${commentsLoading ? " disabled" : ""}>${commentsLoading ? "加载中..." : "加载更多评论"}</button>
+          <button type="button" id="post-comments-more" class="ghost"${commentsLoading ? " disabled" : ""}>${escapeHtml(
+            commentsLoading ? copy.commentsSurface.loadingMore : copy.commentsSurface.loadMore,
+          )}</button>
         </div>
       `);
     }
@@ -350,7 +347,7 @@ export async function render(
 
   function applyCommentsResponse(response, reset) {
     commentNotice.innerHTML = response.notice
-      ? noticeMarkup(response.available ? "note" : "quiet", "评论状态", response.notice)
+      ? noticeMarkup(response.available ? "note" : "quiet", copy.commentsSurface.statusTitle, response.notice)
       : "";
     commentsAvailable = response.available;
     commentsTotalCount = response.totalCount;
@@ -363,8 +360,8 @@ export async function render(
 
   function applyCommentsError(error) {
     commentsLoading = false;
-    commentsError = "评论无法加载。";
-    commentNotice.innerHTML = noticeMarkup("error", "评论加载失败", commentsError);
+    commentsError = copy.status.commentsLoadFailed;
+    commentNotice.innerHTML = noticeMarkup("error", copy.commentsSurface.failedTitle, commentsError);
     renderComments();
   }
 
@@ -411,9 +408,9 @@ export async function render(
     try {
       await app.sendJournalAction("view", route.journalId, actorSelect.value);
       await refreshJournalDetail();
-      app.setStatus("浏览已记录。", "success");
+      app.setStatus(copy.status.viewRecorded, "success");
     } catch (error) {
-      app.setStatus("浏览操作失败。", "error");
+      app.setStatus(copy.status.viewFailed, "error");
     }
   });
 
@@ -421,9 +418,9 @@ export async function render(
     try {
       await app.sendJournalAction("rate", route.journalId, actorSelect.value);
       await refreshJournalDetail();
-      app.setStatus("评分已记录。", "success");
+      app.setStatus(copy.status.ratingRecorded, "success");
     } catch (error) {
-      app.setStatus("评分操作失败。", "error");
+      app.setStatus(copy.status.ratingFailed, "error");
     }
   });
 
@@ -432,7 +429,7 @@ export async function render(
       await app.sendJournalAction("delete", route.journalId, actorSelect.value);
       app.navigate(buildFeedHref(actorSelect.value));
     } catch (error) {
-      app.setStatus("删除操作失败。", "error");
+      app.setStatus(copy.status.deleteFailed, "error");
     }
   });
 
@@ -444,9 +441,9 @@ export async function render(
         return;
       }
       await refreshJournalDetail();
-      app.setStatus("点赞状态已更新。", "success");
+      app.setStatus(copy.status.likeUpdated, "success");
     } catch (error) {
-      app.setStatus("点赞操作失败。", "error");
+      app.setStatus(copy.status.likeFailed, "error");
     }
   });
 
@@ -460,7 +457,7 @@ export async function render(
       await refreshJournalDetail();
     } catch (error) {
       app.setStatus(
-        "笔记详情刷新失败。",
+        copy.status.refreshFailed,
         "error",
       );
     }
@@ -470,7 +467,7 @@ export async function render(
     event.preventDefault();
     const body = root.querySelector("#post-comment-body").value.trim();
     if (!body) {
-      app.setStatus("评论内容不能为空。", "error");
+      app.setStatus(copy.status.emptyComment, "error");
       return;
     }
 
@@ -483,9 +480,9 @@ export async function render(
       root.querySelector("#post-comment-body").value = "";
       await refreshJournalDetail();
       await refreshComments({ reset: true });
-      app.setStatus("评论已发布。", "success");
+      app.setStatus(copy.status.commentCreated, "success");
     } catch (error) {
-      app.setStatus("评论发布失败。", "error");
+      app.setStatus(copy.status.commentCreateFailed, "error");
     }
   });
 
@@ -506,8 +503,8 @@ export async function render(
     } catch (error) {
       root.querySelector("#post-map-context").innerHTML = noticeMarkup(
         "note",
-        "地图上下文不可用",
-        "无法加载目的地上下文。",
+        copy.mapContext.unavailableTitle,
+        copy.mapContext.unavailableBody,
       );
     }
   });
@@ -520,14 +517,14 @@ export async function render(
     try {
       await refreshComments({ reset: false });
     } catch (error) {
-      app.setStatus("评论无法加载。", "error");
+      app.setStatus(copy.status.commentsLoadFailed, "error");
     }
   });
 
   try {
     await refreshComments({ reset: true });
   } catch (error) {
-    app.setStatus("评论无法加载。", "error");
+    app.setStatus(copy.status.commentsLoadFailed, "error");
   }
 
   return () => {

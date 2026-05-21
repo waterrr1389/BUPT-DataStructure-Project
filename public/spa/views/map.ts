@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { displayLabel, modeLabels, strategyLabels } from "../copy.js";
+import { appCopy, displayLabel, modeLabels, strategyLabels } from "../copy.js";
 import {
   createRouteContextHref,
   emptyStateMarkup,
@@ -35,7 +35,8 @@ export async function render(
     return renderWorldMapView(app, route, root);
   }
 
-  app.setDocumentTitle("地图");
+  const copy = appCopy.map;
+  app.setDocumentTitle(copy.documentTitle);
   const { getDestinationScene, renderRouteResult, renderRouteVisualization } = await import("../map-rendering.js");
 
   await app.loadBootstrap();
@@ -59,21 +60,19 @@ export async function render(
   root.innerHTML = `
     <section class="route-hero route-hero-map">
       <div class="route-hero-copy">
-        <p class="eyebrow">地图</p>
-        <h1>在目的地地图仍然可见的状态下规划路线。</h1>
+        <p class="eyebrow">${copy.hero.eyebrow}</p>
+        <h1>${copy.hero.title}</h1>
         <p class="route-lede">
-          选择目的地，预览路线起终点，再规划适合这次到访的路径。
+          ${copy.hero.lede}
         </p>
         <div class="hero-actions">
-          <a class="secondary-link" href="${worldViewHref}" data-map-world-link="true" data-nav="true">打开世界地图</a>
+          <a class="secondary-link" href="${worldViewHref}" data-map-world-link="true" data-nav="true">${copy.hero.worldLink}</a>
         </div>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">路线流程</p>
+        <p class="section-tag">${copy.hero.panelTag}</p>
         <ul class="hero-list">
-          <li>选择目的地以加载地图和路线选项。</li>
-          <li>规划前先预览起点和终点标记。</li>
-          <li>只有需要途经点或不同出行偏好时，再打开高级路线设置。</li>
+          ${copy.hero.panelItems.map((item) => `<li>${item}</li>`).join("")}
         </ul>
       </div>
     </section>
@@ -82,41 +81,41 @@ export async function render(
       <article class="surface-card map-controls-card route-stage-shell">
         <div class="section-head">
           <div class="map-controls-copy">
-            <h2>路线规划</h2>
-            <p>先选择空间上下文，再设置路线的起点和终点。</p>
+            <h2>${copy.planner.heading}</h2>
+            <p>${copy.planner.body}</p>
           </div>
-          <a class="inline-link" href="${returnToExploreHref}" data-nav="true">返回探索</a>
+          <a class="inline-link" href="${returnToExploreHref}" data-nav="true">${copy.planner.returnToExplore}</a>
         </div>
         <form class="control-grid" id="map-route-form">
           <div class="span-all map-control-group">
             <label>
-              目的地
+              ${copy.planner.labels.destination}
               <select id="map-destination"></select>
             </label>
           </div>
           <div class="control-grid span-all map-control-group map-node-pair">
             <label>
-              起点
+              ${copy.planner.labels.start}
               <select id="map-start"></select>
             </label>
             <label>
-              终点
+              ${copy.planner.labels.end}
               <select id="map-end"></select>
             </label>
           </div>
           <details class="advanced-panel span-all" id="map-advanced">
-            <summary>高级路线设置</summary>
+            <summary>${copy.planner.advancedSummary}</summary>
             <div class="advanced-panel-grid">
               <label>
-                途经点
+                ${copy.planner.labels.waypoints}
                 <input
                   id="map-waypoints"
                   type="text"
-                  placeholder="途经节点编号，用逗号分隔"
+                  placeholder="${copy.planner.placeholders.waypoints}"
                 />
               </label>
               <label>
-                策略
+                ${copy.planner.labels.strategy}
                 <select id="map-strategy">
                   <option value="distance">${displayLabel(strategyLabels, "distance")}</option>
                   <option value="time">${displayLabel(strategyLabels, "time")}</option>
@@ -124,7 +123,7 @@ export async function render(
                 </select>
               </label>
               <label>
-                方式
+                ${copy.planner.labels.mode}
                 <select id="map-mode">
                   <option value="walk">${displayLabel(modeLabels, "walk")}</option>
                   <option value="bike">${displayLabel(modeLabels, "bike")}</option>
@@ -135,8 +134,8 @@ export async function render(
             </div>
           </details>
           <div class="button-row span-all">
-            <button type="submit">规划路线</button>
-            <button type="button" id="map-reset-route" class="ghost">清除路线</button>
+            <button type="submit">${copy.planner.buttons.plan}</button>
+            <button type="button" id="map-reset-route" class="ghost">${copy.planner.buttons.reset}</button>
           </div>
         </form>
       </article>
@@ -173,8 +172,8 @@ export async function render(
   }
 
   function clearNodeOptions() {
-    fillSelect(startSelect, [], { includeBlank: true, blankLabel: "暂无可用停靠点" });
-    fillSelect(endSelect, [], { includeBlank: true, blankLabel: "暂无可用停靠点" });
+    fillSelect(startSelect, [], { includeBlank: true, blankLabel: copy.planner.placeholders.noStops });
+    fillSelect(endSelect, [], { includeBlank: true, blankLabel: copy.planner.placeholders.noStops });
     startSelect.value = "";
     endSelect.value = "";
   }
@@ -206,7 +205,7 @@ export async function render(
       details = await app.ensureDestinationDetails(destinationId);
     } catch (error) {
       clearNodeOptions();
-      app.setStatus("地图节点加载失败。", "error");
+      app.setStatus(copy.status.nodeLoadFailed, "error");
       return null;
     }
 
@@ -250,8 +249,8 @@ export async function render(
     const destinationId = destinationSelect.value;
     if (!destinationId) {
       renderInlineMapState(
-        "请选择目的地",
-        "选择目的地后才会加载地图区域。",
+        copy.empty.chooseDestinationTitle,
+        copy.empty.chooseDestinationBody,
       );
       return;
     }
@@ -260,10 +259,10 @@ export async function render(
     try {
       details = await app.ensureDestinationDetails(destinationId);
     } catch (error) {
-      app.setStatus("地图预览失败。", "error");
+      app.setStatus(copy.status.previewFailed, "error");
       renderInlineMapState(
-        "地图暂时不可用",
-        "目的地数据无法加载。请选择其他目的地继续规划路线。",
+        copy.empty.mapUnavailableTitle,
+        copy.empty.mapUnavailableBody,
       );
       return;
     }
@@ -284,8 +283,8 @@ export async function render(
       activeRoute && activeRoute.destinationId === destinationId
         ? renderRouteResult(activeRoute, details)
         : mapStageEmptyMarkup(
-            "规划后显示路线摘要",
-            "调整路线时预览标记会同步更新；规划完成后会显示距离和方向说明。",
+            copy.empty.routeSummaryTitle,
+            copy.empty.routeSummaryBody,
           );
   }
 
@@ -309,7 +308,7 @@ export async function render(
   const debouncedPreview = app.debounce(() => {
     currentRoute = null;
     void renderMapSurface(null).catch((error) =>
-      app.setStatus("地图预览失败。", "error"),
+      app.setStatus(copy.status.previewFailed, "error"),
     );
     updateRouteQuery(true);
   }, 180);
@@ -318,7 +317,7 @@ export async function render(
   await renderMapSurface(null);
 
   if (usedDestinationFallback) {
-    app.setStatus("请求的目的地不可用，已改为显示第一个可用地图。", "neutral");
+    app.setStatus(copy.status.unavailableDestination, "neutral");
     if (defaultDestinationId) {
       app.navigate(buildContextualMapHref({ destinationId: defaultDestinationId }), {
         replace: true,
@@ -333,7 +332,7 @@ export async function render(
     try {
       await planRoute();
     } catch (error) {
-      app.setStatus("路线恢复失败。", "error");
+      app.setStatus(copy.status.restoreFailed, "error");
     }
   }
 
@@ -357,7 +356,7 @@ export async function render(
     try {
       await planRoute();
     } catch (error) {
-      app.setStatus("路线规划失败。", "error");
+      app.setStatus(copy.status.planFailed, "error");
     }
   });
 

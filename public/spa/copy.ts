@@ -139,15 +139,642 @@ export const appCopy = {
       destinationId: "未知目的地",
     },
   },
+  home: {
+    documentTitle: "Trail Atlas",
+    hero: {
+      eyebrow: "安静精致的旅行日志",
+      title: "记录路线，留住气氛，也能再次回到那个地点。",
+      lede:
+        "Trail Atlas 现在是一套按路线组织的浏览器体验。你可以探索目的地，在需要空间细节时打开地图，浏览克制的旅行笔记动态，也可以直接写下现场记录。",
+      actions: {
+        explore: "打开探索",
+        feed: "阅读动态",
+        map: "进入地图",
+      },
+      metrics: {
+        destinations: (value: unknown) => `${copyText(value, "0")} 个目的地`,
+        travelers: (value: unknown) => `${copyText(value, "0")} 位本地旅行者`,
+        featured: (value: unknown) => `${copyText(value, "0")} 个精选地点`,
+      },
+      panelTag: "主要路径",
+      panelItems: [
+        "探索页保留目的地推荐、美食发现和附近设施。",
+        "地图页继续承载路线规划和目的地图结构可视化。",
+        "动态和笔记详情把旅行日志呈现为更像故事的阅读体验。",
+        "写笔记页保持宽松、轻量的创作流程。",
+      ],
+    },
+    featured: {
+      tag: "精选地点",
+      heading: "从目的地开始，而不是从控制面板开始",
+      linkLabel: "浏览全部",
+      openInMap: "在地图中打开",
+      metrics: {
+        heat: (value: unknown) => `热度 ${copyText(value, "0")}`,
+        rating: (value: unknown) => `评分 ${copyText(value, "0")}`,
+        nodeCount: (value: unknown) => `${copyText(value, "0")} 个节点`,
+      },
+    },
+    feedPreview: {
+      tag: "笔记预览",
+      heading: "最近笔记，无需完整社交层也能加载",
+      linkLabel: "打开动态",
+      fallbackNoticeTitle: "动态备用来源",
+      unavailableNotice: "动态预览暂时不可用。",
+      emptyTitle: "暂无预览笔记",
+      emptyBody: "动态预览为空，但路由界面已经可以直接进入动态和笔记详情。",
+    },
+  },
   explore: {
+    documentTitle: "探索",
+    hero: {
+      eyebrow: "探索",
+      title: "先找到下一个地点，再在需要时展开更重的工具。",
+      lede:
+        "目的地卡片先引导浏览，美食发现和附近设施作为辅助工作区保留。只有在地图相关控件需要时，页面才会加载完整目的地图结构。",
+      panelTag: "信息结构",
+      panelItems: [
+        "目的地推荐和搜索仍然是主入口。",
+        "美食和设施工具保持可用，但不压过首屏内容。",
+        "相关结果都可以直接交接到地图。",
+      ],
+    },
+    destinationSurface: {
+      tag: "目的地卡组",
+      heading: "由推荐引导的发现",
+      refreshButton: "刷新精选",
+      labels: {
+        traveler: "旅行者视角",
+        query: "搜索词",
+        category: "分类",
+        limit: "数量",
+      },
+      placeholders: {
+        query: "港湾、博物馆、校园庭院",
+      },
+      buttons: {
+        search: "搜索目的地",
+        recommend: "获取推荐",
+      },
+      blankLabels: {
+        traveler: "任意旅行者",
+        category: "任意分类",
+      },
+      empty: {
+        noMatchesTitle: "没有匹配的目的地",
+        noMatchesBody: "可以放宽搜索词，或切换到推荐模式重新开始。",
+        featuredUnavailableTitle: "精选目的地暂时不可用",
+        featuredUnavailableBody: "基础数据未返回任何精选地点。",
+      },
+    },
+    facilitySurface: {
+      tag: "附近设施",
+      heading: "保留实用工具，不做成仪表盘",
+      labels: {
+        destination: "目的地",
+        startNode: "起始节点",
+        category: "分类",
+        radius: "半径",
+      },
+      button: "查找设施",
+      placeholders: {
+        chooseDestination: "选择目的地后加载节点",
+        loadingNodes: "正在加载节点...",
+        noNodes: "此目的地暂无可用节点",
+      },
+      empty: {
+        initialTitle: "按需查找设施",
+        initialBody: "选择目的地和起始节点后，这里会显示附近洗手间、医疗点、休息区和其他场地设施。",
+        noMatchesTitle: "范围内没有设施",
+        noMatchesBody: "扩大搜索半径或调整起始节点，查看更多附近设施。",
+      },
+    },
+    foodSurface: {
+      tag: "美食指南",
+      heading: "让吃饭选择容易被发现，而不是被埋起来",
+      labels: {
+        destination: "目的地",
+        traveler: "旅行者视角",
+        cuisine: "菜系",
+        query: "搜索词",
+      },
+      placeholders: {
+        query: "茶、烧烤、面、点心",
+      },
+      buttons: {
+        search: "搜索美食",
+        recommend: "获取推荐",
+      },
+      blankLabels: {
+        traveler: "任意旅行者",
+        cuisine: "任意菜系",
+      },
+      empty: {
+        initialTitle: "美食推荐已准备好",
+        initialBody: "可以用菜系、旅行者视角或自由文本查找附近餐饮地点，无需离开探索页。",
+        noMatchesTitle: "暂时没有美食结果",
+        noMatchesBody: "调整菜系、旅行者视角或搜索词，查看其他附近选择。",
+      },
+      notice: {
+        unavailableTitle: "美食推荐暂时不可用",
+        unavailableBody: "美食查找失败。",
+      },
+    },
     labels: {
       destinationMeta: (typeLabel: string, regionLabel: string) => `${typeLabel} · ${regionLabel}`,
       foodMeta: (cuisineLabel: string, venueLabel: string) => `${cuisineLabel} · ${venueLabel}`,
     },
+    actions: {
+      openInMap: "在地图中打开",
+      writeJournal: "写一篇笔记",
+    },
+    status: {
+      destinationSearchFailed: "目的地搜索失败。",
+      recommendationFailed: "推荐加载失败。",
+      facilitySyncFailed: "节点同步失败。",
+      facilitySearchFailed: "设施查找失败。",
+      foodSearchFailed: "美食搜索失败。",
+      foodRecommendationFailed: "美食推荐失败。",
+    },
+    metrics: {
+      heat: (value: unknown) => `热度 ${copyText(value, "0")}`,
+      rating: (value: unknown) => `评分 ${copyText(value, "0")}`,
+      nodeCount: (value: unknown) => `${copyText(value, "0")} 个节点`,
+      distanceMeters: (value: unknown) => `距离 ${copyText(value, "0")} 米`,
+      pathSegments: (value: unknown) => `${copyText(value, "0")} 段路径`,
+      averagePrice: (value: unknown) => `均价 US$${copyText(value, "0")}`,
+    },
+  },
+  map: {
+    documentTitle: "地图",
+    hero: {
+      eyebrow: "地图",
+      title: "在目的地地图仍然可见的状态下规划路线。",
+      lede: "选择目的地，预览路线起终点，再规划适合这次到访的路径。",
+      worldLink: "打开世界地图",
+      panelTag: "路线流程",
+      panelItems: [
+        "选择目的地以加载地图和路线选项。",
+        "规划前先预览起点和终点标记。",
+        "只有需要途经点或不同出行偏好时，再打开高级路线设置。",
+      ],
+    },
+    planner: {
+      heading: "路线规划",
+      body: "先选择空间上下文，再设置路线的起点和终点。",
+      returnToExplore: "返回探索",
+      labels: {
+        destination: "目的地",
+        start: "起点",
+        end: "终点",
+        waypoints: "途经点",
+        strategy: "策略",
+        mode: "方式",
+      },
+      placeholders: {
+        waypoints: "途经节点编号，用逗号分隔",
+        noStops: "暂无可用停靠点",
+      },
+      advancedSummary: "高级路线设置",
+      buttons: {
+        plan: "规划路线",
+        reset: "清除路线",
+      },
+    },
+    empty: {
+      chooseDestinationTitle: "请选择目的地",
+      chooseDestinationBody: "选择目的地后才会加载地图区域。",
+      mapUnavailableTitle: "地图暂时不可用",
+      mapUnavailableBody: "目的地数据无法加载。请选择其他目的地继续规划路线。",
+      routeSummaryTitle: "规划后显示路线摘要",
+      routeSummaryBody: "调整路线时预览标记会同步更新；规划完成后会显示距离和方向说明。",
+    },
+    status: {
+      nodeLoadFailed: "地图节点加载失败。",
+      previewFailed: "地图预览失败。",
+      unavailableDestination: "请求的目的地不可用，已改为显示第一个可用地图。",
+      restoreFailed: "路线恢复失败。",
+      planFailed: "路线规划失败。",
+    },
+  },
+  worldMap: {
+    documentTitle: "世界地图",
+    hero: {
+      eyebrow: "世界地图",
+      title: "在旅行日志中浏览并规划世界路线。",
+      lede: "查看区域、规划世界行程，并在需要本地路线详情时进入目的地地图。",
+      returnToExplore: "返回探索",
+      panelTag: "世界视图",
+      panelItems: [
+        "背景图、区域和目的地标记会通过地图引擎渲染。",
+        "世界路线规划支持仅世界地图和跨地图两种范围。",
+        "选择目的地标记仍会打开对应的本地目的地地图。",
+      ],
+    },
+    meta: {
+      world: "世界",
+      region: "区域",
+      destination: "目的地",
+      worldFallback: "世界地图",
+      regionFallback: "区域",
+    },
+    sidebar: {
+      tag: "地图模式",
+      heading: "世界路线规划",
+      copy:
+        "点击目的地会保留当前角色上下文并打开本地地图。路线规划会保持世界模式，并生成本地/世界/本地的接续链接。",
+    },
+    planner: {
+      tag: "世界路线",
+      heading: "规划行程",
+      labels: {
+        scope: "范围",
+        fromWorldNode: "起点世界节点",
+        toWorldNode: "终点世界节点",
+        fromDestination: "起点目的地",
+        toDestination: "终点目的地",
+        fromLocalNode: "可选起点本地节点",
+        toLocalNode: "可选终点本地节点",
+        strategy: "策略",
+        mode: "方式",
+      },
+      placeholders: {
+        localNode: "本地节点编号",
+      },
+      buttons: {
+        plan: "规划世界路线",
+        reset: "清除世界路线",
+      },
+      ariaLabel: "世界地图",
+    },
+    routeResult: {
+      tag: "世界路线",
+      pendingTitle: "正在规划路线",
+      pendingBody: "正在向世界路线服务请求行程详情。",
+      emptyTitle: "规划后显示世界路线摘要",
+      emptyBody: "选择世界节点或目的地后规划路线，这里会显示世界行程。",
+      failureTitle: "路线规划失败",
+      failureFallback: "世界路线规划失败。",
+      availableStatus: "路线已可使用。",
+      incompleteStatus: "路线返回了不完整行程。",
+      summary: (destinationDistance: unknown, worldDistance: unknown, transferDistance: unknown) =>
+        `目的地 ${formatMetricDisplay(destinationDistance)} 米 · 世界地图 ${formatMetricDisplay(
+          worldDistance,
+        )} 米 · 换乘 ${formatMetricDisplay(transferDistance)} 米。`,
+      cost: (value: unknown) => `成本 ${formatMetricDisplay(value)}`,
+      meters: (value: unknown) => `${formatMetricDisplay(value)} 米`,
+      handoffTag: "路线接续",
+      handoffTitle: "本地地图与世界地图接续",
+      handoffLinks: {
+        localOrigin: "起点本地地图",
+        localOriginUnavailable: "起点本地地图不可用",
+        world: "世界地图",
+        localDestination: "终点本地地图",
+        localDestinationUnavailable: "终点本地地图不可用",
+      },
+      noSegments: "暂无路线分段。",
+      explanationTag: "路线说明",
+      explanationTitle: "行程分段顺序",
+      explanationEmpty: "暂无可解释的入口换乘或世界路段步骤。",
+    },
+    unavailable: {
+      actionLabel: "返回探索",
+      worldTitle: "世界地图不可用",
+      worldBody: "当前工作区后端未启用世界模式。",
+      detailsTitle: "世界详情不可用",
+      invalidDetailsBody: "世界详情数据校验失败。请检查边界、多边形、标记和路线图数据。",
+      missingDetailsBody: "世界地图已启用，但缺少详细地图数据。",
+      loadFailedBody: "世界地图暂时无法准备完成。请检查后端接口后重试。",
+    },
+    labels: {
+      destinationLeg: (destinationId: unknown, fromNode: unknown, toNode: unknown) =>
+        `目的地 ${copyText(destinationId, "destination")}：${copyText(fromNode, "起点")} → ${copyText(
+          toNode,
+          "终点",
+        )}`,
+      worldLeg: (fromNode: unknown, toNode: unknown) =>
+        `世界地图：${copyText(fromNode, "起点")} → ${copyText(toNode, "终点")}`,
+      failureSummary: (stage: string, reason: string, code: string, blockedSegment = "") =>
+        `${stage}无法继续，原因：${reason}，类型：${code}${blockedSegment}。`,
+    },
+    failure: {
+      stages: {
+        "origin-destination": "起点目的地",
+        "origin-portal": "起点入口",
+        world: "世界地图",
+        "destination-portal": "终点入口",
+        "destination-local": "终点本地路线",
+        "destination-leg": "目的地路段",
+      },
+      reasons: {
+        unreachable: "暂时不可达",
+        mode_not_allowed: "当前交通方式不可用",
+        direction_not_allowed: "入口方向不支持",
+        world_disconnected: "世界路线未连通",
+        portal_misconfigured: "入口配置异常",
+        local_graph_disconnected: "本地路线未连通",
+      },
+      codes: {
+        origin_local_unreachable: "起点本地路线不可达",
+        origin_portal_unavailable: "起点入口不可用",
+        world_segment_unreachable: "世界路段不可达",
+        destination_portal_unavailable: "终点入口不可用",
+        destination_local_unreachable: "终点本地路线不可达",
+        world_route_local_unreachable: "本地路线不可达",
+      },
+      fallbackStage: "路线阶段",
+      fallbackReason: "规划约束",
+      fallbackCode: "未分类",
+    },
+    status: {
+      controlsUnavailable: "世界路线控件不可用。",
+      unavailable: "世界模式不可用。",
+      invalidDetails: "世界详情格式异常。",
+      detailsUnavailable: "世界详情不可用。",
+      routeReady: "世界路线已准备好。",
+      routeIncomplete: "世界路线返回了不完整行程。",
+      routeFailed: "世界路线规划失败。",
+      mapReady: "世界地图已就绪。",
+      mapLoadFailed: "世界地图加载失败。",
+    },
   },
   feed: {
+    documentTitle: "动态",
+    hero: {
+      eyebrow: "动态",
+      title: "用克制的故事卡片浏览旅行笔记，同时保留课程工具。",
+      lede:
+        "动态页以摘要优先展示。完整内容进入笔记详情，笔记推荐仍然可用，交换工具则作为辅助区域保留。",
+      panelTag: "渐进降级",
+      panelItems: [
+        "界面会优先尝试社交动态接口。",
+        "如果社交动态接口缺失，浏览器会回退到旧版旅行笔记时间线。",
+        "点赞和评论控件会显示出来，在后端缺失时按预期降级。",
+      ],
+    },
+    stream: {
+      tag: "笔记流",
+      heading: "安静呈现旅行笔记和操作",
+      composeLink: "写一篇新笔记",
+      labels: {
+        actor: "当前身份",
+        destination: "目的地筛选",
+        author: "作者筛选",
+        limit: "数量",
+      },
+      blankLabels: {
+        author: "任意作者",
+      },
+      buttons: {
+        latest: "加载最新",
+        recommended: "推荐内容",
+      },
+      noticeTitles: {
+        recommended: "推荐模式",
+        latest: "动态模式",
+      },
+      notices: {
+        recommendedFiltered: "推荐笔记来自旧版笔记推荐工具，并已按所选作者筛选。",
+        recommended: "推荐笔记来自旧版笔记推荐工具。",
+        chooseTraveler: "请选择旅行者后加载推荐。",
+      },
+      empty: {
+        title: "当前视图没有匹配的笔记",
+        body: "可以调整目的地或作者筛选，也可以回到最新模式。",
+        actionLabel: "写第一篇笔记",
+      },
+    },
+    exchange: {
+      tag: "笔记交换",
+      toolTag: "交换工具",
+      heading: "在不离开动态的情况下搜索、压缩和生成故事板",
+      labels: {
+        exactTitle: "精确标题",
+        query: "文本搜索",
+        destination: "目的地",
+        compressionBody: "压缩文本",
+        storyboardTitle: "故事标题",
+        storyboardPrompt: "提示词",
+      },
+      placeholders: {
+        exactTitle: "琥珀湾现场笔记 1",
+        query: "室内大厅、餐台、黄昏路线",
+        compressionBody: "粘贴一段旅行笔记用于压缩。",
+        storyboardTitle: "港湾黄昏环线",
+        storyboardPrompt: "描述想要生成动画的氛围、路线和片段。",
+      },
+      buttons: {
+        search: "搜索交换内容",
+        byDestination: "加载目的地动态",
+        compress: "压缩",
+        decompress: "解压",
+        storyboard: "生成故事板",
+      },
+      results: {
+        exactTitle: "精确标题",
+        textSearch: "文本搜索",
+        destination: "目的地动态",
+        compressed: "压缩结果",
+        decompressed: "解压结果",
+        storyboardFallback: "故事板",
+      },
+      empty: {
+        title: "交换工具保留在辅助区域",
+        body: "可以按标题或文本搜索，加载目的地动态，或在这里运行压缩和故事板生成。",
+      },
+      compressionRatio: (value: unknown) => `压缩比 ${copyText(value, "0")}`,
+    },
+    labels: {
+      commentCount: (value: unknown) => {
+        const count = Number(value);
+        return Number.isFinite(count) && count > 0 ? `${count} 条评论` : "评论";
+      },
+    },
     fallbackNotice: "当前工作区尚未提供社交动态接口，已改为显示旅行笔记时间线。",
     loadingFailed: "动态加载失败。",
+    status: {
+      journalActionFailed: "笔记操作失败。",
+      loadingFailed: "动态加载失败。",
+      recommendationFailed: "推荐加载失败。",
+      exchangeSearchFailed: "交换内容搜索失败。",
+      destinationExchangeFailed: "目的地交换内容加载失败。",
+      compressionFailed: "压缩失败。",
+      decompressionFailed: "解压失败。",
+      storyboardFailed: "故事板生成失败。",
+    },
+  },
+  compose: {
+    documentTitle: "写笔记",
+    hero: {
+      eyebrow: "写笔记",
+      title: "像写明信片一样写现场笔记，而不是填写管理记录。",
+      lede: "标题和目的地保持在上方，正文区域足够宽松，媒体占位只作为轻量辅助。提交成功后会直接回到阅读流程。",
+      panelTag: "保留能力",
+      panelItems: [
+        "笔记创建仍然提交到既有后端契约。",
+        "目的地选择继续使用共享的消歧标签。",
+        "可选媒体占位保持零依赖。",
+      ],
+    },
+    form: {
+      tag: "撰写",
+      heading: "现场笔记",
+      returnToFeed: "返回动态",
+      labels: {
+        author: "作者",
+        destination: "目的地",
+        title: "标题",
+        body: "正文",
+        tags: "标签",
+        mediaTitle: "媒体标题",
+        mediaSource: "媒体来源",
+        mediaNote: "媒体说明",
+      },
+      placeholders: {
+        title: "金色时刻穿过港湾中庭的环线",
+        body: "写下路线、气氛，以及你想记住的那个瞬间。",
+        tags: "历史、湖边、茶歇、安静庭院",
+        mediaTitle: "封面定帧",
+        mediaSource: "媒体来源地址",
+        mediaNote: "简单说明这张图片或这段片段。",
+      },
+      mediaSummary: "可选媒体占位",
+      submit: "发布笔记",
+    },
+    preview: {
+      tag: "实时预览",
+      heading: "笔记阅读效果",
+      destinationFallback: "请选择目的地",
+      authorFallback: "请选择作者",
+      titleFallback: "未命名现场笔记",
+      bodyFallback: "明信片式旅行笔记预览会显示在这里。",
+    },
+    prompts: {
+      tag: "提醒",
+      heading: "可以写什么",
+      items: [
+        "清楚写出地点，方便后续交接到地图。",
+        "描述一条路线、一种气氛和一个难忘细节。",
+        "标签保持克制；它们会参与后续发现和推荐。",
+      ],
+    },
+    notices: {
+      createdTitle: "笔记已发布",
+      createdBody: "路由界面将从写笔记页进入新的笔记详情视图。",
+      failedTitle: "写笔记出错",
+      failedBody: "笔记创建失败。",
+    },
+  },
+  postDetail: {
+    documentTitle: "笔记详情",
+    hero: {
+      eyebrow: "笔记详情",
+      notFoundTitle: "找不到这篇笔记。",
+      notFoundBody: "这篇笔记暂时无法加载。",
+      returnToFeed: "返回动态",
+      compose: "写一篇新笔记",
+      panelTag: "辅助上下文",
+      panelItems: [
+        "阅读质量优先；地图上下文作为可选辅助内容保留。",
+        "评论和点赞在社交接口缺失时按预期降级。",
+        "旧版笔记操作仍然可以在这里使用。",
+      ],
+    },
+    article: {
+      tag: "现场笔记",
+      mediaFallbackTitle: "未命名媒体",
+    },
+    mediaTypes: {
+      image: "图片",
+      video: "视频",
+      audio: "音频",
+      media: "媒体",
+    },
+    actions: {
+      tag: "笔记操作",
+      heading: "轻量控制",
+      labels: {
+        actor: "当前身份",
+      },
+      buttons: {
+        view: "增加浏览",
+        rate: "评分 5",
+        like: "点赞",
+        unlike: "取消点赞",
+        delete: "删除",
+        loadMap: "显示目的地上下文",
+      },
+      links: {
+        openMap: "在地图中打开目的地",
+        composeNearby: "写一篇附近笔记",
+      },
+    },
+    mapContext: {
+      tag: "地图上下文",
+      heading: "按需加载地点上下文",
+      emptyTitle: "地图上下文是辅助信息",
+      emptyBody: "只有当空间细节对这篇笔记有帮助时，再打开辅助目的地图结构。",
+      unavailableTitle: "地图上下文不可用",
+      unavailableBody: "无法加载目的地上下文。",
+    },
+    commentsSurface: {
+      tag: "对话",
+      heading: "评论",
+      label: "添加评论",
+      placeholder: "分享一个安静的观察，或一条路线提示。",
+      submit: "发布评论",
+      statusTitle: "评论状态",
+      loadingTitle: "评论加载中",
+      loadingBody: "详情页会在这里检查社交接口；如果接口缺失，会按预期降级。",
+      pageLoadingBody: "正在加载这篇笔记的当前评论页。",
+      failedTitle: "评论加载失败",
+      emptyTitle: "暂无评论",
+      unavailableTitle: "评论不可用",
+      emptyBody: "从这篇笔记开始一段安静的对话。",
+      unavailableBody: "当前工作区尚未提供后端评论接口。",
+      loadMore: "加载更多评论",
+      loadingMore: "加载中...",
+      shownCount: (shown: unknown, total: unknown) => `已显示 ${copyText(shown, "0")} / ${copyText(total, "0")} 条评论`,
+    },
+    metrics: {
+      views: (value: unknown) => `浏览 ${copyText(value, "0")}`,
+      rating: (value: unknown) => `评分 ${copyText(value, "0")}`,
+      ratingCount: (value: unknown) => `${copyText(value, "0")} 个评分`,
+      likes: (value: unknown) => `${copyText(value, "0")} 个赞`,
+      comments: (value: unknown) => `${copyText(value, "0")} 条评论`,
+      createdAt: (value: unknown) => `创建于 ${copyText(value, "未知日期")}`,
+      updatedAt: (value: unknown) => `更新于 ${copyText(value, "未知日期")}`,
+    },
+    status: {
+      commentsLoadFailed: "评论无法加载。",
+      viewRecorded: "浏览已记录。",
+      viewFailed: "浏览操作失败。",
+      ratingRecorded: "评分已记录。",
+      ratingFailed: "评分操作失败。",
+      deleteFailed: "删除操作失败。",
+      likeUpdated: "点赞状态已更新。",
+      likeFailed: "点赞操作失败。",
+      refreshFailed: "笔记详情刷新失败。",
+      emptyComment: "评论内容不能为空。",
+      commentCreated: "评论已发布。",
+      commentCreateFailed: "评论发布失败。",
+    },
+  },
+  notFound: {
+    documentTitle: "未找到",
+    hero: {
+      eyebrow: "未找到",
+      title: "这个前端路由不在单页应用外壳中。",
+      lede: (pathname: unknown) =>
+        `服务器已经为 ${copyText(pathname, "当前路径")} 返回浏览器应用外壳；客户端将它解析为明确的备用页面，而不是空白屏幕或意外 404。`,
+      actions: {
+        home: "回到首页",
+        explore: "打开探索",
+        feed: "打开动态",
+      },
+      panelTag: "已知路由",
+      knownRoutes: ["首页", "探索", "地图", "动态", "写笔记", "笔记详情"],
+    },
   },
   comments: {
     unavailableNotice: "当前工作区尚未接入评论接口。",
@@ -229,6 +856,15 @@ export const destinationRegionLabels: DisplayLabelMap = {
   "North Wharf": "北码头",
   "East Bluffs": "东崖",
   "South Basin": "南湾",
+};
+
+export const worldRegionLabels: DisplayLabelMap = {
+  "region-river": "河湾区域",
+  "region-harbor": "港湾线区域",
+  "River Arc": "河湾区域",
+  "Harbor Line": "港湾线区域",
+  "river arc": "河湾区域",
+  "harbor line": "港湾线区域",
 };
 
 export const destinationCategoryLabels: DisplayLabelMap = {
@@ -408,6 +1044,11 @@ export function displayDestinationTypeLabel(value: unknown): string {
 export function displayDestinationRegionLabel(value: unknown): string {
   const raw = copyText(value);
   return raw ? displayLabel(destinationRegionLabels, raw, raw) : "未知区域";
+}
+
+export function displayWorldRegionLabel(value: unknown, fallback = appCopy.worldMap.meta.regionFallback): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(worldRegionLabels, raw, raw) : fallback;
 }
 
 export function displayDestinationCategoryLabel(value: unknown): string {

@@ -1281,6 +1281,13 @@ test("map world view explains unreachable cross-map prefix itineraries without r
       root,
     );
 
+    assert.deepEqual(
+      leaflet.records.polygons.map((polygon) => polygon.tooltip),
+      ["河湾区域", "港湾线区域"],
+    );
+    assert.equal(leaflet.records.polygons.some((polygon) => polygon.tooltip === "River Arc"), false);
+    assert.equal(leaflet.records.polygons.some((polygon) => polygon.tooltip === "Harbor Line"), false);
+
     const scopeSelect = requireElement(root, "#world-route-scope");
     scopeSelect.value = "cross-map";
     dispatchDomEvent(scopeSelect, "change");

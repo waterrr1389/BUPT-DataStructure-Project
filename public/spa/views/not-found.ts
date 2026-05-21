@@ -1,4 +1,5 @@
 import { escapeHtml } from "../lib.js";
+import { appCopy } from "../copy.js";
 import type { SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
 /**
@@ -9,26 +10,27 @@ export async function render(
   route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
-  app.setDocumentTitle("未找到");
+  const copy = appCopy.notFound;
+  const escapedPathname = escapeHtml(route.pathname);
+  const routeLede = escapeHtml(copy.hero.lede(route.pathname));
+  app.setDocumentTitle(copy.documentTitle);
 
   root.innerHTML = `
     <section class="route-hero route-hero-home">
       <div class="route-hero-copy">
-        <p class="eyebrow">未找到</p>
-        <h1>这个前端路由不在单页应用外壳中。</h1>
+        <p class="eyebrow">${escapeHtml(copy.hero.eyebrow)}</p>
+        <h1>${escapeHtml(copy.hero.title)}</h1>
         <p class="route-lede">
-          服务器已经为 <code>${escapeHtml(
-            route.pathname,
-          )}</code> 返回浏览器应用外壳；客户端将它解析为明确的备用页面，而不是空白屏幕或意外 404。
+          ${escapedPathname ? routeLede.replace(escapedPathname, `<code>${escapedPathname}</code>`) : routeLede}
         </p>
         <div class="hero-actions">
-          <a class="primary-link" href="/" data-nav="true">回到首页</a>
-          <a class="secondary-link" href="/explore" data-nav="true">打开探索</a>
-          <a class="secondary-link" href="/feed" data-nav="true">打开动态</a>
+          <a class="primary-link" href="/" data-nav="true">${escapeHtml(copy.hero.actions.home)}</a>
+          <a class="secondary-link" href="/explore" data-nav="true">${escapeHtml(copy.hero.actions.explore)}</a>
+          <a class="secondary-link" href="/feed" data-nav="true">${escapeHtml(copy.hero.actions.feed)}</a>
         </div>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">已知路由</p>
+        <p class="section-tag">${escapeHtml(copy.hero.panelTag)}</p>
         <ul class="hero-list">
           <li><code>/</code></li>
           <li><code>/explore</code></li>
