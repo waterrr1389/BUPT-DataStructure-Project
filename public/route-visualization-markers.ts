@@ -108,45 +108,55 @@ type RouteVisualizationMarkersRoot = typeof globalThis & {
 })(
   (typeof globalThis !== "undefined" ? globalThis : this) as RouteVisualizationMarkersRoot,
   () => {
+    const ROUTE_MARKER_LABELS = {
+      end: "终点",
+      previewEnd: "预览终点",
+      previewStart: "预览起点",
+      start: "起点",
+      transitionBadge: "室内",
+      transitionLegend: "室内/户外切换",
+      turn: "转向",
+      turnLegend: "方向或路线变化",
+    };
     const MARKER_SEMANTICS: Record<MarkerKind, MarkerSemantics> = {
       start: {
-        legendBadgeLabel: "Start",
-        legendLabel: "Start",
+        legendBadgeLabel: ROUTE_MARKER_LABELS.start,
+        legendLabel: ROUTE_MARKER_LABELS.start,
         semanticKey: "start",
         state: "active-route",
         variantClass: "is-start",
       },
       end: {
-        legendBadgeLabel: "End",
-        legendLabel: "End",
+        legendBadgeLabel: ROUTE_MARKER_LABELS.end,
+        legendLabel: ROUTE_MARKER_LABELS.end,
         semanticKey: "end",
         state: "active-route",
         variantClass: "is-end",
       },
       transition: {
-        legendBadgeLabel: "Indoor",
-        legendLabel: "Indoor/outdoor change",
+        legendBadgeLabel: ROUTE_MARKER_LABELS.transitionBadge,
+        legendLabel: ROUTE_MARKER_LABELS.transitionLegend,
         semanticKey: "transition",
         state: "active-route",
         variantClass: "is-transition",
       },
       turn: {
-        legendBadgeLabel: "Turn",
-        legendLabel: "Direction or route change",
+        legendBadgeLabel: ROUTE_MARKER_LABELS.turn,
+        legendLabel: ROUTE_MARKER_LABELS.turnLegend,
         semanticKey: "turn",
         state: "active-route",
         variantClass: "is-turn",
       },
       "preview-start": {
-        legendBadgeLabel: "Start",
-        legendLabel: "Preview start",
+        legendBadgeLabel: ROUTE_MARKER_LABELS.start,
+        legendLabel: ROUTE_MARKER_LABELS.previewStart,
         semanticKey: "preview-start",
         state: "preview",
         variantClass: "is-preview",
       },
       "preview-end": {
-        legendBadgeLabel: "End",
-        legendLabel: "Preview end",
+        legendBadgeLabel: ROUTE_MARKER_LABELS.end,
+        legendLabel: ROUTE_MARKER_LABELS.previewEnd,
         semanticKey: "preview-end",
         state: "preview",
         variantClass: "is-preview",
@@ -226,7 +236,7 @@ type RouteVisualizationMarkersRoot = typeof globalThis & {
               )
             : startLogicalPoint,
           {
-            label: "Start",
+            label: ROUTE_MARKER_LABELS.start,
             logicalPoint: startLogicalPoint,
             nodeId: startNode.id,
             sharedLogicalNode,
@@ -238,7 +248,7 @@ type RouteVisualizationMarkersRoot = typeof globalThis & {
             ? offsetPoint(endLogicalPoint, CLOSED_LOOP_ENDPOINT_OFFSET, CLOSED_LOOP_ENDPOINT_OFFSET)
             : endLogicalPoint,
           {
-            label: "End",
+            label: ROUTE_MARKER_LABELS.end,
             logicalPoint: endLogicalPoint,
             nodeId: endNode.id,
             sharedLogicalNode,
@@ -281,7 +291,7 @@ type RouteVisualizationMarkersRoot = typeof globalThis & {
         const point = projectPoint(projection, previewSelection.startNode);
         previewMarkers.push(
           createMarker("preview-start", point, {
-            label: "Start",
+            label: ROUTE_MARKER_LABELS.start,
             logicalPoint: point,
             nodeId: previewSelection.startNode.id,
             sharedLogicalNode: false,
@@ -293,7 +303,7 @@ type RouteVisualizationMarkersRoot = typeof globalThis & {
         const point = projectPoint(projection, previewSelection.endNode);
         previewMarkers.push(
           createMarker("preview-end", point, {
-            label: "End",
+            label: ROUTE_MARKER_LABELS.end,
             logicalPoint: point,
             nodeId: previewSelection.endNode.id,
             sharedLogicalNode: false,

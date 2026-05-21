@@ -306,17 +306,17 @@ type JournalConsumersRoot = typeof globalThis & {
       const commentCount = numberOr(item?.commentCount);
       const tagsMarkup = typeof renderTagsMarkup === "function" ? renderTagsMarkup(tags) : "";
       const likeAction = item?.viewerHasLiked ? "unlike" : "like";
-      const likeLabel = likeAction === "like" ? "Like" : "Unlike";
+      const likeLabel = likeAction === "like" ? "喜欢" : "取消喜欢";
       const summary = text(
         summarize(summarySource, summaryLength),
         summarizeBody(summarySource, summaryLength),
       );
       const metadataItems = [
-        `views ${numberOr(item?.views)}`,
-        `rating ${numberOr(item?.averageRating).toFixed(1)}`,
-        ratings ? `${ratings.length} scores` : "",
-        hideSocialMeta ? "" : `${likeCount} likes`,
-        hideSocialMeta ? "" : `${commentCount} comments`,
+        `浏览 ${numberOr(item?.views)}`,
+        `评分 ${numberOr(item?.averageRating).toFixed(1)}`,
+        ratings ? `${ratings.length} 个评分` : "",
+        hideSocialMeta ? "" : `${likeCount} 个喜欢`,
+        hideSocialMeta ? "" : `${commentCount} 条评论`,
       ]
         .filter(Boolean)
         .map((value) => `<span>${escapeHtml(value)}</span>`)
@@ -330,14 +330,14 @@ type JournalConsumersRoot = typeof globalThis & {
         <p>${escapeHtml(summary)}</p>
         ${tagsMarkup}
         <div class="story-card-actions">
-          ${postHref ? `<a class="inline-link" href="${escapeHtml(postHref)}" data-nav="true">Open post</a>` : ""}
-          ${mapHref ? `<a class="inline-link" href="${escapeHtml(mapHref)}" data-nav="true">Open in map</a>` : ""}
+          ${postHref ? `<a class="inline-link" href="${escapeHtml(postHref)}" data-nav="true">打开游记</a>` : ""}
+          ${mapHref ? `<a class="inline-link" href="${escapeHtml(mapHref)}" data-nav="true">在地图中打开</a>` : ""}
         </div>
         <div class="actions">
-          <button type="button" data-action="view">Add view</button>
-          <button type="button" data-action="rate">Rate 5</button>
+          <button type="button" data-action="view">增加浏览</button>
+          <button type="button" data-action="rate">评 5 分</button>
           ${hideSocialAction ? "" : `<button type="button" data-action="${likeAction}" class="ghost">${likeLabel}</button>`}
-          ${hideDelete ? "" : `<button type="button" data-action="delete" class="ghost">Delete</button>`}
+          ${hideDelete ? "" : `<button type="button" data-action="delete" class="ghost">删除</button>`}
         </div>
       </article>
     `;

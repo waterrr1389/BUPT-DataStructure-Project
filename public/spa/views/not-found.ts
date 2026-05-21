@@ -9,26 +9,26 @@ export async function render(
   route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
-  app.setDocumentTitle("Not Found");
+  app.setDocumentTitle("未找到");
 
   root.innerHTML = `
     <section class="route-hero route-hero-home">
       <div class="route-hero-copy">
-        <p class="eyebrow">Not found</p>
-        <h1>This frontend route does not exist in the SPA shell.</h1>
+        <p class="eyebrow">未找到</p>
+        <h1>这个前端路由不在单页应用外壳中。</h1>
         <p class="route-lede">
-          The server correctly returned the browser shell for <code>${escapeHtml(
+          服务器已经为 <code>${escapeHtml(
             route.pathname,
-          )}</code>, and the client resolved it to a deliberate fallback instead of a blank screen or accidental 404.
+          )}</code> 返回浏览器应用外壳；客户端将它解析为明确的备用页面，而不是空白屏幕或意外 404。
         </p>
         <div class="hero-actions">
-          <a class="primary-link" href="/" data-nav="true">Go home</a>
-          <a class="secondary-link" href="/explore" data-nav="true">Open Explore</a>
-          <a class="secondary-link" href="/feed" data-nav="true">Open Feed</a>
+          <a class="primary-link" href="/" data-nav="true">回到首页</a>
+          <a class="secondary-link" href="/explore" data-nav="true">打开探索</a>
+          <a class="secondary-link" href="/feed" data-nav="true">打开动态</a>
         </div>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">Known routes</p>
+        <p class="section-tag">已知路由</p>
         <ul class="hero-list">
           <li><code>/</code></li>
           <li><code>/explore</code></li>

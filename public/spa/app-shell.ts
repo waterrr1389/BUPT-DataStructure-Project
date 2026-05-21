@@ -10,6 +10,7 @@ import {
   tagsMarkup,
   text,
 } from "./lib.js";
+import { appCopy, documentTitle, frontendErrorMessage } from "./copy.js";
 import type { SpaAppShell, SpaRoute } from "./types.js";
 
 /**
@@ -18,7 +19,7 @@ import type { SpaAppShell, SpaRoute } from "./types.js";
 function requireHelperApi(name: string) {
   const api = globalThis[name];
   if (!api) {
-    throw new Error(`${name} failed to load.`);
+    throw new Error(`${name} 加载失败。`);
   }
   return api;
 }
@@ -130,7 +131,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
    * Applies the shell title convention to the current document.
    */
   function setDocumentTitle(title) {
-    document.title = title ? `${title} • Trail Atlas` : "Trail Atlas";
+    document.title = documentTitle(title);
   }
 
   /**
@@ -140,7 +141,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     if (!dom.status) {
       return;
     }
-    dom.status.textContent = text(message, "Runtime ready.");
+    dom.status.textContent = text(message, appCopy.common.status.runtimeReady);
     dom.status.dataset.tone = tone;
   }
 
@@ -158,7 +159,13 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      throw new Error(payload?.error || `Request failed: ${response.status}`);
+      throw new Error(
+        frontendErrorMessage({
+          code: payload?.code,
+          context: path,
+          status: response.status,
+        }),
+      );
     }
 
     return payload;
@@ -179,12 +186,19 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       status: response.status,
       payload,
       missing: response.status === 404,
-      error: payload?.error || (response.ok ? "" : `Request failed: ${response.status}`),
+      rawError: text(payload?.error),
+      error: response.ok
+        ? ""
+        : frontendErrorMessage({
+            code: payload?.code,
+            context: path,
+            status: response.status,
+          }),
     };
   }
 
   function isMissingEndpointResponse(response) {
-    return response.missing || /Unknown API endpoint/i.test(text(response.error));
+    return response.missing || /Unknown API endpoint/i.test(text(response.rawError));
   }
 
   /**
@@ -232,7 +246,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
         state.cuisines = safeArray(bootstrap.cuisines);
 
         setStatus(
-          `Runtime data: ${text(bootstrap?.source?.data, "seeded")}. Algorithms: ${text(bootstrap?.source?.algorithms, "fallback")}.`,
+          appCopy.shell.runtimeDataStatus(bootstrap?.source?.data, bootstrap?.source?.algorithms),
           "success",
         );
 
@@ -368,22 +382,22 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
         <div class="site-atmosphere"></div>
         <header class="site-header">
           <a href="/" class="site-brand" data-nav="true">
-            <span class="site-brand-mark">Trail Atlas</span>
-            <span class="site-brand-copy">A routed journal SPA for places, paths, and quiet memory.</span>
+            <span class="site-brand-mark">${appCopy.brand}</span>
+            <span class="site-brand-copy">${appCopy.tagline}</span>
           </a>
-          <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">Menu</button>
-          <nav class="site-nav" id="site-nav" aria-label="Primary">
-            <a href="/explore" data-nav="true" data-route-name="explore">Explore</a>
-            <a href="/map" data-nav="true" data-route-name="map">Map</a>
-            <a href="/feed" data-nav="true" data-route-name="feed">Feed</a>
-            <a href="/compose" data-nav="true" data-route-name="compose">Compose</a>
+          <button class="nav-toggle" id="nav-toggle" type="button" aria-label="${appCopy.nav.toggleLabel}" aria-expanded="false">${appCopy.nav.toggleText}</button>
+          <nav class="site-nav" id="site-nav" aria-label="${appCopy.nav.primaryLabel}">
+            <a href="/explore" data-nav="true" data-route-name="explore">${appCopy.nav.items.explore}</a>
+            <a href="/map" data-nav="true" data-route-name="map">${appCopy.nav.items.map}</a>
+            <a href="/feed" data-nav="true" data-route-name="feed">${appCopy.nav.items.feed}</a>
+            <a href="/compose" data-nav="true" data-route-name="compose">${appCopy.nav.items.compose}</a>
           </nav>
-          <div class="status-pill" id="status-pill" data-tone="neutral">Loading runtime…</div>
+          <div class="status-pill" id="status-pill" data-tone="neutral">${appCopy.common.status.loadingRuntime}</div>
         </header>
         <main class="site-main">
-          <div class="view-root" id="view-root">${noticeMarkup("loading", "Loading browser shell", "Preparing the routed travel journal experience.")}</div>
+          <div class="view-root" id="view-root">${noticeMarkup("loading", appCopy.shell.loadingTitle, appCopy.shell.loadingBody)}</div>
         </main>
-        <button class="back-to-top" id="back-to-top" type="button" aria-label="Back to top">Back to top</button>
+        <button class="back-to-top" id="back-to-top" type="button" aria-label="${appCopy.common.buttons.backToTop}">${appCopy.common.buttons.backToTop}</button>
       </div>
     `;
 
@@ -436,18 +450,18 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       return;
     }
     const titleByRoute = {
-      home: "Trail Atlas",
-      explore: "Explore",
-      map: "Map",
-      feed: "Feed",
-      compose: "Compose",
-      post: "Post Detail",
-      notFound: "Not Found",
+      home: appCopy.nav.items.home,
+      explore: appCopy.nav.items.explore,
+      map: appCopy.nav.items.map,
+      feed: appCopy.nav.items.feed,
+      compose: appCopy.nav.items.compose,
+      post: appCopy.nav.items.post,
+      notFound: appCopy.nav.items.notFound,
     };
-    const routeLabel = titleByRoute[route?.name] || "View";
-    const message = error instanceof Error ? error.message : "The requested route could not be loaded.";
+    const routeLabel = titleByRoute[route?.name] || appCopy.nav.items.view;
+    const message = appCopy.errors.routeLoadFallback;
 
-    dom.viewRoot.innerHTML = noticeMarkup("error", `${routeLabel} failed to load`, message);
+    dom.viewRoot.innerHTML = noticeMarkup("error", appCopy.shell.routeFailedTitle(routeLabel), message);
     setStatus(message, "error");
   }
 
@@ -529,7 +543,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
 
     const fallbackAllowed = isMissingEndpointResponse(social);
     if (!fallbackAllowed) {
-      throw new Error(text(social.error, "Feed loading failed."));
+      throw new Error(text(social.error, appCopy.feed.loadingFailed));
     }
 
     const fallback = await requestJson(
@@ -539,7 +553,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       items: safeArray(fallback.items),
       nextCursor: "",
       notice: fallbackAllowed
-        ? "Social feed endpoints are not available in this workspace yet. Showing the journal timeline instead."
+        ? appCopy.feed.fallbackNotice
         : text(social.error),
       source: "journal-list",
     };
@@ -614,11 +628,11 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
         items: [],
         nextCursor: "",
         totalCount: 0,
-        notice: "Comments have not been wired in this workspace yet.",
+        notice: appCopy.comments.unavailableNotice,
       };
     }
 
-    throw new Error(text(response.error, "Comments could not be loaded."));
+    throw new Error(text(response.error, appCopy.comments.loadingFailed));
   }
 
   /**
@@ -642,16 +656,16 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       };
     }
 
-    if (response.missing || /Unknown API endpoint/i.test(text(response.error))) {
+    if (isMissingEndpointResponse(response)) {
       state.socialAvailability.comments = false;
       return {
         available: false,
         item: null,
-        notice: "Comment creation is waiting on the social backend endpoints.",
+        notice: appCopy.comments.creationUnavailableNotice,
       };
     }
 
-    throw new Error(text(response.error, "Comment creation failed."));
+    throw new Error(text(response.error, appCopy.comments.creationFailed));
   }
 
   /**
@@ -660,7 +674,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   async function sendJournalAction(action, journalId, selectedUserId) {
     const request = journalConsumers.resolveJournalActionRequest(action, journalId, selectedUserId);
     if (!request) {
-      throw new Error("Unsupported journal action.");
+      throw new Error(appCopy.journal.unsupportedAction);
     }
 
     const maybe = await requestJsonMaybe(request.path, request.options);
@@ -674,16 +688,16 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       };
     }
 
-    if ((action === "like" || action === "unlike") && (maybe.missing || /Unknown API endpoint/i.test(text(maybe.error)))) {
+    if ((action === "like" || action === "unlike") && isMissingEndpointResponse(maybe)) {
       state.socialAvailability.likes = false;
       return {
         available: false,
         payload: null,
-        notice: "Likes are not available in this workspace yet.",
+        notice: appCopy.journal.likesUnavailableNotice,
       };
     }
 
-    throw new Error(text(maybe.error, "Journal action failed."));
+    throw new Error(text(maybe.error, appCopy.journal.actionFailed));
   }
 
   function installGlobalEvents() {
@@ -752,19 +766,21 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     }
 
     const titleByRoute = {
-      home: "Trail Atlas",
-      explore: "Explore",
-      map: "Map",
-      feed: "Feed",
-      compose: "Compose",
-      post: "Post Detail",
-      notFound: "Not Found",
+      home: appCopy.nav.items.home,
+      explore: appCopy.nav.items.explore,
+      map: appCopy.nav.items.map,
+      feed: appCopy.nav.items.feed,
+      compose: appCopy.nav.items.compose,
+      post: appCopy.nav.items.post,
+      notFound: appCopy.nav.items.notFound,
     };
 
-    setDocumentTitle(titleByRoute[route.name] || "Trail Atlas");
+    setDocumentTitle(titleByRoute[route.name] || appCopy.brand);
     setLoadingState(
-      route.name === "notFound" ? "Resolving route" : `Opening ${titleByRoute[route.name] || "view"}`,
-      "Loading only the current surface to keep the shell responsive.",
+      route.name === "notFound"
+        ? appCopy.shell.resolvingRoute
+        : appCopy.shell.openingRoute(titleByRoute[route.name] || appCopy.nav.items.view),
+      appCopy.shell.routeLoadingBody,
     );
 
     try {

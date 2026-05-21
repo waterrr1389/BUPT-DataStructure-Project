@@ -4,6 +4,7 @@ import type {
   OptionMarkupConfig,
   RouteActorContext,
 } from "./types.js";
+import { appCopy, dateLocale, moneyCurrency, moneyLocale } from "./copy.js";
 
 type NamedRecord = Record<string, unknown>;
 type FillableElement = {
@@ -74,7 +75,7 @@ export function optionMarkup(
     value = "id",
     label = "name",
     includeBlank = false,
-    blankLabel = "Select an option",
+    blankLabel = appCopy.common.select.blankLabel,
     selectedValue = "",
   } = config;
   const list: string[] = [];
@@ -140,12 +141,12 @@ export function resultMetaMarkup(
  * Creates a reusable empty-state block with an optional contextual action.
  */
 export function emptyStateMarkup(options: EmptyStateOptions = {}): string {
-  const title = escapeHtml(options.title || "Nothing to show yet");
+  const title = escapeHtml(options.title || appCopy.common.empty.title);
   const body = escapeHtml(
-    options.body || "Choose a route or run a search to populate this space.",
+    options.body || appCopy.common.empty.body,
   );
   const actionHref = text(options.actionHref);
-  const actionLabel = escapeHtml(options.actionLabel || "Open Explore");
+  const actionLabel = escapeHtml(options.actionLabel || appCopy.common.buttons.openExplore);
   const actionMarkup = actionHref
     ? `<a class="inline-link" href="${escapeHtml(actionHref)}" data-nav="true">${actionLabel}</a>`
     : "";
@@ -166,27 +167,39 @@ export function emptyStateMarkup(options: EmptyStateOptions = {}): string {
  * Builds a shared notice block for loading, note, success, and error states.
  */
 export function noticeMarkup(kind: unknown, title: unknown, body: unknown): string {
+  const normalizedKind = text(kind, "neutral");
+  const kindLabel =
+    normalizedKind === "loading"
+      ? appCopy.common.status.loadingKind
+      : normalizedKind === "success"
+        ? appCopy.common.status.successKind
+        : normalizedKind === "error"
+          ? appCopy.common.status.errorKind
+          : normalizedKind === "note"
+            ? appCopy.common.status.noteKind
+            : appCopy.common.status.neutralKind;
+
   return `
-    <article class="notice-block is-${escapeHtml(kind || "neutral")}">
-      <p class="section-tag">${escapeHtml(kind || "Note")}</p>
-      <h3>${escapeHtml(title)}</h3>
-      <p>${escapeHtml(body)}</p>
+    <article class="notice-block is-${escapeHtml(normalizedKind)}">
+      <p class="section-tag">${escapeHtml(kindLabel)}</p>
+      <h3>${escapeHtml(title, appCopy.common.notice.fallbackTitle)}</h3>
+      <p>${escapeHtml(body, appCopy.common.notice.fallbackBody)}</p>
     </article>
   `;
 }
 
 /**
- * Formats a date-like value into the existing English browser locale style.
+ * Formats a date-like value into the browser display locale style.
  */
 export function formatDate(value: unknown): string {
   if (!value) {
-    return "Unknown date";
+    return appCopy.common.date.unknown;
   }
   const parsed = new Date(String(value));
   if (Number.isNaN(parsed.getTime())) {
-    return text(value, "Unknown date");
+    return text(value, appCopy.common.date.unknown);
   }
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(dateLocale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(parsed);
@@ -198,11 +211,11 @@ export function formatDate(value: unknown): string {
 export function formatMoney(value: unknown): string {
   const amount = Number(value);
   if (!Number.isFinite(amount)) {
-    return "$0";
+    return appCopy.common.money.zero;
   }
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(moneyLocale, {
     style: "currency",
-    currency: "USD",
+    currency: moneyCurrency,
     maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
   }).format(amount);
 }

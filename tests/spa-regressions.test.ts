@@ -1118,9 +1118,9 @@ test("post detail keeps the initial comments request bounded and appends older c
     ]);
     assert.equal(root.querySelectorAll(".comment-card").length, 5);
     const mapContextEmptyState = requireElement(root, "#post-map-context .empty-state");
-    assert.equal(root.innerHTML.includes("Map context is secondary"), true);
+    assert.equal(root.innerHTML.includes("地图上下文是辅助信息"), true);
     assert.equal(
-      root.innerHTML.includes("Open the supporting destination graph only when spatial detail is useful for this note."),
+      root.innerHTML.includes("只有当空间细节对这篇笔记有帮助时，再打开辅助目的地图结构。"),
       true,
     );
     assert.equal(mapContextEmptyState.querySelector(".section-tag"), null);
@@ -1221,9 +1221,9 @@ test("post detail refreshes visible state after view and rate actions", async ()
     );
 
     const heroMeta = requireElement(root, "#post-hero-meta");
-    assert.ok(heroMeta.innerHTML.includes("views 14"), heroMeta.innerHTML);
-    assert.ok(heroMeta.innerHTML.includes("rating 4"), heroMeta.innerHTML);
-    assert.ok(heroMeta.innerHTML.includes("1 scores"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("浏览 14"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("评分 4"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("1 个评分"), heroMeta.innerHTML);
 
     dispatchDomEvent(requireElement(root, "#post-view"), "click");
     await settleAsync();
@@ -1234,7 +1234,7 @@ test("post detail refreshes visible state after view and rate actions", async ()
       userId: "user-2",
     });
     assert.equal(fixture.detailCalls.length, 2);
-    assert.ok(heroMeta.innerHTML.includes("views 15"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("浏览 15"), heroMeta.innerHTML);
 
     dispatchDomEvent(requireElement(root, "#post-rate"), "click");
     await settleAsync();
@@ -1245,8 +1245,8 @@ test("post detail refreshes visible state after view and rate actions", async ()
       userId: "user-2",
     });
     assert.equal(fixture.detailCalls.length, 3);
-    assert.ok(heroMeta.innerHTML.includes("rating 4.5"), heroMeta.innerHTML);
-    assert.ok(heroMeta.innerHTML.includes("2 scores"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("评分 4.5"), heroMeta.innerHTML);
+    assert.ok(heroMeta.innerHTML.includes("2 个评分"), heroMeta.innerHTML);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1399,18 +1399,20 @@ test("post detail keeps the journal surface mounted when the initial comments lo
     assert.ok(root.innerHTML.includes('id="post-hero-title"'));
     assert.ok(root.innerHTML.includes('id="post-story-title"'));
     assert.ok(root.innerHTML.includes("Bridge Notes"));
-    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("Comments failed to load"));
-    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("Comments service timed out."));
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("评论加载失败"));
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("评论无法加载。"));
+    assert.equal(requireElement(root, "#post-comment-notice").innerHTML.includes("Comments service timed out."), false);
 
     const commentsContainer = requireElement(root, "#post-comments");
-    assert.ok(commentsContainer.innerHTML.includes("Comments failed to load"));
-    assert.ok(commentsContainer.innerHTML.includes("Comments service timed out."));
-    assert.equal(commentsContainer.innerHTML.includes("Comments unavailable"), false);
+    assert.ok(commentsContainer.innerHTML.includes("评论加载失败"));
+    assert.ok(commentsContainer.innerHTML.includes("评论无法加载。"));
+    assert.equal(commentsContainer.innerHTML.includes("Comments service timed out."), false);
+    assert.equal(commentsContainer.innerHTML.includes("评论不可用"), false);
     assert.equal(
-      commentsContainer.innerHTML.includes("The backend comments endpoint is not available in this workspace yet."),
+      commentsContainer.innerHTML.includes("当前工作区尚未提供后端评论接口。"),
       false,
     );
-    assert.equal(root.innerHTML.includes("This note could not be found."), false);
+    assert.equal(root.innerHTML.includes("找不到这篇笔记。"), false);
 
     if (typeof cleanup === "function") {
       cleanup();

@@ -135,10 +135,10 @@ test("journal metadata prefers readable destination and user names when lookups 
 
   assert.equal(metadata.destinationLabel, "Summit Polytechnic");
   assert.equal(metadata.userLabel, "Rory Pike");
-  assert.equal(metadata.attribution, "Summit Polytechnic / Rory Pike");
+  assert.equal(metadata.attribution, "目的地：Summit Polytechnic · 用户：Rory Pike");
 });
 
-test("journal metadata falls back safely when destination or user lookups are missing", () => {
+test("journal metadata falls back to stable ids when destination or user lookups are missing", () => {
   const metadata = formatJournalMetadata(
     {
       destinationId: "dest-404",
@@ -152,7 +152,15 @@ test("journal metadata falls back safely when destination or user lookups are mi
 
   assert.equal(metadata.destinationLabel, "dest-404");
   assert.equal(metadata.userLabel, "user-404");
-  assert.equal(metadata.attribution, "dest-404 / user-404");
+  assert.equal(metadata.attribution, "目的地：dest-404 · 用户：user-404");
+});
+
+test("journal metadata uses Chinese unknown labels when ids are absent", () => {
+  const metadata = formatJournalMetadata({}, {});
+
+  assert.equal(metadata.destinationLabel, "未知目的地");
+  assert.equal(metadata.userLabel, "未知用户");
+  assert.equal(metadata.attribution, "目的地：未知目的地 · 用户：未知用户");
 });
 
 test("journal summaries compress long prose without cutting straight through a word", () => {

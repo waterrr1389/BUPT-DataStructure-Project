@@ -27,36 +27,36 @@ export async function render(
     const feed = await app.fetchFeed({ limit: 3 });
     feedPreview = feed.items.slice(0, 3);
     feedNotice = feed.notice;
-  } catch (error) {
-    feedNotice = error instanceof Error ? error.message : "Feed preview unavailable.";
+  } catch {
+    feedNotice = "动态预览暂时不可用。";
   }
 
   root.innerHTML = `
     <section class="route-hero route-hero-home">
       <div class="route-hero-copy">
-        <p class="eyebrow">Quiet Premium Travel Journal</p>
-        <h1>Record the route, keep the atmosphere, return to the place.</h1>
+        <p class="eyebrow">安静精致的旅行日志</p>
+        <h1>记录路线，留住气氛，也能再次回到那个地点。</h1>
         <p class="route-lede">
-          Trail Atlas is now a routed browser experience. Explore destinations, open the map when spatial detail matters, browse a calm journal feed, and compose field notes without the old dashboard sprawl.
+          Trail Atlas 现在是一套按路线组织的浏览器体验。你可以探索目的地，在需要空间细节时打开地图，浏览克制的旅行笔记动态，也可以直接写下现场记录。
         </p>
         <div class="hero-actions">
-          <a class="primary-link" href="/explore" data-nav="true">Open Explore</a>
-          <a class="secondary-link" href="/feed" data-nav="true">Read the feed</a>
-          <a class="secondary-link" href="/map" data-nav="true">Jump to map</a>
+          <a class="primary-link" href="/explore" data-nav="true">打开探索</a>
+          <a class="secondary-link" href="/feed" data-nav="true">阅读动态</a>
+          <a class="secondary-link" href="/map" data-nav="true">进入地图</a>
         </div>
         ${resultMetaMarkup([
-          `${safeArray(bootstrap?.destinations).length} destinations`,
-          `${safeArray(bootstrap?.users).length} local travelers`,
-          `${safeArray(bootstrap?.featured).length} featured places`,
+          `${safeArray(bootstrap?.destinations).length} 个目的地`,
+          `${safeArray(bootstrap?.users).length} 位本地旅行者`,
+          `${safeArray(bootstrap?.featured).length} 个精选地点`,
         ], "result-meta hero-metrics")}
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">Primary paths</p>
+        <p class="section-tag">主要路径</p>
         <ul class="hero-list">
-          <li>Explore preserves destination recommendation, food discovery, and nearby facilities.</li>
-          <li>Map keeps route planning and the existing destination graph visualization.</li>
-          <li>Feed and Post Detail stage journals as editorial stories with graceful social fallbacks.</li>
-          <li>Compose keeps journal creation generous and lightweight.</li>
+          <li>探索页保留目的地推荐、美食发现和附近设施。</li>
+          <li>地图页继续承载路线规划和目的地图结构可视化。</li>
+          <li>动态和笔记详情把旅行日志呈现为更像故事的阅读体验。</li>
+          <li>写笔记页保持宽松、轻量的创作流程。</li>
         </ul>
       </div>
     </section>
@@ -65,10 +65,10 @@ export async function render(
       <article class="surface-card home-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">Featured places</p>
-            <h2>Start with a destination, not a control panel</h2>
+            <p class="section-tag">精选地点</p>
+            <h2>从目的地开始，而不是从控制面板开始</h2>
           </div>
-          <a class="inline-link" href="/explore" data-nav="true">Browse all</a>
+          <a class="inline-link" href="/explore" data-nav="true">浏览全部</a>
         </div>
         <div class="story-grid">
           ${featuredDestinations
@@ -78,13 +78,13 @@ export async function render(
                   <p class="muted">${escapeHtml(destination.type)} · ${escapeHtml(destination.region)}</p>
                   <h3>${escapeHtml(destination.name)}</h3>
                   ${resultMetaMarkup([
-                    `heat ${destination.heat}`,
-                    `rating ${destination.rating}`,
-                    `${destination.nodeCount} nodes`,
+                    `热度 ${destination.heat}`,
+                    `评分 ${destination.rating}`,
+                    `${destination.nodeCount} 个节点`,
                   ])}
                   <p>${escapeHtml(destination.description)}</p>
                   <div class="story-card-actions">
-                    <a class="inline-link" href="/map?destinationId=${encodeURIComponent(text(destination.id))}" data-nav="true">Open in map</a>
+                    <a class="inline-link" href="/map?destinationId=${encodeURIComponent(text(destination.id))}" data-nav="true">在地图中打开</a>
                   </div>
                 </article>
               `,
@@ -96,12 +96,12 @@ export async function render(
       <article class="surface-card home-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">Journal preview</p>
-            <h2>Recent notes, loaded without the full social layer</h2>
+            <p class="section-tag">笔记预览</p>
+            <h2>最近笔记，无需完整社交层也能加载</h2>
           </div>
-          <a class="inline-link" href="/feed" data-nav="true">Open feed</a>
+          <a class="inline-link" href="/feed" data-nav="true">打开动态</a>
         </div>
-        ${feedNotice ? noticeMarkup("note", "Feed fallback", feedNotice) : ""}
+        ${feedNotice ? noticeMarkup("note", "动态备用来源", feedNotice) : ""}
         ${
           feedPreview.length
             ? `<div class="story-grid">${feedPreview
@@ -109,8 +109,8 @@ export async function render(
                 .join("")}</div>`
             : noticeMarkup(
                 "quiet",
-                "No preview notes yet",
-                "The feed preview is empty, but the routed shell is ready for direct entry on /feed and /posts/<journalId>.",
+                "暂无预览笔记",
+                "动态预览为空，但路由界面已经可以直接进入 /feed 和 /posts/<journalId>。",
               )
         }
       </article>

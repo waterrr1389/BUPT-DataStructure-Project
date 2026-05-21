@@ -330,8 +330,18 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
   const deleteRequest = resolveJournalActionRequest("delete", readableJournalId, "user-03");
 
   assert.equal(readableJournalId, "journal-12");
-  assert.ok(/Summit Polytechnic \/ Rory Pike/.test(readableMarkup), readableMarkup);
-  assert.ok(/3 scores/.test(readableMarkup), readableMarkup);
+  assert.ok(/目的地：Summit Polytechnic · 用户：Rory Pike/.test(readableMarkup), readableMarkup);
+  assert.ok(/浏览 42/.test(readableMarkup), readableMarkup);
+  assert.ok(/评分 4.7/.test(readableMarkup), readableMarkup);
+  assert.ok(/3 个评分/.test(readableMarkup), readableMarkup);
+  assert.ok(/3 个喜欢/.test(readableMarkup), readableMarkup);
+  assert.ok(/4 条评论/.test(readableMarkup), readableMarkup);
+  assert.ok(/打开游记/.test(readableMarkup), readableMarkup);
+  assert.ok(/在地图中打开/.test(readableMarkup), readableMarkup);
+  assert.ok(/增加浏览/.test(readableMarkup), readableMarkup);
+  assert.ok(/评 5 分/.test(readableMarkup), readableMarkup);
+  assert.ok(/取消喜欢/.test(readableMarkup), readableMarkup);
+  assert.ok(/删除/.test(readableMarkup), readableMarkup);
   assert.ok(/data-action="unlike"/.test(readableMarkup), readableMarkup);
   assert.ok(/href="\/posts\/journal-12"/.test(readableMarkup), readableMarkup);
   assert.ok(/href="\/map\?destinationId=dest-034"/.test(readableMarkup), readableMarkup);
@@ -390,11 +400,11 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
   const fallbackViewRequest = resolveJournalActionRequest("view", fallbackJournalId, "user-88");
 
   assert.equal(fallbackJournalId, "journal-12");
-  assert.ok(/dest-034 \/ user-12/.test(fallbackMarkup), fallbackMarkup);
+  assert.ok(/目的地：dest-034 · 用户：user-12/.test(fallbackMarkup), fallbackMarkup);
   assert.equal(/data-action="delete"/.test(fallbackMarkup), false, fallbackMarkup);
   assert.equal(/data-action="like"/.test(fallbackMarkup), false, fallbackMarkup);
-  assert.equal(/3 likes/.test(fallbackMarkup), false, fallbackMarkup);
-  assert.equal(/4 comments/.test(fallbackMarkup), false, fallbackMarkup);
+  assert.equal(/3 个喜欢/.test(fallbackMarkup), false, fallbackMarkup);
+  assert.equal(/4 条评论/.test(fallbackMarkup), false, fallbackMarkup);
   assert.deepEqual(fallbackViewRequest, {
     path: "/api/journals/journal-12/view",
     options: {
@@ -433,10 +443,12 @@ test("journal cards use compact feed summaries without inventing missing score c
   );
 
   assert.ok(/Compact social feed summaries should render/.test(markup), markup);
-  assert.ok(/views 19/.test(markup), markup);
-  assert.ok(/rating 4.2/.test(markup), markup);
-  assert.ok(/5 likes/.test(markup), markup);
-  assert.ok(/7 comments/.test(markup), markup);
-  assert.equal(/scores/.test(markup), false, markup);
+  assert.ok(/浏览 19/.test(markup), markup);
+  assert.ok(/评分 4.2/.test(markup), markup);
+  assert.ok(/5 个喜欢/.test(markup), markup);
+  assert.ok(/7 条评论/.test(markup), markup);
+  assert.ok(/喜欢/.test(markup), markup);
+  assert.ok(/data-action="like"/.test(markup), markup);
+  assert.equal(/个评分/.test(markup), false, markup);
   assert.equal(/<span><\/span>/.test(markup), false, markup);
 });

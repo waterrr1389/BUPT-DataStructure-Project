@@ -8,6 +8,17 @@ type PublicPageScriptContract = {
   src: string;
   type: PublicPageScriptType;
 };
+type RuntimeDirent = {
+  isDirectory(): boolean;
+  isFile(): boolean;
+  name: string;
+};
+type RuntimeFs = typeof fs & {
+  readdir(path: string, options: { withFileTypes: true }): Promise<RuntimeDirent[]>;
+};
+type RuntimePath = typeof path & {
+  relative(from: string, to: string): string;
+};
 
 type EventInit = {
   altKey?: boolean;
@@ -43,22 +54,11 @@ const PUBLIC_BOOTSTRAP_GLOBALS = [
   "JournalPresentation",
   "JournalConsumers",
 ] as const;
-const SPA_MODULE_FILES = [
-  "app-shell.js",
-  "lib.js",
-  "map-rendering.js",
-  "world-rendering.js",
-  "views/compose.js",
-  "views/explore.js",
-  "views/feed.js",
-  "views/home.js",
-  "views/map.js",
-  "views/not-found.js",
-  "views/post-detail.js",
-];
 const runtimeImport = new Function("specifier", "return import(specifier);") as (
   specifier: string,
 ) => Promise<unknown>;
+const runtimeFs = fs as RuntimeFs;
+const runtimePath = path as RuntimePath;
 const vm = require("vm") as {
   createContext(contextObject: Record<string, unknown>): Record<string, unknown>;
   runInContext(
@@ -209,6 +209,24 @@ async function listPublicRootFiles(): Promise<string[]> {
   });
 
   return [...rootFiles];
+}
+
+async function listSpaModuleFiles(root = getRuntimePublicAssetPath("spa")): Promise<string[]> {
+  const entries = await runtimeFs.readdir(root, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const absolutePath = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        return listSpaModuleFiles(absolutePath);
+      }
+      if (!entry.isFile() || path.extname(entry.name) !== ".js") {
+        return [];
+      }
+      return [runtimePath.relative(getRuntimePublicAssetPath("spa"), absolutePath).replace(/\\/g, "/")];
+    }),
+  );
+
+  return files.flat().sort();
 }
 
 function splitSelector(selector: string): string[] {
@@ -625,8 +643,10 @@ async function ensureSpaModuleRoot(): Promise<string> {
         }),
       );
 
+      const spaModuleFiles = await listSpaModuleFiles();
+
       await Promise.all(
-        SPA_MODULE_FILES.map(async (relativePath) => {
+        spaModuleFiles.map(async (relativePath) => {
           const sourcePath = getRuntimePublicAssetPath(path.join("spa", relativePath));
           const targetPath = path.join(moduleRoot, "spa", relativePath);
           await fs.mkdir(path.dirname(targetPath), { recursive: true });

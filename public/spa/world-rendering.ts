@@ -1,6 +1,13 @@
 // @ts-nocheck
 
 import {
+  displayLabel,
+  modeLabels,
+  roadTypeLabels,
+  strategyLabels,
+  worldRouteScopeLabels,
+} from "./copy.js";
+import {
   createRouteContextHref,
   emptyStateMarkup,
   escapeHtml,
@@ -29,6 +36,30 @@ const DESTINATION_MARKER_COLORS = {
 };
 const WORLD_ROUTE_STRATEGIES = ["distance", "time", "mixed"];
 const WORLD_ROUTE_MODES = ["walk", "bike", "shuttle", "mixed"];
+const WORLD_ROUTE_FAILURE_STAGE_LABELS = {
+  "origin-destination": "起点目的地",
+  "origin-portal": "起点入口",
+  world: "世界地图",
+  "destination-portal": "终点入口",
+  "destination-local": "终点本地路线",
+  "destination-leg": "目的地路段",
+};
+const WORLD_ROUTE_FAILURE_REASON_LABELS = {
+  unreachable: "暂时不可达",
+  mode_not_allowed: "当前交通方式不可用",
+  direction_not_allowed: "入口方向不支持",
+  world_disconnected: "世界路线未连通",
+  portal_misconfigured: "入口配置异常",
+  local_graph_disconnected: "本地路线未连通",
+};
+const WORLD_ROUTE_FAILURE_CODE_LABELS = {
+  origin_local_unreachable: "起点本地路线不可达",
+  origin_portal_unavailable: "起点入口不可用",
+  world_segment_unreachable: "世界路段不可达",
+  destination_portal_unavailable: "终点入口不可用",
+  destination_local_unreachable: "终点本地路线不可达",
+  world_route_local_unreachable: "本地路线不可达",
+};
 
 let leafletPromise = null;
 
@@ -458,7 +489,7 @@ function worldRoutePoints(world, itinerary) {
  * Formats the itinerary scope label used by the world route summary.
  */
 function itineraryScopeLabel(scope) {
-  return scope === "cross-map" ? "Cross-map itinerary" : "World-only itinerary";
+  return displayLabel(worldRouteScopeLabels, scope, "仅世界地图");
 }
 
 /**
@@ -467,9 +498,9 @@ function itineraryScopeLabel(scope) {
 function destinationLegLabel(leg) {
   const destinationId = text(leg?.destinationId, "destination");
   const localNodeIds = safeArray(leg?.localNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
-  const fromNode = localNodeIds[0] || "origin";
-  const toNode = localNodeIds[localNodeIds.length - 1] || "destination";
-  return `${destinationId}: ${fromNode} -> ${toNode}`;
+  const fromNode = localNodeIds[0] || "起点";
+  const toNode = localNodeIds[localNodeIds.length - 1] || "终点";
+  return `目的地 ${destinationId}：${fromNode} → ${toNode}`;
 }
 
 /**
@@ -477,9 +508,9 @@ function destinationLegLabel(leg) {
  */
 function worldLegLabel(leg) {
   const worldNodeIds = safeArray(leg?.worldNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
-  const fromNode = worldNodeIds[0] || "origin";
-  const toNode = worldNodeIds[worldNodeIds.length - 1] || "destination";
-  return `world: ${fromNode} -> ${toNode}`;
+  const fromNode = worldNodeIds[0] || "起点";
+  const toNode = worldNodeIds[worldNodeIds.length - 1] || "终点";
+  return `世界地图：${fromNode} → ${toNode}`;
 }
 
 /**
@@ -490,13 +521,13 @@ function itineraryFailureSummary(itinerary) {
   if (!isRecord(failure)) {
     return "";
   }
-  const stage = text(failure.stage).replaceAll("-", " ");
-  const reason = text(failure.reason).replaceAll("_", " ");
-  const code = text(failure.code).replaceAll("_", " ");
+  const stage = displayLabel(WORLD_ROUTE_FAILURE_STAGE_LABELS, failure.stage, "路线阶段");
+  const reason = displayLabel(WORLD_ROUTE_FAILURE_REASON_LABELS, failure.reason, "规划约束");
+  const code = displayLabel(WORLD_ROUTE_FAILURE_CODE_LABELS, failure.code, "未分类");
   const blockedFrom = text(failure.blockedFrom);
   const blockedTo = text(failure.blockedTo);
-  const blockedSegment = blockedFrom && blockedTo ? ` (${blockedFrom} -> ${blockedTo})` : "";
-  return `${stage || "route stage"} blocked due to ${reason || "routing constraints"} [${code || "unknown"}]${blockedSegment}.`;
+  const blockedSegment = blockedFrom && blockedTo ? `（${blockedFrom} → ${blockedTo}）` : "";
+  return `${stage}无法继续，原因：${reason}，类型：${code}${blockedSegment}。`;
 }
 
 /**
@@ -527,14 +558,14 @@ function worldRouteExplanationSegments(itinerary) {
         const edgeId = text(step?.edgeId, `world-edge-${legIndex}-${stepIndex}`);
         const fromWorldNodeId = text(step?.fromWorldNodeId, "unknown-world-node");
         const toWorldNodeId = text(step?.toWorldNodeId, "unknown-world-node");
-        const roadType = text(step?.roadType, "unknown-road").replaceAll("-", " ");
+        const roadType = text(step?.roadType, "unknown-road");
         const mode = text(step?.mode, "unknown-mode");
         const distance = formatMetricValue(step?.distance);
         const cost = formatMetricValue(step?.cost);
         segments.push({
           kind,
           order,
-          summary: `Segment ${order} · world edge ${edgeId}: ${fromWorldNodeId} -> ${toWorldNodeId} · roadType ${roadType} · mode ${mode} · distance ${distance} m · cost ${cost}`,
+          summary: `第 ${order} 段 · 世界路段 ${edgeId}：${fromWorldNodeId} → ${toWorldNodeId} · 道路类型 ${displayLabel(roadTypeLabels, roadType, roadType)} · 方式 ${displayLabel(modeLabels, mode, mode)} · 距离 ${distance} 米 · 成本 ${cost}`,
         });
         return;
       }
@@ -555,7 +586,7 @@ function worldRouteExplanationSegments(itinerary) {
         segments.push({
           kind,
           order,
-          summary: `Segment ${order} · portal transfer ${portalId}: ${fromEndpoint} -> ${toEndpoint} · destination ${destinationId} · direction ${transferDirection} · mode ${mode} · transfer ${transferDistance} m · transfer cost ${transferCost} · distance ${distance} m · cost ${cost}`,
+          summary: `第 ${order} 段 · 入口换乘 ${portalId}：${fromEndpoint} → ${toEndpoint} · 目的地 ${destinationId} · 方向 ${transferDirection} · 方式 ${displayLabel(modeLabels, mode, mode)} · 换乘距离 ${transferDistance} 米 · 换乘成本 ${transferCost} · 距离 ${distance} 米 · 成本 ${cost}`,
         });
       }
     });
@@ -571,7 +602,7 @@ function worldRouteExplanationMarkup(itinerary) {
   if (!segments.length) {
     return `
       <p class="muted" data-route-world-explanation-empty="true">
-        No portal-transfer or world-edge steps were returned for explanation.
+        暂无可解释的入口换乘或世界路段步骤。
       </p>
     `;
   }
@@ -616,9 +647,9 @@ function createWorldRouteLocalHref(leg, itinerary, route) {
 function worldRoutePendingMarkup() {
   return `
     <article class="surface-card route-summary-card route-stage-shell" data-route-world-result-state="pending">
-      <p class="section-tag">World route</p>
-      <h3>Planning route</h3>
-      <p class="muted">Requesting itinerary details from world routing.</p>
+      <p class="section-tag">世界路线</p>
+      <h3>正在规划路线</h3>
+      <p class="muted">正在向世界路线服务请求行程详情。</p>
     </article>
   `;
 }
@@ -630,8 +661,8 @@ function worldRouteEmptyMarkup() {
   return `
     <div class="world-route-result-shell">
       ${emptyStateMarkup({
-        body: "Choose world nodes or destinations, then plan a route to render a world itinerary.",
-        title: "World route summary appears after planning",
+        body: "选择世界节点或目的地后规划路线，这里会显示世界行程。",
+        title: "规划后显示世界路线摘要",
       })}
     </div>
   `;
@@ -643,9 +674,9 @@ function worldRouteEmptyMarkup() {
 function worldRouteFailureMarkup(message) {
   return `
     <article class="surface-card route-summary-card route-stage-shell" data-route-world-result-state="error">
-      <p class="section-tag">World route</p>
-      <h3>Route planning failed</h3>
-      <p>${escapeHtml(text(message, "World route planning failed."))}</p>
+      <p class="section-tag">世界路线</p>
+      <h3>路线规划失败</h3>
+      <p>${escapeHtml(text(message, "世界路线规划失败。"))}</p>
     </article>
   `;
 }
@@ -678,7 +709,7 @@ function worldRouteResultMarkup(itinerary, route) {
     .filter(Boolean);
 
   const summaryTone = itinerary?.reachable ? "success" : "neutral";
-  const itineraryStatus = itinerary?.reachable ? "Route ready to follow." : "Route returned an incomplete itinerary.";
+  const itineraryStatus = itinerary?.reachable ? "路线已可使用。" : "路线返回了不完整行程。";
   const failureSummary = itinerary?.reachable ? "" : itineraryFailureSummary(itinerary);
 
   return `
@@ -687,47 +718,47 @@ function worldRouteResultMarkup(itinerary, route) {
       data-route-world-result-state="${escapeHtml(summaryTone)}"
       data-route-world-scope="${escapeHtml(text(itinerary?.scope, "world-only"))}"
     >
-      <p class="section-tag">World route</p>
+      <p class="section-tag">世界路线</p>
       <h3>${escapeHtml(itineraryScopeLabel(text(itinerary?.scope)))}</h3>
       ${resultMetaMarkup([
-        text(itinerary?.strategy, "distance"),
-        text(itinerary?.mode, "walk"),
-        `${formatMetricValue(itinerary?.totalDistance)} m`,
-        `cost ${formatMetricValue(itinerary?.totalCost)}`,
+        displayLabel(strategyLabels, itinerary?.strategy, text(itinerary?.strategy, "distance")),
+        displayLabel(modeLabels, itinerary?.mode, text(itinerary?.mode, "walk")),
+        `${formatMetricValue(itinerary?.totalDistance)} 米`,
+        `成本 ${formatMetricValue(itinerary?.totalCost)}`,
       ])}
       <p>${escapeHtml(itineraryStatus)}</p>
       ${
         failureSummary
           ? `<p class="muted" data-route-world-failure="true">${escapeHtml(failureSummary)}</p>`
-          : `<p class="muted">Destination ${formatMetricValue(summary?.destinationDistance)} m · world ${formatMetricValue(summary?.worldDistance)} m · transfer ${formatMetricValue(summary?.transferDistance)} m.</p>`
+          : `<p class="muted">目的地 ${formatMetricValue(summary?.destinationDistance)} 米 · 世界地图 ${formatMetricValue(summary?.worldDistance)} 米 · 换乘 ${formatMetricValue(summary?.transferDistance)} 米。</p>`
       }
     </article>
     <article class="surface-card route-summary-card route-stage-shell" data-route-world-result-state="details">
-      <p class="section-tag">Route handoff</p>
-      <h3>Local and world continuity</h3>
+      <p class="section-tag">路线接续</p>
+      <h3>本地地图与世界地图接续</h3>
       <div class="world-route-handoff-links" data-route-handoff-chain="local-world-local">
         ${
           fromLocalHref
-            ? `<a href="${fromLocalHref}" data-nav="true" data-route-handoff="local-origin">Origin local map</a>`
-            : `<span data-route-handoff="local-origin">Origin local map unavailable</span>`
+            ? `<a href="${fromLocalHref}" data-nav="true" data-route-handoff="local-origin">起点本地地图</a>`
+            : `<span data-route-handoff="local-origin">起点本地地图不可用</span>`
         }
-        <a href="${worldViewHref}" data-nav="true" data-route-handoff="world">World map</a>
+        <a href="${worldViewHref}" data-nav="true" data-route-handoff="world">世界地图</a>
         ${
           toLocalHref
-            ? `<a href="${toLocalHref}" data-nav="true" data-route-handoff="local-destination">Destination local map</a>`
-            : `<span data-route-handoff="local-destination">Destination local map unavailable</span>`
+            ? `<a href="${toLocalHref}" data-nav="true" data-route-handoff="local-destination">终点本地地图</a>`
+            : `<span data-route-handoff="local-destination">终点本地地图不可用</span>`
         }
       </div>
       <div class="tag-row">
         ${
           legTags.length
             ? legTags.map((label) => `<span class="tag" data-route-world-leg="true">${escapeHtml(label)}</span>`).join("")
-            : "<span class='tag'>No route legs returned.</span>"
+            : "<span class='tag'>暂无路线分段。</span>"
         }
       </div>
       <div class="world-route-explanation-shell">
-        <p class="section-tag">Route explanation</p>
-        <h4>Ordered itinerary segments</h4>
+        <p class="section-tag">路线说明</p>
+        <h4>行程分段顺序</h4>
         ${worldRouteExplanationMarkup(itinerary)}
       </div>
     </article>
@@ -773,7 +804,7 @@ async function mountWorldMap(container, world, options = {}) {
     }).addTo(map);
 
     if (typeof layer.bindTooltip === "function") {
-      layer.bindTooltip(text(region?.name, "Region"), { sticky: true });
+      layer.bindTooltip(text(region?.name, "区域"), { sticky: true });
     }
   });
 
@@ -865,7 +896,7 @@ async function mountWorldMap(container, world, options = {}) {
  * Renders the compact world metadata strip shown above the planner.
  */
 function worldMetaMarkup(summary, world) {
-  const worldName = escapeHtml(text(world?.name || summary?.world?.name, "World Surface"));
+  const worldName = escapeHtml(text(world?.name || summary?.world?.name, "世界地图"));
   const regionCount = safeArray(world?.regions).length || safeArray(summary?.regions).length;
   const destinationCount =
     safeArray(world?.destinations).length || safeArray(summary?.destinations).length;
@@ -873,15 +904,15 @@ function worldMetaMarkup(summary, world) {
   return `
     <div class="world-map-meta">
       <div>
-        <span class="section-tag">World</span>
+        <span class="section-tag">世界</span>
         <strong>${worldName}</strong>
       </div>
       <div>
-        <span class="section-tag">Regions</span>
+        <span class="section-tag">区域</span>
         <strong>${regionCount}</strong>
       </div>
       <div>
-        <span class="section-tag">Destinations</span>
+        <span class="section-tag">目的地</span>
         <strong>${destinationCount}</strong>
       </div>
     </div>
@@ -896,7 +927,7 @@ function worldUnavailableMarkup(title, body, route) {
     <article class="surface-card world-map-shell world-map-shell-unavailable">
       ${emptyStateMarkup({
         actionHref: createRouteContextHref("/explore", {}, route),
-        actionLabel: "Return to Explore",
+        actionLabel: "返回探索",
         body,
         title,
       })}
@@ -908,7 +939,7 @@ function worldUnavailableMarkup(title, body, route) {
  * Renders the world map route planner with lazy Leaflet loading and stale-render protection.
  */
 export async function renderWorldMapView(app, route, root) {
-  app.setDocumentTitle("World Map");
+  app.setDocumentTitle("世界地图");
 
   const returnToExploreHref = createRouteContextHref("/explore", {}, route);
   const routeActor = resolveRouteActor(route);
@@ -916,21 +947,21 @@ export async function renderWorldMapView(app, route, root) {
   root.innerHTML = `
     <section class="route-hero route-hero-map world-route-hero">
       <div class="route-hero-copy">
-        <p class="eyebrow">World Map</p>
-        <h1>Browse and plan world routes without leaving the journal SPA.</h1>
+        <p class="eyebrow">世界地图</p>
+        <h1>在旅行日志中浏览并规划世界路线。</h1>
         <p class="route-lede">
-          Inspect regions, plan world itineraries, and jump into destination maps when you need local routing detail.
+          查看区域、规划世界行程，并在需要本地路线详情时进入目的地地图。
         </p>
         <div class="hero-actions">
-          <a class="inline-link" href="${returnToExploreHref}" data-nav="true">Return to Explore</a>
+          <a class="inline-link" href="${returnToExploreHref}" data-nav="true">返回探索</a>
         </div>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">World view</p>
+        <p class="section-tag">世界视图</p>
         <ul class="hero-list">
-          <li>Background art, regions, and destination markers render in Leaflet with CRS.Simple.</li>
-          <li>World route planning supports world-only and cross-map request scopes.</li>
-          <li>Destination marker selection still opens the local destination map.</li>
+          <li>背景图、区域和目的地标记会通过地图引擎渲染。</li>
+          <li>世界路线规划支持仅世界地图和跨地图两种范围。</li>
+          <li>选择目的地标记仍会打开对应的本地目的地地图。</li>
         </ul>
       </div>
     </section>
@@ -939,72 +970,72 @@ export async function renderWorldMapView(app, route, root) {
       <article class="surface-card world-map-sidebar">
         <div class="section-head">
           <div>
-            <p class="section-tag">Surface mode</p>
-            <h2>World routing surface</h2>
+            <p class="section-tag">地图模式</p>
+            <h2>世界路线规划</h2>
           </div>
         </div>
         <p class="world-map-copy">
-          Destination clicks keep actor context and open local maps. Route planning keeps world mode active and adds local/world/local handoff links.
+          点击目的地会保留当前角色上下文并打开本地地图。路线规划会保持世界模式，并生成本地/世界/本地的接续链接。
         </p>
         <div id="world-map-meta">
           ${worldMetaMarkup(null, null)}
         </div>
         <article class="surface-card route-stage-shell world-route-controls-shell">
-          <p class="section-tag">World routing</p>
-          <h3>Plan itinerary</h3>
+          <p class="section-tag">世界路线</p>
+          <h3>规划行程</h3>
           <form id="world-route-form" class="control-grid world-route-form">
             <label class="span-all">
-              Scope
+              范围
               <select id="world-route-scope" data-route-world-scope-select="true">
-                <option value="world-only">world-only</option>
-                <option value="cross-map">cross-map</option>
+                <option value="world-only">${escapeHtml(displayLabel(worldRouteScopeLabels, "world-only", "仅世界地图"))}</option>
+                <option value="cross-map">${escapeHtml(displayLabel(worldRouteScopeLabels, "cross-map", "跨地图路线"))}</option>
               </select>
             </label>
             <div class="control-grid span-all world-route-scope-panel" data-route-world-scope-panel="world-only">
               <label>
-                From world node
+                起点世界节点
                 <select id="world-route-from-world-node"></select>
               </label>
               <label>
-                To world node
+                终点世界节点
                 <select id="world-route-to-world-node"></select>
               </label>
             </div>
             <div class="control-grid span-all world-route-scope-panel" data-route-world-scope-panel="cross-map" hidden>
               <label>
-                From destination
+                起点目的地
                 <select id="world-route-from-destination"></select>
               </label>
               <label>
-                To destination
+                终点目的地
                 <select id="world-route-to-destination"></select>
               </label>
               <label>
-                Optional from local node
-                <input id="world-route-from-local-node" type="text" placeholder="local node id" />
+                可选起点本地节点
+                <input id="world-route-from-local-node" type="text" placeholder="本地节点编号" />
               </label>
               <label>
-                Optional to local node
-                <input id="world-route-to-local-node" type="text" placeholder="local node id" />
+                可选终点本地节点
+                <input id="world-route-to-local-node" type="text" placeholder="本地节点编号" />
               </label>
             </div>
             <div class="control-grid span-all">
               <label>
-                Strategy
+                策略
                 <select id="world-route-strategy">
-                  ${WORLD_ROUTE_STRATEGIES.map((strategy) => `<option value="${escapeHtml(strategy)}">${escapeHtml(strategy)}</option>`).join("")}
+                  ${WORLD_ROUTE_STRATEGIES.map((strategy) => `<option value="${escapeHtml(strategy)}">${escapeHtml(displayLabel(strategyLabels, strategy, strategy))}</option>`).join("")}
                 </select>
               </label>
               <label>
-                Mode
+                方式
                 <select id="world-route-mode">
-                  ${WORLD_ROUTE_MODES.map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(mode)}</option>`).join("")}
+                  ${WORLD_ROUTE_MODES.map((mode) => `<option value="${escapeHtml(mode)}">${escapeHtml(displayLabel(modeLabels, mode, mode))}</option>`).join("")}
                 </select>
               </label>
             </div>
             <div class="button-row span-all">
-              <button type="submit" data-route-world-submit="true">Plan world route</button>
-              <button type="button" id="world-route-reset" class="ghost">Clear world route</button>
+              <button type="submit" data-route-world-submit="true">规划世界路线</button>
+              <button type="button" id="world-route-reset" class="ghost">清除世界路线</button>
             </div>
           </form>
           <div id="world-route-result">
@@ -1015,7 +1046,7 @@ export async function renderWorldMapView(app, route, root) {
       <div id="world-map-stage">
         <article class="surface-card world-map-shell">
           <div class="world-map-frame">
-            <div id="world-map-canvas" class="world-map-canvas" aria-label="World map"></div>
+            <div id="world-map-canvas" class="world-map-canvas" aria-label="世界地图"></div>
           </div>
         </article>
       </div>
@@ -1066,7 +1097,7 @@ export async function renderWorldMapView(app, route, root) {
       stage.innerHTML = worldUnavailableMarkup(title, body, route);
     }
     if (routeResult) {
-      routeResult.innerHTML = worldRouteFailureMarkup("World route controls are unavailable.");
+      routeResult.innerHTML = worldRouteFailureMarkup("世界路线控件不可用。");
     }
   }
 
@@ -1177,10 +1208,10 @@ export async function renderWorldMapView(app, route, root) {
         meta.innerHTML = worldMetaMarkup(summary, null);
       }
       renderUnavailable(
-        "World map unavailable",
-        "World mode is not enabled by the backend worker in this workspace.",
+        "世界地图不可用",
+        "当前工作区后端未启用世界模式。",
       );
-      app.setStatus("World mode is unavailable.", "neutral");
+      app.setStatus("世界模式不可用。", "neutral");
       return () => {};
     }
 
@@ -1196,19 +1227,19 @@ export async function renderWorldMapView(app, route, root) {
     const issues = collectWorldDetailsIssues(world);
     if (issues.length > 0) {
       renderUnavailable(
-        "World details unavailable",
-        "World details payload failed validation. Check world bounds, polygons, markers, and route graph data.",
+        "世界详情不可用",
+        "世界详情数据校验失败。请检查边界、多边形、标记和路线图数据。",
       );
-      app.setStatus(`World details are malformed: ${issues[0]}`, "error");
+      app.setStatus("世界详情格式异常。", "error");
       return () => {};
     }
 
     if (!world) {
       renderUnavailable(
-        "World details unavailable",
-        "The world surface is enabled, but detailed map data is missing.",
+        "世界详情不可用",
+        "世界地图已启用，但缺少详细地图数据。",
       );
-      app.setStatus("World details are unavailable.", "error");
+      app.setStatus("世界详情不可用。", "error");
       return () => {};
     }
 
@@ -1290,7 +1321,7 @@ export async function renderWorldMapView(app, route, root) {
         if (routeResult) {
           routeResult.innerHTML = worldRouteResultMarkup(itinerary, route);
         }
-        app.setStatus(itinerary.reachable ? "World route ready." : "World route returned an incomplete itinerary.", itinerary.reachable ? "success" : "neutral");
+        app.setStatus(itinerary.reachable ? "世界路线已准备好。" : "世界路线返回了不完整行程。", itinerary.reachable ? "success" : "neutral");
       } catch (error) {
         if (!isActiveRender()) {
           return;
@@ -1298,7 +1329,7 @@ export async function renderWorldMapView(app, route, root) {
         if (disposed) {
           return;
         }
-        const message = error instanceof Error ? error.message : "World route planning failed.";
+        const message = "世界路线规划失败。";
         mapController?.renderRoute(null);
         if (routeResult) {
           routeResult.innerHTML = worldRouteFailureMarkup(message);
@@ -1311,15 +1342,15 @@ export async function renderWorldMapView(app, route, root) {
       clearWorldRoute();
     });
 
-    app.setStatus("World surface ready.", "success");
+    app.setStatus("世界地图已就绪。", "success");
   } catch (error) {
     if (!ensureActiveRender()) {
       return;
     }
-    const message = error instanceof Error ? error.message : "World map failed to load.";
+    const message = "世界地图加载失败。";
     renderUnavailable(
-      "World details unavailable",
-      "The world surface could not be prepared. Check the worker endpoints and try again.",
+      "世界详情不可用",
+      "世界地图暂时无法准备完成。请检查后端接口后重试。",
     );
     app.setStatus(message, "error");
   }

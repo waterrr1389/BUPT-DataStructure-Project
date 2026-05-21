@@ -157,10 +157,10 @@ test("map falls back to a valid destination when the query points at a missing d
       },
     ]);
     assert.ok(requireElement(root, "#map-visualization").innerHTML.includes("Harbor Reach"));
-    assert.ok(requireElement(root, "#map-route-result").innerHTML.includes("Route summary appears after planning"));
+    assert.ok(requireElement(root, "#map-route-result").innerHTML.includes("规划后显示路线摘要"));
     assert.deepEqual(fixture.statuses, [
       {
-        message: "Requested destination was unavailable. Showing the first available map instead.",
+        message: "请求的目的地不可用，已改为显示第一个可用地图。",
         tone: "neutral",
       },
     ]);
@@ -328,8 +328,8 @@ test("map renders planning controls and switches legend hooks from preview to ac
 
     requireElement(root, ".map-controls-copy");
     assert.equal(root.innerHTML.includes("<div class=\"map-controls-copy\">"), true);
-    assert.equal(root.innerHTML.includes("<h2>Route Planning</h2>"), true);
-    assert.equal(root.innerHTML.includes("Choose the spatial context first, then set the route start and end nodes."), true);
+    assert.equal(root.innerHTML.includes("<h2>路线规划</h2>"), true);
+    assert.equal(root.innerHTML.includes("先选择空间上下文，再设置路线的起点和终点。"), true);
     assert.equal(root.querySelectorAll(".map-control-group").length, 2);
 
     const routeForm = requireElement(root, "#map-route-form");
@@ -351,19 +351,19 @@ test("map renders planning controls and switches legend hooks from preview to ac
     requireElement(advancedPanel, "summary");
     assert.equal(
       requireElement(root, "#map-waypoints").getAttribute("placeholder"),
-      "Waypoint node IDs, comma-separated",
+      "途经节点编号，用逗号分隔",
     );
 
     const returnLink = requireElement(root, ".section-head a[data-nav='true']");
     const worldLink = requireElement(root, "[data-map-world-link='true']");
     assert.equal(worldLink.getAttribute("href"), "/map?view=world&actor=user-2");
-    assert.equal(root.innerHTML.includes(">Open World View</a>"), true);
+    assert.equal(root.innerHTML.includes(">打开世界地图</a>"), true);
     assert.equal(returnLink.getAttribute("href"), "/explore?actor=user-2");
-    assert.equal(root.innerHTML.includes("Return to Explore"), true);
+    assert.equal(root.innerHTML.includes("返回探索"), true);
     assert.equal(returnLink.closest(".button-row"), null);
 
     const buttonRow = requireElement(root, ".button-row");
-    assert.equal(root.innerHTML.includes("Plan route"), true);
+    assert.equal(root.innerHTML.includes("规划路线"), true);
     const resetRouteButton = requireElement(buttonRow, "#map-reset-route");
     assert.equal(resetRouteButton.getAttribute("type"), "button");
     assert.equal(resetRouteButton.classList.contains("ghost"), true);
@@ -382,7 +382,7 @@ test("map renders planning controls and switches legend hooks from preview to ac
     assert.equal(routeResultEmptyShell.classList.contains("surface-card"), true);
     assert.equal(routeResultEmptyShell.classList.contains("route-stage-shell"), true);
     assert.ok(routeResultEmptyShell.querySelector(".empty-state") !== null);
-    assert.equal(compactText(routeResult).includes("Route summary appears after planning"), true);
+    assert.equal(compactText(routeResult).includes("规划后显示路线摘要"), true);
     assert.equal(compactText(routeResult).includes("Calm Empty State"), false);
     assert.equal(routeResult.querySelector(".section-tag"), null);
 
@@ -409,9 +409,9 @@ test("map renders planning controls and switches legend hooks from preview to ac
     await settleAsync();
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/routes/plan"]);
-    assert.equal(compactText(routeResult).includes("Route summary appears after planning"), false);
-    assert.equal(compactText(routeResult).includes("Route ready to follow."), true);
-    assert.equal(routeResult.innerHTML.includes("Route details"), true);
+    assert.equal(compactText(routeResult).includes("规划后显示路线摘要"), false);
+    assert.equal(compactText(routeResult).includes("路线已可使用。"), true);
+    assert.equal(routeResult.innerHTML.includes("路线详情"), true);
     const routeSummaryCards = Array.from(routeResult.querySelectorAll(".route-summary-card"));
     assert.equal(routeSummaryCards.length, 2);
     assert.equal(routeSummaryCards.every((card) => card.classList.contains("route-stage-shell")), true);
@@ -879,8 +879,8 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
     );
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
-    assert.equal(root.innerHTML.includes("World routing surface"), true);
-    assert.equal(root.innerHTML.includes("Plan world route"), true);
+    assert.equal(root.innerHTML.includes("世界路线规划"), true);
+    assert.equal(root.innerHTML.includes("规划世界路线"), true);
     assert.equal(leaflet.records.maps.length, 1);
     assert.equal(leaflet.records.imageOverlays.length, 1);
     assert.deepEqual(leaflet.records.imageOverlays[0], {
@@ -923,9 +923,9 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
     ]);
     assert.equal(leaflet.records.polylines[0]?.bringToFrontCallCount, 1);
     const worldRouteResult = requireElement(root, "#world-route-result");
-    assert.equal(compactText(worldRouteResult).includes("Cross-map itinerary"), true);
-    assert.equal(compactText(worldRouteResult).includes("Route ready to follow."), true);
-    assert.equal(compactText(worldRouteResult).includes("Ordered itinerary segments"), true);
+    assert.equal(compactText(worldRouteResult).includes("跨地图路线"), true);
+    assert.equal(compactText(worldRouteResult).includes("路线已可使用。"), true);
+    assert.equal(compactText(worldRouteResult).includes("行程分段顺序"), true);
     const explanationSegments = Array.from(
       worldRouteResult.querySelectorAll("[data-route-world-explanation-segment]"),
     );
@@ -934,17 +934,17 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
       explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
       ["1", "2", "3", "4"],
     );
-    assert.equal(worldRouteResult.innerHTML.includes("portal transfer portal-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-1"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
     assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("direction local-to-world"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("world edge world-edge-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("roadType road"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("roadType bridge"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("portal transfer portal-2"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 road"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 bridge"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-2"), true);
     assert.equal(worldRouteResult.innerHTML.includes("world-node-3"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-2-node-a"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("direction world-to-local"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 world-to-local"), true);
     assert.equal(
       requireElement(root, "[data-route-handoff='local-origin']").getAttribute("href"),
       "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-b&strategy=distance&mode=walk&actor=user-2",
@@ -1289,8 +1289,10 @@ test("map world view explains unreachable cross-map prefix itineraries without r
       [320, 420],
     ]);
     const worldRouteResult = requireElement(root, "#world-route-result");
-    assert.equal(compactText(worldRouteResult).includes("Route returned an incomplete itinerary."), true);
-    assert.equal(compactText(worldRouteResult).includes("destination leg blocked due to local graph disconnected"), true);
+    assert.equal(compactText(worldRouteResult).includes("路线返回了不完整行程。"), true);
+    assert.equal(compactText(worldRouteResult).includes("目的地路段无法继续，原因：本地路线未连通，类型：本地路线不可达"), true);
+    assert.equal(compactText(worldRouteResult).includes("destination leg"), false);
+    assert.equal(compactText(worldRouteResult).includes("local graph disconnected"), false);
     const explanationSegments = Array.from(
       worldRouteResult.querySelectorAll("[data-route-world-explanation-segment]"),
     );
@@ -1299,12 +1301,12 @@ test("map world view explains unreachable cross-map prefix itineraries without r
       explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
       ["1", "2"],
     );
-    assert.equal(worldRouteResult.innerHTML.includes("portal transfer portal-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-1"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
     assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("direction local-to-world"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("world edge world-edge-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("roadType tunnel"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 tunnel"), true);
     assert.equal(
       requireElement(root, "[data-route-handoff='local-origin']").getAttribute("href"),
       "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-b&strategy=distance&mode=walk",
@@ -1315,7 +1317,7 @@ test("map world view explains unreachable cross-map prefix itineraries without r
     );
     const destinationHandoff = requireElement(root, "[data-route-handoff='local-destination']");
     assert.equal(destinationHandoff.tagName, "span");
-    assert.equal(worldRouteResult.innerHTML.includes("Destination local map unavailable"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("终点本地地图不可用"), true);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1471,13 +1473,13 @@ test("map world view accepts zero-distance world edges in world details payload"
     );
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
-    assert.equal(root.innerHTML.includes("World routing surface"), true);
-    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("World details unavailable"), false);
+    assert.equal(root.innerHTML.includes("世界路线规划"), true);
+    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("世界详情不可用"), false);
     assert.equal(leaflet.records.maps.length, 1);
     assert.equal(
       fixture.statuses.some(
         (status) =>
-          status.tone === "error" && status.message.startsWith("World details are malformed:"),
+          status.tone === "error" && status.message === "世界详情格式异常。",
       ),
       false,
     );
@@ -1634,11 +1636,11 @@ test("map world view downgrades to unavailable when world details payload is mal
     );
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
-    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("World details unavailable"), true);
+    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("世界详情不可用"), true);
     assert.equal(leaflet.records.maps.length, 0);
-    assert.equal(compactText(requireElement(root, "#world-route-result")).includes("controls are unavailable"), true);
+    assert.equal(compactText(requireElement(root, "#world-route-result")).includes("世界路线控件不可用"), true);
     assert.equal(fixture.statuses[0]?.tone, "error");
-    assert.equal(String(fixture.statuses[0]?.message ?? "").startsWith("World details are malformed:"), true);
+    assert.equal(fixture.statuses[0]?.message, "世界详情格式异常。");
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1893,12 +1895,13 @@ test("map world view renders route failure state and clears active world polylin
     dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
     await settleAsync();
     assert.equal(routePlanCallCount, 2);
-    assert.equal(compactText(requireElement(root, "#world-route-result")).includes("Route planning failed"), true);
+    assert.equal(compactText(requireElement(root, "#world-route-result")).includes("路线规划失败"), true);
     assert.equal(leaflet.records.maps[0]?.removeLayerCalls.length, 1);
     assert.equal(leaflet.records.polylines[0]?.removeCallCount, 1);
     const latestStatus = fixture.statuses[fixture.statuses.length - 1];
     assert.equal(latestStatus?.tone, "error");
-    assert.equal(latestStatus?.message, "World route service unavailable.");
+    assert.equal(latestStatus?.message, "世界路线规划失败。");
+    assert.equal(compactText(requireElement(root, "#world-route-result")).includes("World route service unavailable."), false);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1997,11 +2000,11 @@ test("map world view renders an unavailable state when the backend disables worl
     );
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/world"]);
-    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("World map unavailable"), true);
+    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("世界地图不可用"), true);
     assert.equal(leaflet.records.maps.length, 0);
     assert.deepEqual(fixture.statuses, [
       {
-        message: "World mode is unavailable.",
+        message: "世界模式不可用。",
         tone: "neutral",
       },
     ]);
@@ -2067,14 +2070,15 @@ test("map world view falls back to an unavailable state when world details fail"
     );
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
-    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("World details unavailable"), true);
+    assert.equal(requireElement(root, "#world-map-stage").innerHTML.includes("世界详情不可用"), true);
     assert.equal(leaflet.records.maps.length, 0);
     assert.deepEqual(fixture.statuses, [
       {
-        message: "World details worker offline.",
+        message: "世界地图加载失败。",
         tone: "error",
       },
     ]);
+    assert.equal(root.innerHTML.includes("World details worker offline."), false);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -2318,7 +2322,7 @@ test("feed fallback surfaces social feed errors instead of swapping to the journ
           cursor: "bogus",
           viewerUserId: "user-2",
         }),
-      /Invalid cursor\./,
+      /请求内容不完整或格式不正确。/,
     );
 
     assert.deepEqual(requests, ["/api/feed?viewerUserId=user-2&cursor=bogus"]);
@@ -2368,7 +2372,7 @@ test("comments fallback returns an unavailable response when the endpoint is mis
       available: false,
       items: [],
       nextCursor: "",
-      notice: "Comments have not been wired in this workspace yet.",
+      notice: "当前工作区尚未接入评论接口。",
       totalCount: 0,
     });
   } finally {
@@ -2412,7 +2416,7 @@ test("comments failures reject when the endpoint exists but returns an error", a
         app.fetchJournalComments("journal-1", {
           limit: 5,
         }),
-      /Comment store offline\./,
+      /服务暂时不可用，请稍后重试。/,
     );
 
     assert.deepEqual(requests, ["/api/journals/journal-1/comments?limit=5"]);
@@ -2575,9 +2579,10 @@ test("public app entry keeps the bootstrap failure fallback behavior", async () 
     assert.ok(globals.RouteVisualizationMarkers);
     assert.ok(globals.JournalPresentation);
     assert.ok(globals.JournalConsumers);
-    assert.equal(compactText(root.innerHTML).includes("Browser shell unavailable"), true);
-    assert.equal(compactText(root.innerHTML).includes("Bootstrap exploded."), true);
-    assert.equal(compactText(root.innerHTML).includes("Reload the shell"), true);
+    assert.equal(compactText(root.innerHTML).includes("浏览器界面暂时不可用"), true);
+    assert.equal(compactText(root.innerHTML).includes("单页应用启动失败。"), true);
+    assert.equal(compactText(root.innerHTML).includes("Bootstrap exploded."), false);
+    assert.equal(compactText(root.innerHTML).includes("重新加载"), true);
   } finally {
     globalThis.fetch = previousFetch;
     globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
@@ -2710,9 +2715,9 @@ test("public page contract boots the shell without direct helper injection", asy
     assert.ok(globals.JournalConsumers);
     assert.deepEqual(requests, ["/api/bootstrap", "/api/feed?limit=3"]);
     assert.equal(requireElement(root, ".site-brand").getAttribute("href"), "/");
-    assert.equal(requireElement(root, "#status-pill").textContent, "Runtime data: seeded. Algorithms: fallback.");
+    assert.equal(requireElement(root, "#status-pill").textContent, "运行时数据：seeded。算法：fallback。");
     assert.equal(requireElement(root, "#status-pill").dataset.tone, "success");
-    assert.equal(requireElement(root, "#view-root").innerHTML.includes("Start with a destination, not a control panel"), true);
+    assert.equal(requireElement(root, "#view-root").innerHTML.includes("从目的地开始，而不是从控制面板开始"), true);
     assert.equal(env.document.title, "Trail Atlas • Trail Atlas");
   } finally {
     globalThis.fetch = previousFetch;
@@ -2784,9 +2789,10 @@ test("shell navigation surfaces route-load failures instead of leaving the loadi
     await settleAsync();
 
     const viewRoot = requireElement(root, "#view-root");
-    assert.ok(viewRoot.innerHTML.includes("Map failed to load"), viewRoot.innerHTML);
-    assert.ok(viewRoot.innerHTML.includes("bootstrap reload failed"), viewRoot.innerHTML);
-    assert.ok(!viewRoot.innerHTML.includes("Opening Map"), viewRoot.innerHTML);
+    assert.ok(viewRoot.innerHTML.includes("地图加载失败"), viewRoot.innerHTML);
+    assert.ok(viewRoot.innerHTML.includes("请求的页面无法加载。"), viewRoot.innerHTML);
+    assert.ok(!viewRoot.innerHTML.includes("基础数据加载失败，请刷新后重试。"), viewRoot.innerHTML);
+    assert.ok(!viewRoot.innerHTML.includes("正在打开地图"), viewRoot.innerHTML);
   } finally {
     globalThis.fetch = previousFetch;
     globals.JournalConsumers = previousJournalConsumers;

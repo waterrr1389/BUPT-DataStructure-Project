@@ -249,14 +249,14 @@ type JournalPresentationRoot = typeof globalThis & {
       const destinationLabel = resolveLookupLabel(
         journal?.destinationId,
         lookups.destinationById,
-        "Unknown destination",
+        "未知目的地",
       );
-      const userLabel = resolveLookupLabel(journal?.userId, lookups.userById, "Unknown user");
+      const userLabel = resolveLookupLabel(journal?.userId, lookups.userById, "未知用户");
 
       return {
         destinationLabel,
         userLabel,
-        attribution: `${destinationLabel} / ${userLabel}`,
+        attribution: `目的地：${destinationLabel} · 用户：${userLabel}`,
       };
     }
 

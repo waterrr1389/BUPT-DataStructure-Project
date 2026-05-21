@@ -1,6 +1,7 @@
 // @ts-nocheck
 
-import { escapeHtml, resultMetaMarkup, safeArray, summarizeSteps, text } from "./lib.js";
+import { displayLabel, modeLabels, roadTypeLabels, strategyLabels } from "./copy.js";
+import { escapeHtml, resultMetaMarkup, safeArray, text } from "./lib.js";
 
 const MAP_CANVAS = {
   width: 860,
@@ -9,17 +10,17 @@ const MAP_CANVAS = {
 };
 
 const ROAD_TYPE_META = {
-  walkway: { label: "Walkway", className: "is-walkway" },
-  "bike-lane": { label: "Bike lane", className: "is-bike-lane" },
-  "shuttle-lane": { label: "Shuttle lane", className: "is-shuttle-lane" },
-  indoor: { label: "Indoor corridor", className: "is-indoor" },
+  walkway: { label: displayLabel(roadTypeLabels, "walkway", "步行道"), className: "is-walkway" },
+  "bike-lane": { label: displayLabel(roadTypeLabels, "bike-lane", "骑行道"), className: "is-bike-lane" },
+  "shuttle-lane": { label: displayLabel(roadTypeLabels, "shuttle-lane", "接驳车道"), className: "is-shuttle-lane" },
+  indoor: { label: displayLabel(roadTypeLabels, "indoor", "室内通道"), className: "is-indoor" },
 };
 
 const ROUTE_PATH_SEMANTICS = {
-  walkway: { legendLabel: "Outdoor route", semanticKey: "outdoor-route" },
-  indoor: { legendLabel: "Indoor route", semanticKey: "indoor-route" },
-  "bike-lane": { legendLabel: "Bike lane", semanticKey: "bike-lane" },
-  "shuttle-lane": { legendLabel: "Shuttle lane", semanticKey: "shuttle-lane" },
+  walkway: { legendLabel: "户外路线", semanticKey: "outdoor-route" },
+  indoor: { legendLabel: "室内路线", semanticKey: "indoor-route" },
+  "bike-lane": { legendLabel: displayLabel(roadTypeLabels, "bike-lane", "骑行道"), semanticKey: "bike-lane" },
+  "shuttle-lane": { legendLabel: displayLabel(roadTypeLabels, "shuttle-lane", "接驳车道"), semanticKey: "shuttle-lane" },
 };
 
 const ROUTE_PATH_ORDER = ["walkway", "indoor", "bike-lane", "shuttle-lane"];
@@ -212,8 +213,8 @@ function analyzeRoute(details, route) {
     if (nextEnvironment !== currentEnvironment) {
       transitionMarkers.push({
         node: step.fromNode,
-        shortLabel: nextEnvironment === "indoor" ? "Indoor" : "Outdoor",
-        label: nextEnvironment === "indoor" ? "Indoor entry" : "Open-air return",
+        shortLabel: nextEnvironment === "indoor" ? "室内" : "户外",
+        label: nextEnvironment === "indoor" ? "进入室内" : "回到户外",
       });
     }
     currentEnvironment = nextEnvironment;
@@ -241,20 +242,20 @@ function analyzeRoute(details, route) {
       continue;
     }
 
-    let label = "Turn";
+    let label = "转向";
     if (floorChange) {
-      label = `Level ${currentNode.floor}`;
+      label = `第 ${currentNode.floor} 层`;
     } else if (roadTypeChange && leavingStep?.edge) {
       label = getRoadTypeMeta(leavingStep.edge.roadType).label;
     } else if (modeChange && leavingStep?.mode) {
-      label = leavingStep.mode;
+      label = displayLabel(modeLabels, leavingStep.mode, text(leavingStep.mode));
     }
 
     turnMarkers.push({
       angle,
       label,
       node: currentNode,
-      shortLabel: floorChange ? `L${currentNode.floor}` : "Turn",
+      shortLabel: floorChange ? `${currentNode.floor}层` : "转向",
     });
   }
 
@@ -339,6 +340,13 @@ function routeMarkerMarkup(marker) {
  */
 function markerLayoutToList(markerLayout) {
   return [...markerLayout.endpointMarkers, ...markerLayout.transitionMarkers, ...markerLayout.turnMarkers];
+}
+
+function summarizeRouteNodeNames(nodeNames) {
+  const names = safeArray(nodeNames)
+    .map((entry) => text(typeof entry === "object" && entry ? entry.name ?? entry : entry))
+    .filter(Boolean);
+  return names.length ? names.map((name) => escapeHtml(name)).join(" → ") : "暂无路径节点。";
 }
 
 /**
@@ -528,26 +536,26 @@ export function renderRouteVisualization(options) {
     : [];
   const legendItems = buildRouteLegendItems(routeAnalysis, activeMarkerLayout, previewMarkers);
   const routeDistance = routeAnalysis
-    ? `${route.totalDistance} m highlighted`
+    ? `已高亮 ${route.totalDistance} 米`
     : route?.reachable === false
-      ? "No reachable path"
-      : "Map preview available";
+      ? "暂无可达路线"
+      : "地图预览可用";
   const routeNote = routeAnalysis
-    ? `${routeAnalysis.turnMarkers.length} direction or route changes, ${routeAnalysis.transitionMarkers.length} indoor or outdoor transitions, ${route.totalDistance} m total.`
+    ? `${routeAnalysis.turnMarkers.length} 个方向或路线变化，${routeAnalysis.transitionMarkers.length} 个室内/户外切换，总计 ${route.totalDistance} 米。`
     : route?.reachable === false
-      ? "The routing tool could not connect the selected nodes with the current settings. The map stays visible so you can adjust the start or end point."
+      ? "当前设置无法连接所选节点。地图会保持可见，便于调整起点或终点。"
       : previewStart && previewEnd
-        ? `Previewing ${text(previewStart.name)} to ${text(previewEnd.name)}. Click "Plan route" to draw that path on the map.`
-        : "Select start and end nodes, then plan a route to highlight it on the destination map.";
+        ? `正在预览从 ${text(previewStart.name)} 到 ${text(previewEnd.name)}。点击“规划路线”后会在地图上绘制路径。`
+        : "选择起点和终点后规划路线，即可在目的地地图上高亮显示。";
 
   const routeCueMarkup =
     routeAnalysis && (routeAnalysis.transitionMarkers.length > 0 || routeAnalysis.turnMarkers.length > 0)
       ? `<div class="route-cue-row">
           ${routeAnalysis.transitionMarkers
-            .map((marker) => `<span class="route-cue">${escapeHtml(marker.label)}: ${escapeHtml(marker.node.name)}</span>`)
+            .map((marker) => `<span class="route-cue">${escapeHtml(marker.label)}：${escapeHtml(marker.node.name)}</span>`)
             .join("")}
           ${routeAnalysis.turnMarkers
-            .map((marker) => `<span class="route-cue">${escapeHtml(marker.label)}: ${escapeHtml(marker.node.name)}</span>`)
+            .map((marker) => `<span class="route-cue">${escapeHtml(marker.label)}：${escapeHtml(marker.node.name)}</span>`)
             .join("")}
         </div>`
       : "";
@@ -556,21 +564,21 @@ export function renderRouteVisualization(options) {
     <article class="map-stage-card route-stage-shell">
       <div class="map-stage-head">
         <div>
-          <p class="section-tag">Spatial context</p>
+          <p class="section-tag">空间概览</p>
           <h2>${escapeHtml(details.name)}</h2>
         </div>
         ${resultMetaMarkup(
           [
-            `${safeArray(details.graph?.nodes).length} nodes`,
-            `${safeArray(details.graph?.edges).length} links`,
-            `${safeArray(details.buildings).length} buildings`,
+            `${safeArray(details.graph?.nodes).length} 个节点`,
+            `${safeArray(details.graph?.edges).length} 条连接`,
+            `${safeArray(details.buildings).length} 栋建筑`,
             routeDistance,
           ],
           "result-meta map-stage-meta",
         )}
       </div>
       <div class="route-map-frame">
-        <svg class="route-map" viewBox="0 0 ${MAP_CANVAS.width} ${MAP_CANVAS.height}" role="img" aria-label="Map view for ${escapeHtml(details.name)}">
+        <svg class="route-map" viewBox="0 0 ${MAP_CANVAS.width} ${MAP_CANVAS.height}" role="img" aria-label="${escapeHtml(details.name)} 的地图视图">
           <defs>
             <pattern id="route-grid" width="28" height="28" patternUnits="userSpaceOnUse">
               <path d="M 28 0 L 0 0 0 28" class="map-grid-line"></path>
@@ -670,20 +678,20 @@ export function renderRouteResult(item, details) {
 
   return `
     <article class="surface-card route-summary-card route-stage-shell">
-      <p class="section-tag">Route summary</p>
+      <p class="section-tag">路线摘要</p>
       <h3>${escapeHtml(item.destinationName)}</h3>
       ${resultMetaMarkup([
-        item.strategy,
-        item.mode,
-        `${item.totalDistance} m`,
-        `cost ${item.totalCost}`,
+        displayLabel(strategyLabels, item.strategy, text(item.strategy)),
+        displayLabel(modeLabels, item.mode, text(item.mode)),
+        `${item.totalDistance} 米`,
+        `成本 ${item.totalCost}`,
       ])}
-      <p>${escapeHtml(item.reachable ? "Route ready to follow." : "No route could be found.")}</p>
-      <p class="muted">${summarizeSteps(item.nodeNames)}</p>
+      <p>${escapeHtml(item.reachable ? "路线已可使用。" : "未找到可用路线。")}</p>
+      <p class="muted">${summarizeRouteNodeNames(item.nodeNames)}</p>
     </article>
     <article class="surface-card route-summary-card route-stage-shell">
-      <p class="section-tag">Route details</p>
-      <h3>Step sequence</h3>
+      <p class="section-tag">路线详情</p>
+      <h3>步骤顺序</h3>
       <div class="tag-row">
         ${
           safeArray(item.steps).length
@@ -691,10 +699,10 @@ export function renderRouteResult(item, details) {
                 .map((step) => {
                   const edge = lookups ? resolveRouteEdge(step, lookups) : null;
                   const roadLabel = getRoadTypeMeta(edge?.roadType).label;
-                  return `<span class="tag">${escapeHtml(nodeNameById.get(step.from) || step.from)} → ${escapeHtml(nodeNameById.get(step.to) || step.to)} · ${escapeHtml(roadLabel)} · ${escapeHtml(step.mode)}</span>`;
+                  return `<span class="tag">${escapeHtml(nodeNameById.get(step.from) || step.from)} → ${escapeHtml(nodeNameById.get(step.to) || step.to)} · ${escapeHtml(roadLabel)} · ${escapeHtml(displayLabel(modeLabels, step.mode, text(step.mode)))}</span>`;
                 })
                 .join("")
-            : "<span class='tag'>No step-by-step segments returned.</span>"
+            : "<span class='tag'>暂无逐段路径。</span>"
         }
       </div>
     </article>

@@ -23,11 +23,11 @@ type ComposePreviewState = {
 function previewMarkup(state: ComposePreviewState): string {
   return `
     <article class="story-card compose-preview-card">
-      <p class="muted">${escapeHtml(state.destinationLabel || "Choose a destination")} · ${escapeHtml(
-        state.authorLabel || "Choose an author",
+      <p class="muted">${escapeHtml(state.destinationLabel || "请选择目的地")} · ${escapeHtml(
+        state.authorLabel || "请选择作者",
       )}</p>
-      <h3>${escapeHtml(state.title || "Untitled field note")}</h3>
-      <p>${escapeHtml(state.body || "Your postcard-like travel note preview appears here.")}</p>
+      <h3>${escapeHtml(state.title || "未命名现场笔记")}</h3>
+      <p>${escapeHtml(state.body || "明信片式旅行笔记预览会显示在这里。")}</p>
       ${state.tags.length ? `<div class="tag-row">${state.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     </article>
   `;
@@ -41,7 +41,7 @@ export async function render(
   route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
-  app.setDocumentTitle("Compose");
+  app.setDocumentTitle("写笔记");
 
   const bootstrap = await app.loadBootstrap();
   const journalBindings = app.getJournalBindings();
@@ -54,18 +54,18 @@ export async function render(
   root.innerHTML = `
     <section class="route-hero route-hero-compose">
       <div class="route-hero-copy">
-        <p class="eyebrow">Compose</p>
-        <h1>Write a field note like a postcard, not an admin record.</h1>
+        <p class="eyebrow">写笔记</p>
+        <h1>像写明信片一样写现场笔记，而不是填写管理记录。</h1>
         <p class="route-lede">
-          Title and destination stay near the top, the writing area is generous, and media placeholders remain lightweight support surfaces. Successful submission routes straight back into the reading flow.
+          标题和目的地保持在上方，正文区域足够宽松，媒体占位只作为轻量辅助。提交成功后会直接回到阅读流程。
         </p>
       </div>
       <div class="route-hero-panel">
-        <p class="section-tag">Preserved capability</p>
+        <p class="section-tag">保留能力</p>
         <ul class="hero-list">
-          <li>Journal creation still posts to the existing backend contract.</li>
-          <li>Destination selection stays aligned with the shared disambiguated labels.</li>
-          <li>Optional media placeholders remain zero-dependency.</li>
+          <li>笔记创建仍然提交到既有后端契约。</li>
+          <li>目的地选择继续使用共享的消歧标签。</li>
+          <li>可选媒体占位保持零依赖。</li>
         </ul>
       </div>
     </section>
@@ -74,67 +74,67 @@ export async function render(
       <article class="surface-card compose-card">
         <div class="section-head">
           <div>
-            <p class="section-tag">Write</p>
-            <h2>Field note</h2>
+            <p class="section-tag">撰写</p>
+            <h2>现场笔记</h2>
           </div>
-          <a class="inline-link" href="/feed" data-nav="true">Back to feed</a>
+          <a class="inline-link" href="/feed" data-nav="true">返回动态</a>
         </div>
         <form class="control-grid" id="compose-form">
           <label>
-            Author
+            作者
             <select id="compose-user"></select>
           </label>
           <label>
-            Destination
+            目的地
             <select id="compose-destination"></select>
           </label>
           <label class="span-all">
-            Title
-            <input id="compose-title" type="text" placeholder="Golden hour loop through the harbor atrium" />
+            标题
+            <input id="compose-title" type="text" placeholder="金色时刻穿过港湾中庭的环线" />
           </label>
           <label class="span-all">
-            Body
-            <textarea id="compose-body" rows="10" placeholder="Write the route, the atmosphere, and the moment you want to remember."></textarea>
+            正文
+            <textarea id="compose-body" rows="10" placeholder="写下路线、气氛，以及你想记住的那个瞬间。"></textarea>
           </label>
           <label class="span-all">
-            Tags
-            <input id="compose-tags" type="text" placeholder="history, lake, tea stop, quiet courtyard" />
+            标签
+            <input id="compose-tags" type="text" placeholder="历史、湖边、茶歇、安静庭院" />
           </label>
           <details class="advanced-panel span-all">
-            <summary>Optional media placeholder</summary>
+            <summary>可选媒体占位</summary>
             <div class="advanced-panel-grid">
               <label>
-                Media title
-                <input id="compose-media-title" type="text" placeholder="Cover still" />
+                媒体标题
+                <input id="compose-media-title" type="text" placeholder="封面定帧" />
               </label>
               <label>
-                Media source
+                媒体来源
                 <input id="compose-media-source" type="text" placeholder="generated://cover/demo-1" />
               </label>
               <label class="span-all">
-                Media note
-                <textarea id="compose-media-note" rows="3" placeholder="Short note about the image or clip."></textarea>
+                媒体说明
+                <textarea id="compose-media-note" rows="3" placeholder="简单说明这张图片或这段片段。"></textarea>
               </label>
             </div>
           </details>
-          <button type="submit">Publish note</button>
+          <button type="submit">发布笔记</button>
         </form>
         <div id="compose-notice"></div>
       </article>
 
       <aside class="compose-sidebar">
         <article class="surface-card">
-          <p class="section-tag">Live preview</p>
-          <h2>How the note will read</h2>
+          <p class="section-tag">实时预览</p>
+          <h2>笔记阅读效果</h2>
           <div id="compose-preview"></div>
         </article>
         <article class="surface-card">
-          <p class="section-tag">Reminder</p>
-          <h2>What to include</h2>
+          <p class="section-tag">提醒</p>
+          <h2>可以写什么</h2>
           <ul class="hero-list">
-            <li>Name the place clearly so Map handoff stays obvious.</li>
-            <li>Describe a route, atmosphere, and one memorable detail.</li>
-            <li>Keep tags sparse; they power later discovery and recommendations.</li>
+            <li>清楚写出地点，方便后续交接到地图。</li>
+            <li>描述一条路线、一种气氛和一个难忘细节。</li>
+            <li>标签保持克制；它们会参与后续发现和推荐。</li>
           </ul>
         </article>
       </aside>
@@ -200,8 +200,8 @@ export async function render(
 
       notice.innerHTML = noticeMarkup(
         "success",
-        "Note published",
-        "The routed shell will now move from Compose into the new post detail view.",
+        "笔记已发布",
+        "路由界面将从写笔记页进入新的笔记详情视图。",
       );
       const createdId = payload.item?.id;
       if (createdId) {
@@ -212,8 +212,8 @@ export async function render(
     } catch (error) {
       notice.innerHTML = noticeMarkup(
         "note",
-        "Compose error",
-        error instanceof Error ? error.message : "Journal creation failed.",
+        "写笔记出错",
+        "笔记创建失败。",
       );
     }
   });
