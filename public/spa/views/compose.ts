@@ -4,9 +4,7 @@ import {
   fillSelect,
   noticeMarkup,
   parseListInput,
-  resultMetaMarkup,
   safeArray,
-  text,
 } from "../lib.js";
 import type { JsonRecord, SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
