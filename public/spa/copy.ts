@@ -6,6 +6,31 @@ type FrontendErrorInput = {
   status?: unknown;
 };
 
+type WorldEdgeSummaryInput = {
+  order?: unknown;
+  edgeId?: unknown;
+  fromWorldNodeId?: unknown;
+  toWorldNodeId?: unknown;
+  roadType?: unknown;
+  mode?: unknown;
+  distance?: unknown;
+  cost?: unknown;
+};
+
+type PortalTransferSummaryInput = {
+  order?: unknown;
+  portalId?: unknown;
+  destinationId?: unknown;
+  transferDirection?: unknown;
+  localNodeId?: unknown;
+  worldNodeId?: unknown;
+  mode?: unknown;
+  transferDistance?: unknown;
+  transferCost?: unknown;
+  distance?: unknown;
+  cost?: unknown;
+};
+
 function copyText(value: unknown, fallback = ""): string {
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -87,7 +112,38 @@ export const appCopy = {
     openingRoute: (routeLabel: string) => `正在打开${routeLabel}`,
     routeFailedTitle: (routeLabel: string) => `${routeLabel}加载失败`,
     runtimeDataStatus: (dataSource: unknown, algorithmSource: unknown) =>
-      `运行时数据：${copyText(dataSource, "种子数据")}。算法：${copyText(algorithmSource, "备用实现")}。`,
+      runtimeDataStatus(dataSource, algorithmSource),
+  },
+  route: {
+    labels: {
+      segmentPrefix: (order: unknown) => `第 ${copyText(order, "0")} 段`,
+      worldEdge: "世界路段",
+      portalTransfer: "入口换乘",
+      roadType: "道路类型",
+      direction: "方向",
+      mode: "方式",
+      distance: "距离",
+      cost: "成本",
+      transferDistance: "换乘距离",
+      transferCost: "换乘成本",
+      destination: "目的地",
+    },
+    units: {
+      meter: "米",
+    },
+    fallback: {
+      worldEdgeId: "未知世界路段",
+      portalId: "未知入口",
+      worldNodeId: "未知世界节点",
+      localNodeId: "未知本地节点",
+      destinationId: "未知目的地",
+    },
+  },
+  explore: {
+    labels: {
+      destinationMeta: (typeLabel: string, regionLabel: string) => `${typeLabel} · ${regionLabel}`,
+      foodMeta: (cuisineLabel: string, venueLabel: string) => `${cuisineLabel} · ${venueLabel}`,
+    },
   },
   feed: {
     fallbackNotice: "当前工作区尚未提供社交动态接口，已改为显示旅行笔记时间线。",
@@ -134,6 +190,135 @@ export const roadTypeLabels: DisplayLabelMap = {
   "bike-lane": "骑行道",
   "shuttle-lane": "接驳车道",
   indoor: "室内通道",
+  road: "道路",
+  bridge: "桥梁",
+  tunnel: "隧道",
+  rail: "轨道",
+  trail: "步道",
+};
+
+export const runtimeSourceLabels: DisplayLabelMap = {
+  seeded: "种子数据",
+  fallback: "备用数据",
+  runtime: "运行时数据",
+  generated: "生成数据",
+  static: "静态数据",
+};
+
+export const algorithmSourceLabels: DisplayLabelMap = {
+  seeded: "种子算法",
+  fallback: "备用实现",
+  runtime: "运行时算法",
+  generated: "生成算法",
+  static: "静态算法",
+};
+
+export const destinationTypeLabels: DisplayLabelMap = {
+  campus: "校园",
+  scenic: "景区",
+  district: "街区",
+};
+
+export const destinationRegionLabels: DisplayLabelMap = {
+  "north belt": "北部带",
+  "river arc": "河湾",
+  "harbor line": "港湾线",
+  "west ridge": "西岭",
+  "east loop": "东环",
+  "central axis": "中轴",
+  "North Wharf": "北码头",
+  "East Bluffs": "东崖",
+  "South Basin": "南湾",
+};
+
+export const destinationCategoryLabels: DisplayLabelMap = {
+  architecture: "建筑",
+  art: "艺术",
+  bridge: "桥梁",
+  bridgehead: "桥头",
+  campus: "校园",
+  central: "中轴",
+  chokepoint: "瓶颈点",
+  connector: "连接线",
+  design: "设计",
+  family: "亲子",
+  flexible: "灵活行程",
+  food: "美食",
+  forest: "森林",
+  harbor: "港湾",
+  history: "历史",
+  landmark: "地标",
+  learning: "学习",
+  loop: "环线",
+  market: "市集",
+  museum: "博物馆",
+  nature: "自然",
+  night: "夜间",
+  nightscape: "夜景",
+  north: "北部",
+  photography: "摄影",
+  portal: "入口",
+  research: "研究",
+  region: "区域",
+  river: "河流",
+  riverfront: "滨河",
+  scenic: "景区",
+  social: "社交",
+  spine: "主轴",
+  tea: "茶饮",
+  tunnel: "隧道",
+  upland: "高地",
+  walking: "步行",
+  waterfront: "滨水",
+  wellness: "康养",
+  west: "西部",
+};
+
+export const destinationTagLabels = destinationCategoryLabels;
+
+export const cuisineLabels: DisplayLabelMap = {
+  "river grill": "河畔烤物",
+  "spice street": "香料街",
+  "tea house": "茶屋",
+  "noodle lab": "面食实验室",
+  "sea bowl": "海鲜碗",
+  "bento craft": "便当工坊",
+  "forest roast": "森林烘焙",
+  "campus comfort": "校园简餐",
+  tea: "茶饮",
+};
+
+export const foodVenueLabels: DisplayLabelMap = {
+  "harbor court": "港湾庭院",
+  "student lane": "学生巷",
+  "Wharf Arcade": "码头拱廊",
+  "Atrium Hall": "中庭大厅",
+};
+
+export const foodKeywordLabels: DisplayLabelMap = {
+  "river grill": cuisineLabels["river grill"],
+  "spice street": cuisineLabels["spice street"],
+  "tea house": cuisineLabels["tea house"],
+  "noodle lab": cuisineLabels["noodle lab"],
+  "sea bowl": cuisineLabels["sea bowl"],
+  "bento craft": cuisineLabels["bento craft"],
+  "forest roast": cuisineLabels["forest roast"],
+  "campus comfort": cuisineLabels["campus comfort"],
+  campus: destinationTypeLabels.campus,
+  scenic: destinationTypeLabels.scenic,
+  "quick bite": "快餐",
+  signature: "招牌",
+  late: "夜间",
+  quiet: "安静",
+  noodles: "面食",
+  tea: cuisineLabels.tea,
+};
+
+export const worldRoadTypeLabels: DisplayLabelMap = roadTypeLabels;
+
+export const transferDirectionLabels: DisplayLabelMap = {
+  "local-to-world": "本地地图到世界地图",
+  "world-to-local": "世界地图到本地地图",
 };
 
 export const facilityCategoryLabels: DisplayLabelMap = {
@@ -196,6 +381,121 @@ export function displayLabel(
 ): string {
   const key = copyText(value);
   return labels[key] || fallback;
+}
+
+export function displaySourceLabel(value: unknown, fallback = "未知来源"): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(runtimeSourceLabels, raw, raw) : fallback;
+}
+
+export function displayAlgorithmSourceLabel(value: unknown, fallback = "未知实现"): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(algorithmSourceLabels, raw, raw) : fallback;
+}
+
+export function runtimeDataStatus(dataSource: unknown, algorithmSource: unknown): string {
+  return `运行时数据：${displaySourceLabel(dataSource, "种子数据")}。算法：${displayAlgorithmSourceLabel(
+    algorithmSource,
+    "备用实现",
+  )}。`;
+}
+
+export function displayDestinationTypeLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(destinationTypeLabels, raw, raw) : "未知类型";
+}
+
+export function displayDestinationRegionLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(destinationRegionLabels, raw, raw) : "未知区域";
+}
+
+export function displayDestinationCategoryLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(destinationCategoryLabels, raw, raw) : "未分类";
+}
+
+export function displayDestinationTagLabel(value: unknown): string {
+  return displayDestinationCategoryLabel(value);
+}
+
+export function displayDestinationMeta(type: unknown, region: unknown): string {
+  return appCopy.explore.labels.destinationMeta(displayDestinationTypeLabel(type), displayDestinationRegionLabel(region));
+}
+
+export function displayCuisineLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(cuisineLabels, raw, raw) : "未知菜系";
+}
+
+export function displayFoodVenueLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(foodVenueLabels, raw, raw) : "未知地点";
+}
+
+export function displayFoodKeywordLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(foodKeywordLabels, raw, raw) : "未分类";
+}
+
+export function displayFoodMeta(cuisine: unknown, venue: unknown): string {
+  return appCopy.explore.labels.foodMeta(displayCuisineLabel(cuisine), displayFoodVenueLabel(venue));
+}
+
+export function displayWorldRoadTypeLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(worldRoadTypeLabels, raw, raw) : "未知道路";
+}
+
+export function displayTransferDirectionLabel(value: unknown): string {
+  const raw = copyText(value);
+  return raw ? displayLabel(transferDirectionLabels, raw, raw) : "未知方向";
+}
+
+export function formatMetricDisplay(value: unknown): string {
+  const metric = Number(value);
+  if (!Number.isFinite(metric)) {
+    return "0";
+  }
+  return Number.isInteger(metric) ? String(metric) : metric.toFixed(2);
+}
+
+export function worldEdgeSummary(input: WorldEdgeSummaryInput): string {
+  const labels = appCopy.route.labels;
+  const units = appCopy.route.units;
+  const fallback = appCopy.route.fallback;
+  const order = copyText(input.order, "0");
+  const edgeId = copyText(input.edgeId, fallback.worldEdgeId);
+  const fromWorldNodeId = copyText(input.fromWorldNodeId, fallback.worldNodeId);
+  const toWorldNodeId = copyText(input.toWorldNodeId, fallback.worldNodeId);
+  const roadType = displayWorldRoadTypeLabel(input.roadType);
+  const mode = displayLabel(modeLabels, input.mode, copyText(input.mode, "未知方式"));
+  const distance = formatMetricDisplay(input.distance);
+  const cost = formatMetricDisplay(input.cost);
+
+  return `${labels.segmentPrefix(order)} · ${labels.worldEdge} ${edgeId}：${fromWorldNodeId} → ${toWorldNodeId} · ${labels.roadType} ${roadType} · ${labels.mode} ${mode} · ${labels.distance} ${distance} ${units.meter} · ${labels.cost} ${cost}`;
+}
+
+export function portalTransferSummary(input: PortalTransferSummaryInput): string {
+  const labels = appCopy.route.labels;
+  const units = appCopy.route.units;
+  const fallback = appCopy.route.fallback;
+  const order = copyText(input.order, "0");
+  const portalId = copyText(input.portalId, fallback.portalId);
+  const destinationId = copyText(input.destinationId, fallback.destinationId);
+  const transferDirection = copyText(input.transferDirection);
+  const localNodeId = copyText(input.localNodeId, fallback.localNodeId);
+  const worldNodeId = copyText(input.worldNodeId, fallback.worldNodeId);
+  const fromEndpoint = transferDirection === "world-to-local" ? worldNodeId : localNodeId;
+  const toEndpoint = transferDirection === "world-to-local" ? localNodeId : worldNodeId;
+  const direction = displayTransferDirectionLabel(transferDirection);
+  const mode = displayLabel(modeLabels, input.mode, copyText(input.mode, "未知方式"));
+  const transferDistance = formatMetricDisplay(input.transferDistance);
+  const transferCost = formatMetricDisplay(input.transferCost);
+  const distance = formatMetricDisplay(input.distance);
+  const cost = formatMetricDisplay(input.cost);
+
+  return `${labels.segmentPrefix(order)} · ${labels.portalTransfer} ${portalId}：${fromEndpoint} → ${toEndpoint} · ${labels.destination} ${destinationId} · ${labels.direction} ${direction} · ${labels.mode} ${mode} · ${labels.transferDistance} ${transferDistance} ${units.meter} · ${labels.transferCost} ${transferCost} · ${labels.distance} ${distance} ${units.meter} · ${labels.cost} ${cost}`;
 }
 
 export function frontendErrorMessage(input: FrontendErrorInput = {}): string {

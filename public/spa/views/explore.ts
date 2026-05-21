@@ -1,6 +1,15 @@
 // @ts-nocheck
 
-import { displayLabel, facilityCategoryLabels } from "../copy.js";
+import {
+  displayCuisineLabel,
+  displayDestinationCategoryLabel,
+  displayDestinationMeta,
+  displayDestinationTagLabel,
+  displayFoodKeywordLabel,
+  displayFoodMeta,
+  displayLabel,
+  facilityCategoryLabels,
+} from "../copy.js";
 import {
   createRouteContextHref,
   emptyStateMarkup,
@@ -29,14 +38,15 @@ function buildContextualMapHref(app: SpaApp, params, context = null) {
 function destinationCardMarkup(app: SpaApp, item, context = null) {
   const mapHref = buildContextualMapHref(app, { destinationId: item.id }, context);
   const composeHref = createRouteContextHref("/compose", { destinationId: item.id }, context);
+  const tags = safeArray(item.categories).map((category) => displayDestinationTagLabel(category));
 
   return `
     <article class="story-card destination-card">
-      <p class="muted">${escapeHtml(item.type)} · ${escapeHtml(item.region)}</p>
+      <p class="muted">${escapeHtml(displayDestinationMeta(item.type, item.region))}</p>
       <h3>${escapeHtml(item.name)}</h3>
       ${resultMetaMarkup([`热度 ${item.heat}`, `评分 ${item.rating}`, `${item.nodeCount} 个节点`])}
       <p>${escapeHtml(item.description)}</p>
-      ${app.tagsMarkup(item.categories)}
+      ${app.tagsMarkup(tags)}
       <div class="story-card-actions">
         <a class="inline-link" href="${mapHref}" data-nav="true">在地图中打开</a>
         <a class="inline-link" href="${composeHref}" data-nav="true">写一篇笔记</a>
@@ -76,12 +86,14 @@ function facilityCardMarkup(app: SpaApp, item, context) {
  * Renders a food result card with a direct contextual map link.
  */
 function foodCardMarkup(app: SpaApp, item, context) {
+  const keywords = safeArray(item.keywords).map((keyword) => displayFoodKeywordLabel(keyword));
+
   return `
     <article class="story-card compact-story-card">
-      <p class="muted">${escapeHtml(item.cuisine)} · ${escapeHtml(item.venue)}</p>
+      <p class="muted">${escapeHtml(displayFoodMeta(item.cuisine, item.venue))}</p>
       <h3>${escapeHtml(item.name)}</h3>
       ${resultMetaMarkup([`评分 ${item.rating}`, `热度 ${item.heat}`, `均价 US$${item.avgPrice}`])}
-      ${app.tagsMarkup(item.keywords)}
+      ${app.tagsMarkup(keywords)}
       <div class="story-card-actions">
         <a
           class="inline-link"
@@ -110,8 +122,14 @@ export async function render(
   const destinationBindings = app.getDestinationBindings();
   const featuredDestinations = app.getFeaturedDestinations();
   const users = safeArray(bootstrap?.users);
-  const categories = app.getCategories().map((category) => ({ id: category, name: category }));
-  const cuisines = app.getCuisines().map((cuisine) => ({ id: cuisine, name: cuisine }));
+  const categories = app.getCategories().map((category) => ({
+    id: category,
+    name: displayDestinationCategoryLabel(category),
+  }));
+  const cuisines = app.getCuisines().map((cuisine) => ({
+    id: cuisine,
+    name: displayCuisineLabel(cuisine),
+  }));
   const defaultDestinationId = app.getDestinationOptions()[0]?.id || "";
 
   root.innerHTML = `

@@ -1,4 +1,5 @@
 import { escapeHtml, noticeMarkup, resultMetaMarkup, safeArray, text } from "../lib.js";
+import { displayDestinationMeta } from "../copy.js";
 import type { JsonRecord, SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
 /**
@@ -75,7 +76,7 @@ export async function render(
             .map(
               (destination) => `
                 <article class="story-card compact-story-card">
-                  <p class="muted">${escapeHtml(destination.type)} · ${escapeHtml(destination.region)}</p>
+                  <p class="muted">${escapeHtml(displayDestinationMeta(destination.type, destination.region))}</p>
                   <h3>${escapeHtml(destination.name)}</h3>
                   ${resultMetaMarkup([
                     `热度 ${destination.heat}`,

@@ -937,14 +937,18 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
     assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-1"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
     assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), false);
     assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("道路类型 road"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("道路类型 bridge"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 道路"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 桥梁"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 road"), false);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 bridge"), false);
     assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-2"), true);
     assert.equal(worldRouteResult.innerHTML.includes("world-node-3"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-2-node-a"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("方向 world-to-local"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 世界地图到本地地图"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 world-to-local"), false);
     assert.equal(
       requireElement(root, "[data-route-handoff='local-origin']").getAttribute("href"),
       "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-b&strategy=distance&mode=walk&actor=user-2",
@@ -1304,9 +1308,11 @@ test("map world view explains unreachable cross-map prefix itineraries without r
     assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-1"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
     assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), false);
     assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("道路类型 tunnel"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 隧道"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("道路类型 tunnel"), false);
     assert.equal(
       requireElement(root, "[data-route-handoff='local-origin']").getAttribute("href"),
       "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-b&strategy=distance&mode=walk",
@@ -2715,7 +2721,7 @@ test("public page contract boots the shell without direct helper injection", asy
     assert.ok(globals.JournalConsumers);
     assert.deepEqual(requests, ["/api/bootstrap", "/api/feed?limit=3"]);
     assert.equal(requireElement(root, ".site-brand").getAttribute("href"), "/");
-    assert.equal(requireElement(root, "#status-pill").textContent, "运行时数据：seeded。算法：fallback。");
+    assert.equal(requireElement(root, "#status-pill").textContent, "运行时数据：种子数据。算法：备用实现。");
     assert.equal(requireElement(root, "#status-pill").dataset.tone, "success");
     assert.equal(requireElement(root, "#view-root").innerHTML.includes("从目的地开始，而不是从控制面板开始"), true);
     assert.equal(env.document.title, "Trail Atlas • Trail Atlas");

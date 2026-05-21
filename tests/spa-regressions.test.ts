@@ -1005,6 +1005,8 @@ test("home preview strips dead journal action buttons", async () => {
 
     assert.equal(root.querySelectorAll("[data-journal-id]").length, 1);
     assert.equal(root.querySelectorAll("button[data-action]").length, 0);
+    assert.equal(root.innerHTML.includes("校园 · 北码头"), true);
+    assert.equal(root.innerHTML.includes("campus · North Wharf"), false);
     assert.deepEqual(fixture.fetchFeedCalls, [{ limit: 3 }]);
   } finally {
     restore();
@@ -1520,6 +1522,11 @@ test("explore destination cards preserve actor context across featured, search, 
     const featuredLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
     assert.equal(featuredLinks[0]?.getAttribute("href"), "/map?destinationId=dest-1&actor=user-2");
     assert.equal(featuredLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-2");
+    assert.equal(requireElement(root, "#explore-category").innerHTML.includes('<option value="museum">博物馆</option>'), true);
+    assert.equal(requireElement(root, "#explore-food-cuisine").innerHTML.includes('<option value="tea">茶饮</option>'), true);
+    assert.equal(root.innerHTML.includes("校园 · 北码头"), true);
+    assert.equal(root.innerHTML.includes("campus · North Wharf"), false);
+    assert.equal(root.innerHTML.includes("博物馆"), true);
 
     requireElement(root, "#explore-query").value = "harbor";
     dispatchDomEvent(requireElement(root, "#explore-destination-form"), "submit");
@@ -1528,6 +1535,8 @@ test("explore destination cards preserve actor context across featured, search, 
     const searchLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
     assert.equal(searchLinks[0]?.getAttribute("href"), "/map?destinationId=dest-2&actor=user-2");
     assert.equal(searchLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-2&actor=user-2");
+    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("校园 · 东崖"), true);
+    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("campus · East Bluffs"), false);
 
     dispatchDomEvent(requireElement(root, "#explore-destination-recommend"), "click");
     await settleAsync();
@@ -1535,6 +1544,8 @@ test("explore destination cards preserve actor context across featured, search, 
     const recommendationLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
     assert.equal(recommendationLinks[0]?.getAttribute("href"), "/map?destinationId=dest-3&actor=user-2");
     assert.equal(recommendationLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-3&actor=user-2");
+    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("街区 · 南湾"), true);
+    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("district · South Basin"), false);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1765,6 +1776,10 @@ test("explore food recommendation and search map links preserve actor context", 
       requireElement(root, "#explore-food-results a").getAttribute("href"),
       "/map?destinationId=dest-1&actor=user-2",
     );
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("茶饮 · 码头拱廊"), true);
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("tea · Wharf Arcade"), false);
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("夜间,安静"), true);
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("late,quiet"), false);
 
     requireElement(root, "#explore-food-query").value = "noodles";
     dispatchDomEvent(requireElement(root, "#explore-food-form"), "submit");
@@ -1793,6 +1808,10 @@ test("explore food recommendation and search map links preserve actor context", 
       requireElement(root, "#explore-food-results a").getAttribute("href"),
       "/map?destinationId=dest-1&actor=user-2",
     );
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("茶饮 · 中庭大厅"), true);
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("tea · Atrium Hall"), false);
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("安静,面食"), true);
+    assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("quiet,noodles"), false);
 
     if (typeof cleanup === "function") {
       cleanup();

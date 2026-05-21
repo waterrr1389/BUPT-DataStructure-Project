@@ -188,6 +188,46 @@ Search-related `keywords`, `tags`, cuisines, categories, regions, venue names, b
 
 If a display field is intentionally left English because it is a brand name, fixture name, test datum, or deferred content-localization item, the final implementation report must classify it as retained data content rather than missed UI copy.
 
+### Persistent Data Field Classification
+
+The following table defines the minimum display boundary for persisted seed, fallback, and runtime-derived data. Each row uses exactly one current classification:
+
+- Chinese display mapping now: keep the source value stable and render a Chinese display projection in browser presentation.
+- retained English data content now: allow the source text to remain visible because it is fixture content, a proper name, a brand-like label, or searchable demonstration content.
+- protocol/search-only value: do not expose the raw value as primary UI copy; use it only for ids, values, filters, search tokens, ranking, routing, or validation.
+- later locale-data-model scope: leave source modeling unchanged until a future locale-aware content model owns per-locale content.
+
+| Data area | Field | Classification | Current display rule |
+| --- | --- | --- | --- |
+| Destination | `name` | retained English data content now | Destination names may remain English fixture/place names. They are not treated as missed UI copy, and they must keep existing search, detail, route handoff, and journal destination matching behavior. |
+| Destination | `type` | Chinese display mapping now | Browser presentation must map known destination type values to Chinese labels. The source `type` value remains unchanged for APIs, filters, tests, and data validation. |
+| Destination | `region` | Chinese display mapping now | Browser presentation must map known seed/fallback region values to Chinese labels where the region is shown. The source region remains available for existing grouping, filtering, and search. Unknown or proper-name regions may fall back to retained data content. |
+| Destination | `description` | later locale-data-model scope | Full prose localization belongs to a locale-aware content model. Existing English descriptions may remain fixture content unless a specific display projection or localized fixture is added with tests. |
+| Destination | categories/tags | Chinese display mapping now | Known visible category and tag values should render through Chinese labels. The original values remain stable as search tokens, filter values, recommendation features, and fixture validation inputs. |
+| Facility | `name` | retained English data content now | Facility names may remain English fixture/place names. They can be displayed as data content and must keep existing lookup and association behavior. |
+| Facility | `category` | Chinese display mapping now | Visible facility category labels, including synthetic UI categories such as `all`, must render through Chinese labels. The category value remains stable for filters, API fields, and data validation. |
+| Facility | `openHours` | retained English data content now | Opening-hour strings are retained as fixture schedule content in this pass. They must not be re-tokenized or normalized in a way that changes search or validation behavior. |
+| Food | `name` | retained English data content now | Food item or restaurant names may remain English fixture/content names and are not UI copy leaks. |
+| Food | `cuisine` | Chinese display mapping now | Known cuisine values shown in filters, cards, or summaries must render through Chinese labels while preserving the original cuisine values for filtering, searching, and recommendation inputs. |
+| Food | `venue` | Chinese display mapping now | Known seed/fallback venue values shown as location labels should render through Chinese labels. Proper names or unknown venues may remain retained English data content. Source values remain stable for search and associations. |
+| Food | `keywords` | protocol/search-only value | Keywords are search and recommendation terms. They must remain stable and should not be displayed as primary UI copy unless a separate display label is provided. |
+| Building | category | Chinese display mapping now | Visible building category labels must render through Chinese labels. The category value remains stable for grouping, indoor/outdoor behavior, route context, and filters. |
+| Building | name | retained English data content now | Building names may remain English fixture/proper names. They are data labels, not interface copy. |
+| World map | region labels | Chinese display mapping now | Known world region labels shown in summaries, selectors, or tooltips should render through Chinese display projections. Source region identifiers remain stable for world graph lookup and route contracts. |
+| World map | node labels | retained English data content now | World node labels may remain English proper/place names unless covered by an explicit display mapping. Node ids and graph keys remain unchanged. |
+| Journal | journal/user names | retained English data content now | User names, author names, and journal titles/bodies are persisted user or fixture content. They may remain English and are not UI copy leaks. Fallback labels such as unknown user or missing destination should be Chinese UI copy. |
+| Runtime status | source labels | Chinese display mapping now | Runtime source values such as seeded or fallback must render through Chinese labels in status surfaces. The backend/source values remain unchanged for service contracts and tests. |
+| World route | `roadType` | Chinese display mapping now | Visible world-route road types, including known values such as road, bridge, and tunnel, must render through Chinese labels. The `roadType` field value remains a stable protocol value. |
+| World route | transfer direction display | Chinese display mapping now | Visible transfer directions, including local-to-world and world-to-local, must render through Chinese labels. Route handoff fields and direction values remain stable. |
+
+This pass maps runtime source labels, destination type, destination region, visible destination category/tag labels, facility category, food cuisine, known food venue labels, building category labels, world region labels, world-route `roadType`, and world-route transfer direction display through presentation-level display projections.
+
+English source data that represents fixture names, proper names, brand-like labels, user-authored content, journal/user names, descriptive prose, opening-hour strings, search keywords, or unknown data values may remain English in this pass. Those retained values are data content, not missed UI copy.
+
+Search, filtering, recommendation, routing, and validation stability is protected by keeping original source values as the searchable and comparable values. Display projections must not replace stored data, option values, query values, API payloads, graph keys, ids, enums, category values, or ranking/search tokens. If Chinese search synonyms are added later, tests must continue to cover the original English search path.
+
+Backend contracts and source data values are unchanged by this boundary. Localization is a browser presentation projection unless a later specification introduces a locale-aware data model.
+
 ## Test Contract
 
 Tests must cover two independent dimensions:

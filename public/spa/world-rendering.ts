@@ -3,8 +3,9 @@
 import {
   displayLabel,
   modeLabels,
-  roadTypeLabels,
+  portalTransferSummary,
   strategyLabels,
+  worldEdgeSummary,
   worldRouteScopeLabels,
 } from "./copy.js";
 import {
@@ -555,38 +556,27 @@ function worldRouteExplanationSegments(itinerary) {
       const order = segments.length + 1;
 
       if (kind === "world-edge") {
-        const edgeId = text(step?.edgeId, `world-edge-${legIndex}-${stepIndex}`);
-        const fromWorldNodeId = text(step?.fromWorldNodeId, "unknown-world-node");
-        const toWorldNodeId = text(step?.toWorldNodeId, "unknown-world-node");
-        const roadType = text(step?.roadType, "unknown-road");
-        const mode = text(step?.mode, "unknown-mode");
-        const distance = formatMetricValue(step?.distance);
-        const cost = formatMetricValue(step?.cost);
         segments.push({
           kind,
           order,
-          summary: `第 ${order} 段 · 世界路段 ${edgeId}：${fromWorldNodeId} → ${toWorldNodeId} · 道路类型 ${displayLabel(roadTypeLabels, roadType, roadType)} · 方式 ${displayLabel(modeLabels, mode, mode)} · 距离 ${distance} 米 · 成本 ${cost}`,
+          summary: worldEdgeSummary({
+            ...step,
+            order,
+            edgeId: step?.edgeId ?? `world-edge-${legIndex}-${stepIndex}`,
+          }),
         });
         return;
       }
 
       if (kind === "portal-transfer") {
-        const portalId = text(step?.portalId, `portal-transfer-${legIndex}-${stepIndex}`);
-        const destinationId = text(step?.destinationId, "unknown-destination");
-        const transferDirection = text(step?.transferDirection, "unknown-direction");
-        const localNodeId = text(step?.localNodeId, "unknown-local-node");
-        const worldNodeId = text(step?.worldNodeId, "unknown-world-node");
-        const fromEndpoint = transferDirection === "world-to-local" ? worldNodeId : localNodeId;
-        const toEndpoint = transferDirection === "world-to-local" ? localNodeId : worldNodeId;
-        const mode = text(step?.mode, "unknown-mode");
-        const transferDistance = formatMetricValue(step?.transferDistance);
-        const transferCost = formatMetricValue(step?.transferCost);
-        const distance = formatMetricValue(step?.distance);
-        const cost = formatMetricValue(step?.cost);
         segments.push({
           kind,
           order,
-          summary: `第 ${order} 段 · 入口换乘 ${portalId}：${fromEndpoint} → ${toEndpoint} · 目的地 ${destinationId} · 方向 ${transferDirection} · 方式 ${displayLabel(modeLabels, mode, mode)} · 换乘距离 ${transferDistance} 米 · 换乘成本 ${transferCost} · 距离 ${distance} 米 · 成本 ${cost}`,
+          summary: portalTransferSummary({
+            ...step,
+            order,
+            portalId: step?.portalId ?? `portal-transfer-${legIndex}-${stepIndex}`,
+          }),
         });
       }
     });
