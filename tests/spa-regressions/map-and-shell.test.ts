@@ -2726,7 +2726,7 @@ test("public page contract boots the shell without direct helper injection", asy
     assert.ok(globals.RouteVisualizationMarkers);
     assert.ok(globals.JournalPresentation);
     assert.ok(globals.JournalConsumers);
-    assert.deepEqual(requests, ["/api/bootstrap", "/api/feed?limit=3"]);
+    assert.deepEqual(requests, ["/api/auth/me", "/api/bootstrap", "/api/feed?limit=3"]);
     assert.equal(requireElement(root, ".site-brand").getAttribute("href"), "/");
     assert.equal(requireElement(root, "#status-pill").textContent, "运行时数据：种子数据。算法：备用实现。");
     assert.equal(requireElement(root, "#status-pill").dataset.tone, "success");
