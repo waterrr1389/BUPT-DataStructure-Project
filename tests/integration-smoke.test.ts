@@ -533,6 +533,14 @@ test("server rejects malformed comment media over HTTP", async () => {
       {
         body: {
           userId: "user-5",
+          body: "Missing media type should fail.",
+          media: [{ title: "Archive", source: validUploadSource }],
+        },
+        pattern: /Comment media type must be image/,
+      },
+      {
+        body: {
+          userId: "user-5",
           body: "Missing media title should fail.",
           media: [{ type: "image", source: validUploadSource }],
         },
@@ -585,6 +593,14 @@ test("server rejects malformed comment media over HTTP", async () => {
         },
         pattern: /Comment media source must be a generated upload image URL/,
       },
+      {
+        body: {
+          userId: "user-5",
+          body: "Forged generated upload paths should fail.",
+          media: [{ type: "image", title: "Forged archive", source: validUploadSource }],
+        },
+        pattern: /Comment media source must reference an uploaded image/,
+      },
     ];
 
     for (const entry of cases) {
@@ -595,6 +611,60 @@ test("server rejects malformed comment media over HTTP", async () => {
       assert.equal(response.status, 400, response.text);
       expectMatches(response.body.error, entry.pattern);
     }
+  });
+});
+
+test("server rejects uploaded comment media for unknown journal or user", async () => {
+  await withServer("comment-media-http-known-entities", async ({ requestJson }) => {
+    const created = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "North Institute known entity validation",
+        body: "A route note for upload-backed comment media entity validation.",
+        tags: ["indoor", "media"],
+      },
+      method: "POST",
+    });
+    const multipart = createMultipartBody({
+      content: imageFixtures.png.bytes,
+      fileName: "comment.png",
+      mimeType: "image/png",
+    });
+    const upload = await requestJson<{ item: { url: string } }>("/api/uploads/images", {
+      body: multipart.body,
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+    });
+    const media = [
+      {
+        type: "image",
+        title: "Archive route snapshot",
+        source: upload.body.item.url,
+      },
+    ];
+    const unknownJournal = await requestJson<{ error: string }>("/api/journals/journal-missing/comments", {
+      body: {
+        userId: "user-5",
+        body: "Unknown journals should still fail with media.",
+        media,
+      },
+      method: "POST",
+    });
+    const unknownUser = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments`, {
+      body: {
+        userId: "user-missing",
+        body: "Unknown users should still fail with media.",
+        media,
+      },
+      method: "POST",
+    });
+
+    assert.equal(upload.status, 201, upload.text);
+    assert.equal(unknownJournal.status, 400, unknownJournal.text);
+    expectMatches(unknownJournal.body.error, /Unknown journal: journal-missing/);
+    assert.equal(unknownUser.status, 400, unknownUser.text);
+    expectMatches(unknownUser.body.error, /Unknown user: user-missing/);
   });
 });
 

@@ -454,12 +454,38 @@ function parseCommentMedia(body: Record<string, unknown>): JournalMedia[] | unde
   return body.media.map((entry) => {
     const candidate = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
     return {
-      type: String(candidate.type ?? "image") as "image" | "video",
+      type: hasOwnValue(candidate, "type") ? String(candidate.type ?? "") as "image" | "video" : "" as "image" | "video",
       title: String(candidate.title ?? ""),
       source: String(candidate.source ?? ""),
       note: candidate.note ? String(candidate.note) : undefined,
     };
   });
+}
+
+async function requireUploadedCommentMediaFiles(
+  media: JournalMedia[] | undefined,
+  runtimeDir: string,
+): Promise<void> {
+  if (!media || media.length !== 1) {
+    return;
+  }
+  const item = media[0];
+  if (item.type !== "image" || !item.title.trim() || !item.source.trim()) {
+    return;
+  }
+  const uploadedFile = uploadedImageFileNameFromUrl(item.source);
+  if (!uploadedFile.matched || !uploadedFile.fileName) {
+    return;
+  }
+  try {
+    await fs.readFile(path.join(uploadImagesDir(runtimeDir), uploadedFile.fileName));
+  } catch (error) {
+    const candidate = error as NodeJS.ErrnoException;
+    if (candidate.code === "ENOENT") {
+      throw new Error("Comment media source must reference an uploaded image.");
+    }
+    throw error;
+  }
 }
 
 function readCookie(request: IncomingMessage, name: string): string | undefined {
@@ -854,11 +880,13 @@ async function handleApi(
     if (request.method === "POST" && parts.length === 4 && parts[3] === "comments") {
       const body = asObject(await readBody(request));
       const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
+      const media = parseCommentMedia(body);
+      await requireUploadedCommentMediaFiles(media, services.runtime.runtimeDir);
       json(response, 201, {
         item: await services.journals.createComment(journalId, {
           userId: currentUserId ?? String(body.userId ?? ""),
           body: String(body.body ?? ""),
-          media: parseCommentMedia(body),
+          media,
         }),
       });
       return true;
