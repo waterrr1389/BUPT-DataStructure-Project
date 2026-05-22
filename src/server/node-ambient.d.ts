@@ -61,11 +61,14 @@ declare module "node:http" {
   export interface IncomingMessage extends AsyncIterable<Buffer | string> {
     method?: string;
     url?: string;
+    headers?: Record<string, string | string[] | undefined>;
   }
 
   export interface ServerResponse {
     end(data?: string | Uint8Array): void;
     writeHead(statusCode: number, headers?: Record<string, string>): this;
+    getHeader(name: string): string | number | string[] | undefined;
+    setHeader(name: string, value: string | number | readonly string[]): this;
   }
 
   export interface Server {
@@ -81,6 +84,23 @@ declare module "node:http" {
   };
 
   export default http;
+}
+
+declare module "node:crypto" {
+  export interface Hash {
+    update(data: string): Hash;
+    digest(encoding: "hex"): string;
+  }
+
+  export function createHash(algorithm: string): Hash;
+  export function randomUUID(): string;
+
+  const crypto: {
+    createHash: typeof createHash;
+    randomUUID: typeof randomUUID;
+  };
+
+  export default crypto;
 }
 
 declare module "node:path" {
