@@ -234,6 +234,7 @@ export interface JournalCommentRecord {
   journalId: string;
   userId: string;
   body: string;
+  media: JournalMedia[];
   createdAt: string;
   updatedAt: string;
 }
@@ -279,6 +280,7 @@ export interface JournalCommentView {
   userId: string;
   userLabel: string;
   body: string;
+  media: JournalMedia[];
   createdAt: string;
   updatedAt: string;
 }
@@ -736,6 +738,7 @@ export interface JournalCommentListQuery {
 export interface JournalCommentCreateInput {
   userId: string;
   body: string;
+  media?: JournalMedia[];
 }
 
 export interface JournalSearchResult {

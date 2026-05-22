@@ -1437,6 +1437,154 @@ test("journal social flows keep feed summaries compact and preserve legacy journ
   );
 });
 
+test("journal comment media is normalized and legacy comments stay compatible", async () => {
+  const app = await createIsolatedApp("journal-comment-media");
+  const created = await app.journals.create({
+    body: "Indoor archive route with a quiet photo stop.",
+    destinationId: "dest-002",
+    tags: ["indoor", "photo"],
+    title: "North Institute image comment route",
+    userId: "user-2",
+  });
+  const imageMedia = [
+    {
+      type: "image" as const,
+      title: "Archive entrance",
+      source: "/uploads/images/archive-entrance.webp",
+      note: "  North door after lunch  ",
+    },
+  ];
+
+  const plainComment = await app.journals.createComment(created.id, {
+    body: "Plain comment still works.",
+    userId: "user-5",
+  });
+  const mediaComment = await app.journals.createComment(created.id, {
+    body: "The entrance photo helps explain the route.",
+    media: imageMedia,
+    userId: "user-6",
+  });
+  await app.journalStore.upsertComment({
+    id: "comment-99",
+    journalId: created.id,
+    userId: "user-7",
+    body: "Legacy comment did not store media.",
+    createdAt: "2026-04-03T09:00:00.000Z",
+    updatedAt: "2026-04-03T09:00:00.000Z",
+  });
+
+  const commentPage = await app.journals.listComments({
+    journalId: created.id,
+    limit: 10,
+  });
+  const storedPlain = commentPage.items.find((item) => item.id === plainComment.id);
+  const storedMedia = commentPage.items.find((item) => item.id === mediaComment.id);
+  const storedLegacy = commentPage.items.find((item) => item.id === "comment-99");
+
+  assert.deepEqual(plainComment.media, [], format(plainComment));
+  assert.deepEqual(storedPlain?.media, [], format(commentPage));
+  assert.deepEqual(mediaComment.media, [
+    {
+      type: "image",
+      title: "Archive entrance",
+      source: "/uploads/images/archive-entrance.webp",
+      note: "North door after lunch",
+    },
+  ]);
+  assert.deepEqual(storedMedia?.media, mediaComment.media, format(commentPage));
+  assert.deepEqual(storedLegacy?.media, [], format(commentPage));
+});
+
+test("journal comment media rejects unsupported payloads", async () => {
+  const app = await createIsolatedApp("journal-comment-media-validation");
+  const created = await app.journals.create({
+    body: "Indoor archive route with comment media validation.",
+    destinationId: "dest-002",
+    tags: ["indoor", "validation"],
+    title: "North Institute media validation route",
+    userId: "user-2",
+  });
+
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "Video should wait for a later iteration.",
+        media: [
+          {
+            type: "video",
+            title: "Archive clip",
+            source: "/uploads/images/archive-clip.mp4",
+          },
+        ],
+        userId: "user-5",
+      }),
+    /Comment media type must be image/,
+  );
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "Missing media title should fail.",
+        media: [
+          {
+            type: "image",
+            source: "/uploads/images/archive.webp",
+          } as never,
+        ],
+        userId: "user-5",
+      }),
+    /Comment media title is required/,
+  );
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "Missing media source should fail.",
+        media: [
+          {
+            type: "image",
+            title: "Archive",
+          } as never,
+        ],
+        userId: "user-5",
+      }),
+    /Comment media source is required/,
+  );
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "Too many images should fail.",
+        media: [
+          {
+            type: "image",
+            title: "Archive entrance",
+            source: "/uploads/images/archive-entrance.webp",
+          },
+          {
+            type: "image",
+            title: "Archive exit",
+            source: "/uploads/images/archive-exit.webp",
+          },
+        ],
+        userId: "user-5",
+      }),
+    /Comment media supports one image/,
+  );
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "  ",
+        media: [
+          {
+            type: "image",
+            title: "Archive entrance",
+            source: "/uploads/images/archive-entrance.webp",
+          },
+        ],
+        userId: "user-5",
+      }),
+    /Comment body is required/,
+  );
+});
+
 test("feed cursors stay valid across social-only journal activity", async () => {
   const app = await createIsolatedApp("journal-feed-cursor-stability");
   const created = await app.journals.create({
@@ -1725,6 +1873,13 @@ test("journal likes and comments persist across service reloads and reset clears
 
   const comment = await app.journals.createComment("journal-1", {
     body: "Archive routes need that indoor cutoff.",
+    media: [
+      {
+        type: "image",
+        title: "Archive cutoff marker",
+        source: "/uploads/images/archive-cutoff-marker.webp",
+      },
+    ],
     userId: "user-3",
   });
   await app.journals.like("journal-1", "user-4");
@@ -1738,6 +1893,13 @@ test("journal likes and comments persist across service reloads and reset clears
   assert.equal(persistedDetail.viewerHasLiked, true, format(persistedDetail));
   assert.equal(persistedComments.totalCount, 1, format(persistedComments));
   assert.equal(persistedComments.items[0]?.id, (comment as { id: string }).id, format(persistedComments));
+  assert.deepEqual(persistedComments.items[0]?.media, [
+    {
+      type: "image",
+      title: "Archive cutoff marker",
+      source: "/uploads/images/archive-cutoff-marker.webp",
+    },
+  ]);
 
   await reloaded.journalStore.reset();
 

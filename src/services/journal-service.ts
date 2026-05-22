@@ -18,6 +18,7 @@ import type {
   JournalFeedItem,
   JournalFeedQuery,
   JournalLikeRecord,
+  JournalMedia,
   JournalRecord,
   JournalUpdateInput,
   UserRecord,
@@ -236,9 +237,47 @@ function buildFeedItem(
   };
 }
 
+function normalizeExistingCommentMedia(media: JournalCommentRecord["media"] | undefined): JournalMedia[] {
+  if (!Array.isArray(media)) {
+    return [];
+  }
+  return media.map((item) => ({
+    type: item.type,
+    title: item.title,
+    source: item.source,
+    ...(item.note === undefined ? {} : { note: item.note }),
+  }));
+}
+
+function normalizeNewCommentMedia(media: JournalCommentCreateInput["media"] | undefined): JournalMedia[] {
+  if (media === undefined) {
+    return [];
+  }
+  if (!Array.isArray(media)) {
+    throw new Error("Comment media must be an array.");
+  }
+  if (media.length > 1) {
+    throw new Error("Comment media supports one image.");
+  }
+  return media.map((item) => {
+    if (item.type !== "image") {
+      throw new Error("Comment media type must be image.");
+    }
+    const title = assertNonEmpty(item.title, "Comment media title is required.");
+    const source = assertNonEmpty(item.source, "Comment media source is required.");
+    return {
+      type: "image",
+      title,
+      source,
+      ...(item.note === undefined ? {} : { note: item.note.trim() }),
+    };
+  });
+}
+
 function buildCommentView(runtime: ResolvedRuntime, comment: JournalCommentRecord): JournalCommentView {
   return {
     ...comment,
+    media: normalizeExistingCommentMedia(comment.media),
     userLabel: userLabel(runtime, comment.userId),
   };
 }
@@ -454,11 +493,13 @@ export function createJournalService(
       const journal = await loadJournal(journalId);
       const comments = await store.listComments();
       const timestamp = nowIso();
+      const media = normalizeNewCommentMedia(input.media);
       const comment: JournalCommentRecord = {
         id: nextCommentId(comments),
         journalId: journal.id,
         userId: user.id,
         body: assertNonEmpty(input.body, "Comment body is required."),
+        media,
         createdAt: timestamp,
         updatedAt: timestamp,
       };

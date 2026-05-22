@@ -2,10 +2,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { JournalCommentRecord, JournalLikeRecord, JournalRecord } from "./contracts";
 
+type StoredJournalCommentRecord = Omit<JournalCommentRecord, "media"> & {
+  media?: JournalCommentRecord["media"];
+};
+
 interface JournalStoreOptions {
   runtimeDir: string;
   seedJournals: JournalRecord[];
-  seedComments?: JournalCommentRecord[];
+  seedComments?: StoredJournalCommentRecord[];
   seedLikes?: JournalLikeRecord[];
 }
 
@@ -14,7 +18,7 @@ export class JournalStore {
   #commentFilePath: string;
   #likeFilePath: string;
   #seedJournals: JournalRecord[];
-  #seedComments: JournalCommentRecord[];
+  #seedComments: StoredJournalCommentRecord[];
   #seedLikes: JournalLikeRecord[];
   #journals: JournalRecord[] | null = null;
   #comments: JournalCommentRecord[] | null = null;
@@ -77,16 +81,17 @@ export class JournalStore {
     return comment ? structuredClone(comment) : null;
   }
 
-  async upsertComment(comment: JournalCommentRecord): Promise<JournalCommentRecord> {
+  async upsertComment(comment: StoredJournalCommentRecord): Promise<JournalCommentRecord> {
     const comments = await this.#loadComments();
     const index = comments.findIndex((entry) => entry.id === comment.id);
+    const normalized = this.#normalizeComment(comment);
     if (index >= 0) {
-      comments[index] = structuredClone(comment);
+      comments[index] = normalized;
     } else {
-      comments.unshift(structuredClone(comment));
+      comments.unshift(normalized);
     }
     await this.#persistComments();
-    return structuredClone(comment);
+    return structuredClone(normalized);
   }
 
   async removeComment(commentId: string): Promise<boolean> {
@@ -162,7 +167,7 @@ export class JournalStore {
 
   async reset(): Promise<void> {
     this.#journals = structuredClone(this.#seedJournals);
-    this.#comments = structuredClone(this.#seedComments);
+    this.#comments = this.#seedComments.map((comment) => this.#normalizeComment(comment));
     this.#likes = structuredClone(this.#seedLikes);
     await Promise.all([this.#persistJournals(), this.#persistComments(), this.#persistLikes()]);
   }
@@ -179,7 +184,9 @@ export class JournalStore {
     if (this.#comments) {
       return this.#comments;
     }
-    this.#comments = await this.#readArrayFile(this.#commentFilePath, this.#seedComments);
+    this.#comments = (await this.#readArrayFile(this.#commentFilePath, this.#seedComments)).map((comment) =>
+      this.#normalizeComment(comment),
+    );
     return this.#comments;
   }
 
@@ -214,6 +221,13 @@ export class JournalStore {
       }
       throw error;
     }
+  }
+
+  #normalizeComment(comment: StoredJournalCommentRecord): JournalCommentRecord {
+    return {
+      ...structuredClone(comment),
+      media: structuredClone(comment.media ?? []),
+    };
   }
 
   async #persistArrayFile<T>(filePath: string, items: T[]): Promise<void> {
