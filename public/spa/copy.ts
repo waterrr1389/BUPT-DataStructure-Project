@@ -726,6 +726,7 @@ export const appCopy = {
       imageLabel: "添加图片",
       imageFallbackTitle: "评论图片",
       imagePreviewAlt: "已选择的评论图片预览",
+      imageLoadFailed: "图片加载失败",
       removeImage: "移除图片",
       unknownImageType: "未知图片类型",
       imageSummary: (mimeType: unknown, size: unknown) =>

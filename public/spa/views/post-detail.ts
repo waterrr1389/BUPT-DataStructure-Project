@@ -122,6 +122,15 @@ async function readTextFile(file): Promise<string> {
   });
 }
 
+function isCompressedJournalJsonFile(file): boolean {
+  const name = text(file?.name).toLowerCase();
+  const mimeType = text(file?.type).toLowerCase();
+  if (name && !name.endsWith(".json")) {
+    return false;
+  }
+  return name.endsWith(".json") || mimeType === "application/json" || mimeType.endsWith("+json");
+}
+
 function validateCompressedJournalFile(payload) {
   if (!payload || typeof payload !== "object") {
     throw new Error("Invalid compressed journal file.");
@@ -152,6 +161,7 @@ function commentMediaMarkup(item) {
             src="${escapeHtml(entry.source)}"
             alt="${escapeHtml(title)}"
             loading="lazy"
+            data-comment-media-image="true"
           />
           <figcaption>${escapeHtml(title)}</figcaption>
         </figure>
@@ -786,6 +796,20 @@ export async function render(
     clearSelectedCommentImage();
   });
 
+  commentsContainer.addEventListener("error", (event) => {
+    const image = event.target?.closest?.("[data-comment-media-image='true']");
+    if (!image) {
+      return;
+    }
+    image.classList.add("is-load-failed");
+    image.setAttribute("alt", copy.commentsSurface.imageLoadFailed);
+    const frame = image.closest(".comment-media-frame");
+    if (frame) {
+      frame.classList.add("is-image-load-failed");
+      frame.setAttribute("data-image-error", copy.commentsSurface.imageLoadFailed);
+    }
+  }, true);
+
   root.querySelector("#post-export-compressed").addEventListener("click", async () => {
     try {
       const payload = await app.requestJson("/api/journal-exchange/compress", {
@@ -823,6 +847,9 @@ export async function render(
     }
 
     try {
+      if (!isCompressedJournalJsonFile(file)) {
+        throw new Error("Compressed journal import must be a JSON file.");
+      }
       const raw = await readTextFile(file);
       const imported = validateCompressedJournalFile(JSON.parse(raw));
       const payload = await app.requestJson("/api/journal-exchange/decompress", {

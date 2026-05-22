@@ -1882,6 +1882,7 @@ body {
 
 .comment-media-frame {
   display: grid;
+  position: relative;
 }
 
 .comment-media-image {
@@ -1892,8 +1893,20 @@ body {
 }
 
 .comment-media-image[src=""],
-.comment-media-image:not([src]) {
+.comment-media-image:not([src]),
+.comment-media-image.is-load-failed {
   visibility: hidden;
+}
+
+.comment-media-frame.is-image-load-failed::before {
+  content: attr(data-image-error);
+  display: grid;
+  min-height: clamp(160px, 28vw, 320px);
+  place-items: center;
+  padding: 16px;
+  color: rgba(17, 32, 49, 0.66);
+  font-weight: 700;
+  text-align: center;
 }
 
 .comment-media-frame figcaption {
