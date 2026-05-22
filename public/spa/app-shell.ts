@@ -34,6 +34,7 @@ const viewLoaders = {
   feed: () => import("./views/feed.js"),
   compose: () => import("./views/compose.js"),
   post: () => import("./views/post-detail.js"),
+  login: () => import("./views/login.js"),
   notFound: () => import("./views/not-found.js"),
 };
 
@@ -55,6 +56,9 @@ function routeNameFromPath(pathname: string) {
   }
   if (pathname === "/compose") {
     return { name: "compose" };
+  }
+  if (pathname === "/login") {
+    return { name: "login" };
   }
   const postMatch = pathname.match(/^\/posts\/([^/]+)$/);
   if (postMatch) {
@@ -115,6 +119,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       comments: null,
       likes: null,
     },
+    currentUser: null,
   };
 
   const dom = {
@@ -244,6 +249,9 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
         state.userById = new Map(safeArray(bootstrap.users).map((user) => [user.id, user]));
         state.categories = safeArray(bootstrap.categories);
         state.cuisines = safeArray(bootstrap.cuisines);
+        if (bootstrap?.currentUser) {
+          state.currentUser = bootstrap.currentUser;
+        }
 
         setStatus(
           appCopy.shell.runtimeDataStatus(bootstrap?.source?.data, bootstrap?.source?.algorithms),
@@ -307,6 +315,13 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
    */
   function getCuisines() {
     return state.cuisines;
+  }
+
+  /**
+   * Returns the currently authenticated user cached from bootstrap or auth checks.
+   */
+  function getCurrentUser() {
+    return state.currentUser;
   }
 
   /**
@@ -392,6 +407,10 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
             <a href="/feed" data-nav="true" data-route-name="feed">${appCopy.nav.items.feed}</a>
             <a href="/compose" data-nav="true" data-route-name="compose">${appCopy.nav.items.compose}</a>
           </nav>
+          <div class="user-bar" id="user-bar">
+            <span class="user-label" id="user-label"></span>
+            <button class="logout-btn" id="logout-btn" type="button">退出</button>
+          </div>
           <div class="status-pill" id="status-pill" data-tone="neutral">${appCopy.common.status.loadingRuntime}</div>
         </header>
         <main class="site-main">
@@ -407,6 +426,30 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     dom.status = root.querySelector("#status-pill");
     dom.navToggle = root.querySelector("#nav-toggle");
     dom.backToTop = root.querySelector("#back-to-top");
+  }
+
+  function renderUserBar() {
+    const userBar = root.querySelector("#user-bar");
+    const userLabel = root.querySelector("#user-label");
+    const logoutBtn = root.querySelector("#logout-btn");
+    if (!userBar || !userLabel || !logoutBtn) {
+      return;
+    }
+    if (state.currentUser) {
+      userLabel.textContent = state.currentUser.name || "";
+      logoutBtn.hidden = false;
+      logoutBtn.addEventListener("click", async () => {
+        try {
+          await requestJson("/api/auth/logout", { method: "POST" });
+        } catch {
+          // ignore logout errors
+        }
+        window.location.reload();
+      });
+    } else {
+      userLabel.innerHTML = `<a href="/login" data-nav="true">登录</a>`;
+      logoutBtn.hidden = true;
+    }
   }
 
   function syncShellLinks(route = parseRoute()) {
@@ -456,6 +499,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       feed: appCopy.nav.items.feed,
       compose: appCopy.nav.items.compose,
       post: appCopy.nav.items.post,
+      login: "登录",
       notFound: appCopy.nav.items.notFound,
     };
     const routeLabel = titleByRoute[route?.name] || appCopy.nav.items.view;
@@ -772,6 +816,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       feed: appCopy.nav.items.feed,
       compose: appCopy.nav.items.compose,
       post: appCopy.nav.items.post,
+      login: "登录",
       notFound: appCopy.nav.items.notFound,
     };
 
@@ -817,7 +862,36 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   async function start() {
     renderShell();
     installGlobalEvents();
+
+    let currentUser = null;
+    let authAvailable = false;
+    try {
+      const me = await requestJsonMaybe("/api/auth/me");
+      if (me.ok) {
+        currentUser = me.payload?.item ?? null;
+        authAvailable = true;
+      } else if (!isMissingEndpointResponse(me)) {
+        authAvailable = true;
+      }
+    } catch {
+      // Treat as no auth endpoint available
+    }
+    state.currentUser = currentUser;
+
+    const route = parseRoute();
+    if (authAvailable && !currentUser && route.name !== "login") {
+      navigate("/login", { replace: true, render: false });
+      await loadBootstrap();
+      renderUserBar();
+      await renderRoute({ preserveScroll: true });
+      return;
+    }
+    if (authAvailable && currentUser && route.name === "login") {
+      navigate("/", { replace: true, render: false });
+    }
+
     await loadBootstrap();
+    renderUserBar();
     await renderRoute({ preserveScroll: true });
   }
 
@@ -834,6 +908,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     getFeaturedDestinations,
     getCategories,
     getCuisines,
+    getCurrentUser,
     ensureDestinationDetails,
     requestJson,
     setStatus,

@@ -1,6 +1,6 @@
 export type JsonRecord = Record<string, unknown>;
 
-export type RouteName = "home" | "explore" | "map" | "feed" | "compose" | "post" | "notFound";
+export type RouteName = "home" | "explore" | "map" | "feed" | "compose" | "post" | "login" | "notFound";
 
 export type RouteParams = {
   destinationId: string;
@@ -140,6 +140,8 @@ export interface SpaApp {
   getCategories(): string[];
   /** Returns the cuisine list exposed by bootstrap data. */
   getCuisines(): string[];
+  /** Returns the currently authenticated user cached from bootstrap or auth checks. */
+  getCurrentUser(): JsonRecord | null;
   /** Loads feed items and reports whether the social feed or fallback source was used. */
   fetchFeed(filters?: Record<string, unknown>): Promise<FeedResult>;
   /** Loads recommended journals for the supplied filter context. */
