@@ -1545,13 +1545,14 @@ test("post detail exports compressed journal JSON without media payloads", async
     const downloads: Array<{ download: string; href: string; payload: Record<string, unknown> }> = [];
     const root = env.createRoot();
     const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const journalBody = "  Quiet bridge walk with image source /uploads/images/image-demo.png\n";
     const fixture = createPostDetailFixture({
-      journalBody: "Quiet bridge walk with image source /uploads/images/image-demo.png",
+      journalBody,
       journalMedia: [{ source: "data:image/png;base64,AAAA", title: "Should not export", type: "image" }],
       requestJsonImpl: async (endpoint, options) => {
         if (endpoint === "/api/journal-exchange/compress") {
           assert.deepEqual(JSON.parse(options?.body ?? "{}"), {
-            body: "Quiet bridge walk with image source /uploads/images/image-demo.png",
+            body: journalBody,
           });
           return {
             item: {
@@ -1626,7 +1627,7 @@ test("post detail exports compressed journal JSON without media payloads", async
       {
         endpoint: "/api/journal-exchange/compress",
         payload: {
-          body: "Quiet bridge walk with image source /uploads/images/image-demo.png",
+          body: journalBody,
         },
       },
     ]);
@@ -1674,11 +1675,12 @@ test("post detail imports compressed journal JSON as a non-mutating preview", as
   try {
     const root = env.createRoot();
     const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const compressedBody = " \u8000,20,30\n";
     const fixture = createPostDetailFixture({
       requestJsonImpl: async (endpoint, options) => {
         if (endpoint === "/api/journal-exchange/decompress") {
           assert.deepEqual(JSON.parse(options?.body ?? "{}"), {
-            body: "10,20,30",
+            body: compressedBody,
           });
           return {
             item: {
@@ -1705,7 +1707,7 @@ test("post detail imports compressed journal JSON as a non-mutating preview", as
       format: "trail-atlas-journal-lzw-v1",
       algorithm: "lzw",
       title: "Imported Bridge",
-      compressedBody: "10,20,30",
+      compressedBody,
       stats: {
         inputLength: 42,
         payloadLength: 8,
@@ -1723,7 +1725,7 @@ test("post detail imports compressed journal JSON as a non-mutating preview", as
       {
         endpoint: "/api/journal-exchange/decompress",
         payload: {
-          body: "10,20,30",
+          body: compressedBody,
         },
       },
     ]);

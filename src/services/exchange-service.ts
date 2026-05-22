@@ -106,6 +106,14 @@ function deserializeCompressedData(input: string): LzwCompressedData {
   return parsed;
 }
 
+function assertNonBlankRaw(value: string | undefined, message: string): string {
+  const raw = value ?? "";
+  if (!raw.trim()) {
+    throw new Error(message);
+  }
+  return raw;
+}
+
 export function createExchangeService(runtime: ResolvedRuntime, store: JournalStore) {
   return {
     async byDestination(destinationId: string, limit?: number) {
@@ -149,7 +157,7 @@ export function createExchangeService(runtime: ResolvedRuntime, store: JournalSt
     },
 
     compress(body: string) {
-      const text = assertNonEmpty(body, "Compression requires journal text.");
+      const text = assertNonBlankRaw(body, "Compression requires journal text.");
       const result = compressJournalText(text);
       const compressed = serializeCompressedData(result.data);
       const inputLength = text.length;
@@ -172,7 +180,7 @@ export function createExchangeService(runtime: ResolvedRuntime, store: JournalSt
     },
 
     decompress(body: string) {
-      const text = assertNonEmpty(body, "Decompression requires compressed text.");
+      const text = assertNonBlankRaw(body, "Decompression requires compressed text.");
       return {
         text: decompressJournalText(deserializeCompressedData(text)),
       };

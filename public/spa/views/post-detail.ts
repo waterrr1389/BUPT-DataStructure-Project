@@ -56,6 +56,10 @@ function compressionNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(numberValue) ? numberValue : fallback;
 }
 
+function rawString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
 function requiredCompressionStat(stats, key: string): number {
   const value = stats?.[key];
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -65,7 +69,7 @@ function requiredCompressionStat(stats, key: string): number {
 }
 
 function normalizeCompressionStats(item, body: string) {
-  const compressed = text(item?.compressed);
+  const compressed = rawString(item?.compressed);
   const inputLength = compressionNumber(item?.inputLength ?? item?.originalLength, body.length);
   const payloadLength = compressionNumber(item?.payloadLength, compressed.length);
   const compressionRatio = compressionNumber(
@@ -146,8 +150,8 @@ function validateCompressedJournalFile(payload) {
   if (payload.format !== COMPRESSED_JOURNAL_FORMAT || payload.algorithm !== COMPRESSED_JOURNAL_ALGORITHM) {
     throw new Error("Unsupported compressed journal file.");
   }
-  const compressedBody = text(payload.compressedBody);
-  if (!compressedBody) {
+  const compressedBody = rawString(payload.compressedBody);
+  if (!compressedBody.trim()) {
     throw new Error("Compressed journal file is missing a body payload.");
   }
   if (!payload.stats || typeof payload.stats !== "object") {
@@ -831,14 +835,14 @@ export async function render(
       const payload = await app.requestJson("/api/journal-exchange/compress", {
         method: "POST",
         body: JSON.stringify({
-          body: text(journal.body),
+          body: rawString(journal.body),
         }),
       });
-      const compressedBody = text(payload?.item?.compressed);
-      if (!compressedBody) {
+      const compressedBody = rawString(payload?.item?.compressed);
+      if (!compressedBody.trim()) {
         throw new Error("Compressed payload is missing.");
       }
-      const stats = normalizeCompressionStats(payload.item, text(journal.body));
+      const stats = normalizeCompressionStats(payload.item, rawString(journal.body));
       const filePayload = {
         format: COMPRESSED_JOURNAL_FORMAT,
         algorithm: COMPRESSED_JOURNAL_ALGORITHM,

@@ -958,8 +958,7 @@ test("server preserves legacy journal media and exposes compact feed media count
 
 test("server keeps journal exchange compression endpoints compatible", async () => {
   await withServer("journal-exchange-http-compression", async ({ requestJson }) => {
-    const body = "North Institute indoor archive loop. ".repeat(12);
-    const normalizedBody = body.trim();
+    const body = `  ${"North Institute indoor archive loop. ".repeat(12)}\n`;
     const compressed = await requestJson<{
       item: {
         compressed: string;
@@ -978,12 +977,12 @@ test("server keeps journal exchange compression endpoints compatible", async () 
     });
 
     assert.equal(compressed.status, 200, compressed.text);
-    assert.equal(compressed.body.item.inputLength, normalizedBody.length, compressed.text);
+    assert.equal(compressed.body.item.inputLength, body.length, compressed.text);
     assert.equal(compressed.body.item.payloadLength, compressed.body.item.compressed.length, compressed.text);
     assert.equal(compressed.body.item.compressionRatio > 0, true, compressed.text);
     assert.equal(compressed.body.item.spaceSavings > 0, true, compressed.text);
     assert.equal(decompressed.status, 200, decompressed.text);
-    assert.equal(decompressed.body.item.text, normalizedBody, decompressed.text);
+    assert.equal(decompressed.body.item.text, body, decompressed.text);
   });
 });
 
