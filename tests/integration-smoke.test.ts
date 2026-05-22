@@ -887,7 +887,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
       method: "POST",
     });
     const createdId = created.body.item.id;
-    const commentImageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const commentImageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const commentImageMultipart = createMultipartBody({
       content: commentImageBytes,
       fileName: "comment.png",

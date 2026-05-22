@@ -3,7 +3,7 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import busboy from "busboy";
 import { randomUUID } from "node:crypto";
-import { parseDestinationSortBy, type WorldRoutePlanInvalidRequestRecord } from "../services/contracts";
+import { parseDestinationSortBy, type JournalMedia, type WorldRoutePlanInvalidRequestRecord } from "../services/contracts";
 import { createAppServices, type AppServices } from "../services/index";
 import { isWorldRouteServiceError } from "../services/world-route-service";
 
@@ -150,6 +150,26 @@ function uploadImagesDir(runtimeDir: string): string {
 
 function safeUploadImageFileName(fileName: string): boolean {
   return /^image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif)$/.test(fileName);
+}
+
+function bufferStartsWith(content: Buffer, signature: number[]): boolean {
+  if (content.length < signature.length) {
+    return false;
+  }
+  return signature.every((byte, index) => content[index] === byte);
+}
+
+function imageBytesMatchMimeType(mimeTypeValue: UploadImageMimeType, content: Buffer): boolean {
+  if (mimeTypeValue === "image/png") {
+    return bufferStartsWith(content, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  }
+  if (mimeTypeValue === "image/jpeg") {
+    return content.length >= 3 && content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff;
+  }
+  if (mimeTypeValue === "image/webp") {
+    return content.length >= 12 && content.subarray(0, 4).toString("ascii") === "RIFF" && content.subarray(8, 12).toString("ascii") === "WEBP";
+  }
+  return content.subarray(0, 6).toString("ascii") === "GIF87a" || content.subarray(0, 6).toString("ascii") === "GIF89a";
 }
 
 function rawPathname(requestUrl: string): string {
@@ -338,6 +358,9 @@ async function parseImageUpload(request: IncomingMessage, runtimeDir: string): P
   const id = randomUUID();
   const fileName = `image-${id}.${UPLOAD_IMAGE_MIME_EXTENSIONS[mimeTypeValue]}`;
   const content = Buffer.concat(chunks);
+  if (!imageBytesMatchMimeType(mimeTypeValue, content)) {
+    throw new UploadRequestError(400, "upload_invalid_image_bytes", "Image bytes do not match the declared MIME type.");
+  }
   await fs.mkdir(uploadImagesDir(runtimeDir), { recursive: true });
   await fs.writeFile(path.join(uploadImagesDir(runtimeDir), fileName), content);
 
@@ -415,6 +438,28 @@ function asObject(value: unknown): Record<string, unknown> {
     throw new Error("Request body must be a JSON object.");
   }
   return value as Record<string, unknown>;
+}
+
+function hasOwnValue(value: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function parseCommentMedia(body: Record<string, unknown>): JournalMedia[] | undefined {
+  if (!hasOwnValue(body, "media")) {
+    return undefined;
+  }
+  if (!Array.isArray(body.media)) {
+    throw new Error("Comment media must be an array.");
+  }
+  return body.media.map((entry) => {
+    const candidate = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+    return {
+      type: String(candidate.type ?? "image") as "image" | "video",
+      title: String(candidate.title ?? ""),
+      source: String(candidate.source ?? ""),
+      note: candidate.note ? String(candidate.note) : undefined,
+    };
+  });
 }
 
 function readCookie(request: IncomingMessage, name: string): string | undefined {
@@ -813,14 +858,7 @@ async function handleApi(
         item: await services.journals.createComment(journalId, {
           userId: currentUserId ?? String(body.userId ?? ""),
           body: String(body.body ?? ""),
-          media: Array.isArray(body.media)
-            ? body.media.map((entry) => ({
-                type: String((entry as Record<string, unknown>).type ?? "image") as "image" | "video",
-                title: String((entry as Record<string, unknown>).title ?? ""),
-                source: String((entry as Record<string, unknown>).source ?? ""),
-                note: (entry as Record<string, unknown>).note ? String((entry as Record<string, unknown>).note) : undefined,
-              }))
-            : undefined,
+          media: parseCommentMedia(body),
         }),
       });
       return true;

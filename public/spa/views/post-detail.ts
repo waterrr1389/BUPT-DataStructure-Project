@@ -11,15 +11,153 @@ import {
   resultMetaMarkup,
   safeArray,
   splitLines,
+  text,
 } from "../lib.js";
 import { getDestinationScene, renderRouteVisualization } from "../map-rendering.js";
 import type { SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
 const COMMENTS_PAGE_SIZE = 5;
+const COMMENT_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+const COMMENT_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const COMPRESSED_JOURNAL_FORMAT = "trail-atlas-journal-lzw-v1";
+const COMPRESSED_JOURNAL_ALGORITHM = "lzw";
 
 function mediaTypeLabel(value: unknown): string {
   const key = typeof value === "string" ? value.trim() : "";
   return appCopy.postDetail.mediaTypes[key] || appCopy.postDetail.mediaTypes.media;
+}
+
+function formatFileSize(size: unknown): string {
+  const bytes = Number(size) || 0;
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  return `${bytes} B`;
+}
+
+function createPreviewUrl(file): string {
+  if (typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+    return URL.createObjectURL(file);
+  }
+  return "";
+}
+
+function revokePreviewUrl(url: string): void {
+  if (url && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function compressionNumber(value: unknown, fallback = 0): number {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function normalizeCompressionStats(item, body: string) {
+  const compressed = text(item?.compressed);
+  const originalLength = compressionNumber(item?.inputLength, body.length);
+  const payloadLength = compressionNumber(item?.payloadLength, compressed.length);
+  const compressionRatio = compressionNumber(
+    item?.compressionRatio ?? item?.ratio,
+    originalLength > 0 ? payloadLength / originalLength : 0,
+  );
+  const savingsRatio = compressionNumber(item?.spaceSavings, 1 - compressionRatio);
+
+  return {
+    originalLength,
+    payloadLength,
+    compressionRatio,
+    savingsRatio,
+  };
+}
+
+function compressionMetricsMarkup(stats) {
+  const copy = appCopy.postDetail.compression.metrics;
+  return resultMetaMarkup([
+    copy.originalLength(stats?.originalLength ?? 0),
+    copy.payloadLength(stats?.payloadLength ?? 0),
+    copy.compressionRatio(stats?.compressionRatio ?? 0),
+    copy.savingsRatio(stats?.savingsRatio ?? 0),
+  ]);
+}
+
+function sanitizedDownloadName(value: unknown): string {
+  const normalized = text(value, "journal")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${normalized || "journal"}-compressed.json`;
+}
+
+function downloadJsonFile(fileName: string, payload): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  if (typeof link.click === "function") {
+    link.click();
+  }
+  if (typeof link.remove === "function") {
+    link.remove();
+  }
+  URL.revokeObjectURL(url);
+}
+
+async function readTextFile(file): Promise<string> {
+  if (file && typeof file.text === "function") {
+    return file.text();
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result ?? "")));
+    reader.addEventListener("error", () => reject(new Error("File could not be read.")));
+    reader.readAsText(file);
+  });
+}
+
+function validateCompressedJournalFile(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Invalid compressed journal file.");
+  }
+  if (payload.format !== COMPRESSED_JOURNAL_FORMAT || payload.algorithm !== COMPRESSED_JOURNAL_ALGORITHM) {
+    throw new Error("Unsupported compressed journal file.");
+  }
+  const compressedBody = text(payload.compressedBody);
+  if (!compressedBody) {
+    throw new Error("Compressed journal file is missing a body payload.");
+  }
+  return {
+    compressedBody,
+    stats: payload.stats || {},
+    title: text(payload.title, appCopy.postDetail.compression.previewFallbackTitle),
+  };
+}
+
+function commentMediaMarkup(item) {
+  return safeArray(item?.media)
+    .filter((entry) => entry?.type === "image" && text(entry?.source))
+    .map((entry) => {
+      const title = text(entry.title, appCopy.postDetail.commentsSurface.imageFallbackTitle);
+      return `
+        <figure class="comment-media-frame">
+          <img
+            class="comment-media-image"
+            src="${escapeHtml(entry.source)}"
+            alt="${escapeHtml(title)}"
+            loading="lazy"
+          />
+          <figcaption>${escapeHtml(title)}</figcaption>
+        </figure>
+      `;
+    })
+    .join("");
 }
 
 /**
@@ -34,6 +172,7 @@ function commentMarkup(app: SpaApp, item) {
         <span>${escapeHtml(formatDate(item?.createdAt))}</span>
       </div>
       <p>${escapeHtml(item?.body)}</p>
+      ${commentMediaMarkup(item)}
     </article>
   `;
 }
@@ -177,6 +316,24 @@ export async function render(
           </div>
         </article>
 
+        <article class="surface-card journal-compression-card">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">${escapeHtml(copy.compression.tag)}</p>
+              <h2>${escapeHtml(copy.compression.heading)}</h2>
+            </div>
+          </div>
+          <div class="button-row">
+            <button type="button" id="post-export-compressed">${escapeHtml(copy.compression.exportButton)}</button>
+          </div>
+          <label class="file-input-label">
+            ${escapeHtml(copy.compression.importLabel)}
+            <input id="post-import-compressed" type="file" accept="application/json,.json" />
+          </label>
+          <div id="post-compression-notice"></div>
+          <div id="post-compression-preview" class="compression-preview"></div>
+        </article>
+
         <article class="surface-card">
           <div class="section-head">
             <div>
@@ -207,6 +364,17 @@ export async function render(
           ${escapeHtml(copy.commentsSurface.label)}
           <textarea id="post-comment-body" rows="4" placeholder="${escapeHtml(copy.commentsSurface.placeholder)}"></textarea>
         </label>
+        <div class="comment-image-tools span-all">
+          <label class="file-input-label">
+            ${escapeHtml(copy.commentsSurface.imageLabel)}
+            <input
+              id="post-comment-image"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+            />
+          </label>
+          <div id="post-comment-image-preview" class="comment-image-preview" hidden></div>
+        </div>
         <button type="submit">${escapeHtml(copy.commentsSurface.submit)}</button>
       </form>
       <div id="post-comment-notice"></div>

@@ -723,6 +723,8 @@ export const appCopy = {
       label: "添加评论",
       placeholder: "分享一个安静的观察，或一条路线提示。",
       submit: "发布评论",
+      imageLabel: "添加图片",
+      imageFallbackTitle: "评论图片",
       statusTitle: "评论状态",
       loadingTitle: "评论加载中",
       loadingBody: "详情页会在这里检查社交接口；如果接口缺失，会按预期降级。",
@@ -735,6 +737,19 @@ export const appCopy = {
       loadMore: "加载更多评论",
       loadingMore: "加载中...",
       shownCount: (shown: unknown, total: unknown) => `已显示 ${copyText(shown, "0")} / ${copyText(total, "0")} 条评论`,
+    },
+    compression: {
+      tag: "压缩导出",
+      heading: "日记压缩文件",
+      exportButton: "导出压缩文件",
+      importLabel: "导入压缩文件",
+      previewFallbackTitle: "导入的日记",
+      metrics: {
+        originalLength: (value: unknown) => `原文 ${copyText(value, "0")} 字符`,
+        payloadLength: (value: unknown) => `压缩载荷 ${copyText(value, "0")} 字符`,
+        compressionRatio: (value: unknown) => `压缩比 ${copyText(value, "0")}`,
+        savingsRatio: (value: unknown) => `节省比例 ${copyText(value, "0")}`,
+      },
     },
     metrics: {
       views: (value: unknown) => `浏览 ${copyText(value, "0")}`,

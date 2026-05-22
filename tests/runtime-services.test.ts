@@ -1450,7 +1450,7 @@ test("journal comment media is normalized and legacy comments stay compatible", 
     {
       type: "image" as const,
       title: "Archive entrance",
-      source: "/uploads/images/archive-entrance.webp",
+      source: "/uploads/images/image-11111111-1111-1111-1111-111111111111.webp",
       note: "  North door after lunch  ",
     },
   ];
@@ -1487,7 +1487,7 @@ test("journal comment media is normalized and legacy comments stay compatible", 
     {
       type: "image",
       title: "Archive entrance",
-      source: "/uploads/images/archive-entrance.webp",
+      source: "/uploads/images/image-11111111-1111-1111-1111-111111111111.webp",
       note: "North door after lunch",
     },
   ]);
@@ -1556,12 +1556,12 @@ test("journal comment media rejects unsupported payloads", async () => {
           {
             type: "image",
             title: "Archive entrance",
-            source: "/uploads/images/archive-entrance.webp",
+            source: "/uploads/images/image-22222222-2222-2222-2222-222222222222.webp",
           },
           {
             type: "image",
             title: "Archive exit",
-            source: "/uploads/images/archive-exit.webp",
+            source: "/uploads/images/image-33333333-3333-3333-3333-333333333333.webp",
           },
         ],
         userId: "user-5",
@@ -1576,12 +1576,42 @@ test("journal comment media rejects unsupported payloads", async () => {
           {
             type: "image",
             title: "Archive entrance",
-            source: "/uploads/images/archive-entrance.webp",
+            source: "/uploads/images/image-44444444-4444-4444-4444-444444444444.webp",
           },
         ],
         userId: "user-5",
       }),
     /Comment body is required/,
+  );
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "External images should not be persisted as comment media.",
+        media: [
+          {
+            type: "image",
+            title: "External archive",
+            source: "https://example.com/archive.webp",
+          },
+        ],
+        userId: "user-5",
+      }),
+    /Comment media source must be a generated upload image URL/,
+  );
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "Unrelated local paths should not be persisted as comment media.",
+        media: [
+          {
+            type: "image",
+            title: "Local archive",
+            source: "/assets/archive.webp",
+          },
+        ],
+        userId: "user-5",
+      }),
+    /Comment media source must be a generated upload image URL/,
   );
 });
 
@@ -1877,7 +1907,7 @@ test("journal likes and comments persist across service reloads and reset clears
       {
         type: "image",
         title: "Archive cutoff marker",
-        source: "/uploads/images/archive-cutoff-marker.webp",
+        source: "/uploads/images/image-55555555-5555-5555-5555-555555555555.webp",
       },
     ],
     userId: "user-3",
@@ -1897,7 +1927,7 @@ test("journal likes and comments persist across service reloads and reset clears
     {
       type: "image",
       title: "Archive cutoff marker",
-      source: "/uploads/images/archive-cutoff-marker.webp",
+      source: "/uploads/images/image-55555555-5555-5555-5555-555555555555.webp",
     },
   ]);
 

@@ -28,6 +28,8 @@ import type { ResolvedRuntime } from "./runtime";
 
 const COMMENT_CURSOR_KIND = "comment";
 const FEED_CURSOR_KIND = "feed";
+const GENERATED_UPLOAD_IMAGE_SOURCE_PATTERN =
+  /^\/uploads\/images\/image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif)$/;
 
 type JournalListOptions = {
   destinationId?: string;
@@ -265,6 +267,9 @@ function normalizeNewCommentMedia(media: JournalCommentCreateInput["media"] | un
     }
     const title = assertNonEmpty(item.title, "Comment media title is required.");
     const source = assertNonEmpty(item.source, "Comment media source is required.");
+    if (!GENERATED_UPLOAD_IMAGE_SOURCE_PATTERN.test(source)) {
+      throw new Error("Comment media source must be a generated upload image URL.");
+    }
     return {
       type: "image",
       title,
