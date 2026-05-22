@@ -94,6 +94,22 @@ export type CommentCreationResult = {
   notice: string;
 };
 
+export type CommentMediaInput = {
+  type: "image";
+  title: string;
+  source: string;
+  note?: string;
+};
+
+export type UploadedImageItem = {
+  fileName: string;
+  id?: string;
+  mimeType: string;
+  originalName: string;
+  size: number;
+  url: string;
+};
+
 export type JournalActionResult = {
   available: boolean;
   notice?: string;
@@ -153,8 +169,15 @@ export interface SpaApp {
     journalId: string,
     options?: Record<string, unknown>,
   ): Promise<CommentResponse>;
+  /** Uploads a local image with multipart form data and returns server media metadata. */
+  uploadImage(file: File): Promise<UploadedImageItem>;
   /** Attempts to create a journal comment and reports comment endpoint availability. */
-  createComment(journalId: string, userId: string, body: string): Promise<CommentCreationResult>;
+  createComment(
+    journalId: string,
+    userId: string,
+    body: string,
+    media?: CommentMediaInput[],
+  ): Promise<CommentCreationResult>;
   /** Sends a supported journal action and returns an availability-aware result envelope. */
   sendJournalAction(
     action: string,

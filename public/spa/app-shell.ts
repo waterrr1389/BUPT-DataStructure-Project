@@ -682,13 +682,44 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   /**
    * Creates a comment and reports whether the comment endpoint is available.
    */
-  async function createComment(journalId, userId, body) {
+  async function uploadImage(file) {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch("/api/uploads/images", {
+      method: "POST",
+      body: formData,
+    });
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        frontendErrorMessage({
+          code: payload?.code,
+          context: "/api/uploads/images",
+          status: response.status,
+        }),
+      );
+    }
+
+    return payload?.item;
+  }
+
+  /**
+   * Creates a comment and reports whether the comment endpoint is available.
+   */
+  async function createComment(journalId, userId, body, media = []) {
+    const requestBody = {
+      userId,
+      body,
+    };
+    if (Array.isArray(media) && media.length) {
+      requestBody.media = media;
+    }
+
     const response = await requestJsonMaybe(`/api/journals/${encodeURIComponent(journalId)}/comments`, {
       method: "POST",
-      body: JSON.stringify({
-        userId,
-        body,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (response.ok) {
@@ -927,6 +958,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     fetchRecommendedJournals,
     fetchJournalDetail,
     fetchJournalComments,
+    uploadImage,
     createComment,
     sendJournalAction,
     start,
