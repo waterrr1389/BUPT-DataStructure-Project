@@ -1515,7 +1515,12 @@ test("post detail marks broken comment images without changing the card bounds",
     assert.equal(image.classList.contains("is-load-failed"), true);
     assert.equal(image.getAttribute("alt"), "图片加载失败");
     assert.equal(frame.classList.contains("is-image-load-failed"), true);
+    assert.equal(frame.getAttribute("data-image-state"), "failed");
     assert.equal(frame.getAttribute("data-image-error"), "图片加载失败");
+    assert.equal(image.hasAttribute("hidden"), true);
+    assert.equal(image.getAttribute("aria-hidden"), "true");
+    const fallback = requireElement(root, "[data-comment-media-fallback='true']");
+    assert.equal(fallback.hasAttribute("hidden"), false);
     assert.ok(requireElement(root, "#post-comments").innerHTML.includes("Image source may fail in a classroom demo."));
 
     if (typeof cleanup === "function") {
@@ -1532,7 +1537,10 @@ test("post detail comment media CSS keeps broken and narrow images bounded", asy
   assert.match(css, /\.comment-media-frame\s*\{[\s\S]*?width:\s*min\(100%,\s*520px\)/);
   assert.match(css, /\.comment-media-image\s*\{[\s\S]*?aspect-ratio:\s*16\s*\/\s*9/);
   assert.match(css, /\.comment-media-image\s*\{[\s\S]*?max-height:\s*320px/);
-  assert.match(css, /\.comment-media-frame\.is-image-load-failed::before\s*\{[\s\S]*?min-height:\s*clamp/);
+  assert.match(css, /\.comment-media-image\[hidden\],[\s\S]*?\.comment-media-image\.is-load-failed\s*\{[\s\S]*?display:\s*none/);
+  assert.match(css, /\.comment-media-fallback\s*\{[\s\S]*?min-height:\s*clamp/);
+  assert.match(css, /\.comment-media-fallback\[hidden\]\s*\{[\s\S]*?display:\s*none/);
+  assert.doesNotMatch(css, /visibility:\s*hidden/);
   assert.match(css, /\.comment-media-frame figcaption\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
 });
 
@@ -1684,7 +1692,7 @@ test("post detail imports compressed journal JSON as a non-mutating preview", as
           });
           return {
             item: {
-              text: "Restored bridge note.\n\nSecond restored line.",
+              text: "  Restored bridge note.\n\nSecond restored line.\n  ",
             },
           };
         }
@@ -1731,8 +1739,8 @@ test("post detail imports compressed journal JSON as a non-mutating preview", as
     ]);
     const preview = requireElement(root, "#post-compression-preview");
     assert.ok(preview.innerHTML.includes("Imported Bridge"));
-    assert.ok(preview.innerHTML.includes("Restored bridge note."));
-    assert.ok(preview.innerHTML.includes("Second restored line."));
+    assert.ok(preview.innerHTML.includes("<pre class=\"compression-restored-body\">  Restored bridge note.\n\nSecond restored line.\n  </pre>"));
+    assert.equal(preview.innerHTML.includes("<p>Restored bridge note.</p>"), false);
     assert.ok(preview.innerHTML.includes("原文 42 字符"));
     assert.ok(preview.innerHTML.includes("压缩载荷 8 字符"));
     assert.ok(preview.innerHTML.includes("压缩比 0.19"));

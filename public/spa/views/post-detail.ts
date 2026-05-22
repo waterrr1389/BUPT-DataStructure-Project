@@ -60,6 +60,15 @@ function rawString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function escapeLiteralHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function requiredCompressionStat(stats, key: string): number {
   const value = stats?.[key];
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -174,8 +183,9 @@ function commentMediaMarkup(item) {
     .filter((entry) => entry?.type === "image" && text(entry?.source))
     .map((entry) => {
       const title = text(entry.title, appCopy.postDetail.commentsSurface.imageFallbackTitle);
+      const fallbackLabel = appCopy.postDetail.commentsSurface.imageLoadFailed;
       return `
-        <figure class="comment-media-frame">
+        <figure class="comment-media-frame" data-image-state="available">
           <img
             class="comment-media-image"
             src="${escapeHtml(entry.source)}"
@@ -183,6 +193,12 @@ function commentMediaMarkup(item) {
             loading="lazy"
             data-comment-media-image="true"
           />
+          <div
+            class="comment-media-fallback"
+            hidden
+            role="note"
+            data-comment-media-fallback="true"
+          >${escapeHtml(fallbackLabel)}</div>
           <figcaption>${escapeHtml(title)}</figcaption>
         </figure>
       `;
@@ -652,9 +668,7 @@ export async function render(
         <p class="section-tag">${escapeHtml(copy.compression.previewTag)}</p>
         <h3>${escapeHtml(title)}</h3>
         ${compressionMetricsMarkup(stats)}
-        <div class="reading-flow">
-          ${splitLines(restoredBody).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
-        </div>
+        <pre class="compression-restored-body">${escapeLiteralHtml(restoredBody)}</pre>
       </article>
     `;
   }
@@ -822,11 +836,18 @@ export async function render(
       return;
     }
     image.classList.add("is-load-failed");
+    image.setAttribute("aria-hidden", "true");
+    image.setAttribute("hidden", "");
     image.setAttribute("alt", copy.commentsSurface.imageLoadFailed);
     const frame = image.closest(".comment-media-frame");
     if (frame) {
       frame.classList.add("is-image-load-failed");
+      frame.setAttribute("data-image-state", "failed");
       frame.setAttribute("data-image-error", copy.commentsSurface.imageLoadFailed);
+      const fallback = frame.querySelector("[data-comment-media-fallback='true']");
+      if (fallback) {
+        fallback.removeAttribute("hidden");
+      }
     }
   }, true);
 
@@ -878,8 +899,8 @@ export async function render(
           body: imported.compressedBody,
         }),
       });
-      const restoredBody = text(payload?.item?.text);
-      if (!restoredBody) {
+      const restoredBody = rawString(payload?.item?.text);
+      if (!restoredBody.length) {
         throw new Error("Decompressed text is missing.");
       }
       renderCompressionPreview(imported.title, restoredBody, imported.stats);
