@@ -50,7 +50,7 @@ export async function render(
   const defaultDestinationId = route.params.destinationId || app.getDestinationOptions()[0]?.id || "";
   const defaultUserId = users.some((user) => user.id === route.params.actor)
     ? route.params.actor
-    : users[0]?.id || "";
+    : app.state.currentUser?.id || users[0]?.id || "";
 
   root.innerHTML = `
     <section class="route-hero route-hero-compose">

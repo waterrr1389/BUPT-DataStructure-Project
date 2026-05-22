@@ -43,7 +43,7 @@ export async function render(
   const destinationOptions = app.getDestinationOptions();
   const actorDefault = users.some((user) => user.id === route.params.actor)
     ? route.params.actor
-    : users[0]?.id || "";
+    : app.state.currentUser?.id || users[0]?.id || "";
 
   root.innerHTML = `
     <section class="route-hero route-hero-feed">

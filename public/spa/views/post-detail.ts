@@ -53,7 +53,7 @@ export async function render(
   const users = safeArray(app.getBootstrap()?.users);
   const actorDefault = users.some((user) => user.id === route.params.actor)
     ? route.params.actor
-    : users[0]?.id || "";
+    : app.state.currentUser?.id || users[0]?.id || "";
   const feedHref = createRouteContextHref("/feed", {}, actorDefault);
   const composeHref = createRouteContextHref("/compose", {}, actorDefault);
 
