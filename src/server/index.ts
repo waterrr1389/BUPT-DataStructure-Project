@@ -258,7 +258,7 @@ async function parseImageUpload(request: IncomingMessage, runtimeDir: string): P
     }
   };
 
-  const closePromise = new Promise<void>((resolve, reject) => {
+  const closePromise = new Promise<void>((resolve) => {
     parser.on("file", (_name, stream, info) => {
       stream.on("error", () => {
         setUploadError(new UploadRequestError(400, "upload_invalid_multipart", "Request must be valid multipart form data."));
@@ -299,7 +299,8 @@ async function parseImageUpload(request: IncomingMessage, runtimeDir: string): P
       setUploadError(new UploadRequestError(400, "upload_single_file_required", "Only one image file can be uploaded."));
     });
     parser.on("error", () => {
-      reject(new UploadRequestError(400, "upload_invalid_multipart", "Request must be valid multipart form data."));
+      setUploadError(new UploadRequestError(400, "upload_invalid_multipart", "Request must be valid multipart form data."));
+      resolve();
     });
     parser.on("close", () => {
       resolve();
@@ -315,6 +316,9 @@ async function parseImageUpload(request: IncomingMessage, runtimeDir: string): P
     await closePromise;
   } catch (error) {
     closePromise.catch(() => undefined);
+    if (uploadError) {
+      throw uploadError;
+    }
     if (error instanceof UploadRequestError) {
       throw error;
     }
