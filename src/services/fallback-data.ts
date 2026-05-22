@@ -93,6 +93,7 @@ const CAMPUS_PREFIXES = [
   "Lotus",
   "Atlas",
   "Vertex",
+  "Metro",
 ];
 
 const CAMPUS_SUFFIXES = [
@@ -104,6 +105,8 @@ const CAMPUS_SUFFIXES = [
   "Research Park",
   "Learning Hub",
   "University Center",
+  "Conservatory",
+  "School",
 ];
 
 type NodeKey =
@@ -350,13 +353,14 @@ function heatFor(index: number): number {
 }
 
 function createDestinationName(index: number, type: DestinationType): string {
+  const subIndex = Math.floor(index / 2);
   if (type === "scenic") {
-    const adjective = SCENIC_ADJECTIVES[index % SCENIC_ADJECTIVES.length];
-    const noun = SCENIC_NOUNS[(index * 3) % SCENIC_NOUNS.length];
+    const adjective = SCENIC_ADJECTIVES[subIndex % SCENIC_ADJECTIVES.length];
+    const noun = SCENIC_NOUNS[(subIndex * 3) % SCENIC_NOUNS.length];
     return `${adjective} ${noun}`;
   }
-  const prefix = CAMPUS_PREFIXES[index % CAMPUS_PREFIXES.length];
-  const suffix = CAMPUS_SUFFIXES[(index * 2) % CAMPUS_SUFFIXES.length];
+  const prefix = CAMPUS_PREFIXES[subIndex % CAMPUS_PREFIXES.length];
+  const suffix = CAMPUS_SUFFIXES[(subIndex * 3) % CAMPUS_SUFFIXES.length];
   return `${prefix} ${suffix}`;
 }
 
