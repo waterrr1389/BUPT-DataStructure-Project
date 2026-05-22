@@ -376,6 +376,21 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
       fileName: "large.png",
       mimeType: "image/png",
     });
+    const emptyMultipart = createMultipartBody({
+      content: Buffer.alloc(0),
+      fileName: "empty.png",
+      mimeType: "image/png",
+    });
+    const malformedBoundary = "trail-atlas-malformed";
+    const malformedMultipart = Buffer.from(
+      [
+        `--${malformedBoundary}`,
+        `Content-Disposition: form-data; name="file"; filename="broken.png"`,
+        "Content-Type: image/png",
+        "",
+        "not closed",
+      ].join("\r\n"),
+    );
 
     const textUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
       body: textMultipart.body,
@@ -387,6 +402,16 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
       headers: { "content-type": oversizedMultipart.contentType },
       method: "POST",
     });
+    const emptyUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
+      body: emptyMultipart.body,
+      headers: { "content-type": emptyMultipart.contentType },
+      method: "POST",
+    });
+    const malformedUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
+      body: malformedMultipart,
+      headers: { "content-type": `multipart/form-data; boundary=${malformedBoundary}` },
+      method: "POST",
+    });
     const traversal = await requestJson<{ error: string }>("/uploads/images/../journals.json");
     const encodedTraversal = await requestJson<{ error: string }>("/uploads/images/%2e%2e%2fjournals.json");
 
@@ -394,6 +419,10 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
     assert.equal(textUpload.body.code, "upload_unsupported_image_type", textUpload.text);
     assert.equal(oversizedUpload.status, 413, oversizedUpload.text);
     assert.equal(oversizedUpload.body.code, "upload_image_too_large", oversizedUpload.text);
+    assert.equal(emptyUpload.status, 400, emptyUpload.text);
+    assert.equal(emptyUpload.body.code, "upload_image_empty", emptyUpload.text);
+    assert.equal(malformedUpload.status, 400, malformedUpload.text);
+    assert.equal(malformedUpload.body.code, "upload_invalid_multipart", malformedUpload.text);
     assert.equal(traversal.status, 403, traversal.text);
     assert.equal(encodedTraversal.status, 403, encodedTraversal.text);
   });
@@ -858,6 +887,32 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
       method: "POST",
     });
     const createdId = created.body.item.id;
+    const commentImageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const commentImageMultipart = createMultipartBody({
+      content: commentImageBytes,
+      fileName: "comment.png",
+      mimeType: "image/png",
+    });
+    const commentImageUpload = await requestJson<{
+      item: {
+        mimeType: string;
+        originalName: string;
+        size: number;
+        url: string;
+      };
+    }>("/api/uploads/images", {
+      body: commentImageMultipart.body,
+      headers: { "content-type": commentImageMultipart.contentType },
+      method: "POST",
+    });
+    const commentMedia = [
+      {
+        type: "image",
+        title: "Archive route snapshot",
+        source: commentImageUpload.body.item.url,
+        note: "A compact route preview.",
+      },
+    ];
 
     const liked = await requestJson<{ item: { likeCount: number; viewerHasLiked: boolean } }>(
       `/api/journals/${createdId}/likes`,
@@ -876,6 +931,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
         body: {
           userId: "user-5",
           body: "Archive shortcut worked better than the outdoor loop.",
+          media: commentMedia,
         },
         method: "POST",
       },
@@ -963,6 +1019,10 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(created.status, 201, created.text);
     assert.equal(created.body.item.id, "journal-13");
     assert.equal(created.body.item.title, "North Institute social memo");
+    assert.equal(commentImageUpload.status, 201, commentImageUpload.text);
+    assert.equal(commentImageUpload.body.item.mimeType, "image/png", commentImageUpload.text);
+    assert.equal(commentImageUpload.body.item.originalName, "comment.png", commentImageUpload.text);
+    assert.equal(commentImageUpload.body.item.size, commentImageBytes.length, commentImageUpload.text);
 
     assert.equal(liked.status, 200, liked.text);
     assert.equal(liked.body.item.likeCount, 1, liked.text);
@@ -974,8 +1034,10 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(secondComment.status, 201, secondComment.text);
     assert.equal(commentPage.body.totalCount, 2, commentPage.text);
     assert.equal(commentPage.body.items[0]?.id, secondComment.body.item.id, commentPage.text);
+    assert.deepEqual(commentPage.body.items[0]?.media, [], commentPage.text);
     assert.equal(commentPage.body.nextCursor !== null, true, commentPage.text);
     assert.equal(nextCommentPage.body.items[0]?.id, firstComment.body.item.id, nextCommentPage.text);
+    assert.deepEqual(nextCommentPage.body.items[0]?.media, commentMedia, nextCommentPage.text);
     assert.equal(wrongDelete.status, 400, wrongDelete.text);
     expectMatches(wrongDelete.body.error, /cannot delete comment/i);
     assert.equal(deletedComment.body.deleted, true, deletedComment.text);

@@ -260,6 +260,9 @@ async function parseImageUpload(request: IncomingMessage, runtimeDir: string): P
 
   const closePromise = new Promise<void>((resolve, reject) => {
     parser.on("file", (_name, stream, info) => {
+      stream.on("error", () => {
+        setUploadError(new UploadRequestError(400, "upload_invalid_multipart", "Request must be valid multipart form data."));
+      });
       if (fileSeen) {
         setUploadError(new UploadRequestError(400, "upload_single_file_required", "Only one image file can be uploaded."));
         stream.resume();
@@ -303,12 +306,20 @@ async function parseImageUpload(request: IncomingMessage, runtimeDir: string): P
     });
   });
 
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    parser.write(buffer);
+  try {
+    for await (const chunk of request) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      parser.write(buffer);
+    }
+    parser.end();
+    await closePromise;
+  } catch (error) {
+    closePromise.catch(() => undefined);
+    if (error instanceof UploadRequestError) {
+      throw error;
+    }
+    throw new UploadRequestError(400, "upload_invalid_multipart", "Request must be valid multipart form data.");
   }
-  parser.end();
-  await closePromise;
 
   if (uploadError) {
     throw uploadError;
@@ -798,6 +809,14 @@ async function handleApi(
         item: await services.journals.createComment(journalId, {
           userId: currentUserId ?? String(body.userId ?? ""),
           body: String(body.body ?? ""),
+          media: Array.isArray(body.media)
+            ? body.media.map((entry) => ({
+                type: String((entry as Record<string, unknown>).type ?? "image") as "image" | "video",
+                title: String((entry as Record<string, unknown>).title ?? ""),
+                source: String((entry as Record<string, unknown>).source ?? ""),
+                note: (entry as Record<string, unknown>).note ? String((entry as Record<string, unknown>).note) : undefined,
+              }))
+            : undefined,
         }),
       });
       return true;
