@@ -184,7 +184,7 @@ test("feed exchange compression controls keep the legacy endpoint contract", asy
       if (endpoint === "/api/journal-exchange/compress") {
         return {
           item: {
-            compressed: "10,20,30",
+            compressed: " \t10,20,30\n ",
             ratio: 0.5,
           },
         };
@@ -222,7 +222,7 @@ test("feed exchange compression controls keep the legacy endpoint contract", asy
         },
       },
     ]);
-    assert.equal((fixture.app.state as { lastCompressed?: string }).lastCompressed, "10,20,30");
+    assert.equal((fixture.app.state as { lastCompressed?: string }).lastCompressed, " \t10,20,30\n ");
     assert.ok(requireElement(root, "#feed-exchange-results").innerHTML.includes("10,20,30"));
 
     requireElement(root, "#feed-compression-body").value = "Manual fallback text must not win.";
@@ -239,11 +239,23 @@ test("feed exchange compression controls keep the legacy endpoint contract", asy
       {
         endpoint: "/api/journal-exchange/decompress",
         payload: {
-          body: "10,20,30",
+          body: " \t10,20,30\n ",
         },
       },
     ]);
     assert.ok(requireElement(root, "#feed-exchange-results").innerHTML.includes("Restored feed exchange note."));
+
+    (fixture.app.state as { lastCompressed?: string }).lastCompressed = "";
+    requireElement(root, "#feed-compression-body").value = " \nlegacy compressed payload\t ";
+    dispatchDomEvent(requireElement(root, "#feed-decompress"), "click");
+    await settleAsync();
+
+    assert.deepEqual(exchangeRequests[exchangeRequests.length - 1], {
+      endpoint: "/api/journal-exchange/decompress",
+      payload: {
+        body: " \nlegacy compressed payload\t ",
+      },
+    });
   } finally {
     restore();
   }

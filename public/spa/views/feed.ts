@@ -9,7 +9,6 @@ import {
   noticeMarkup,
   resultMetaMarkup,
   safeArray,
-  text,
 } from "../lib.js";
 import type { SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
@@ -421,7 +420,8 @@ export async function render(
         method: "POST",
         body: JSON.stringify({ body }),
       });
-      app.state.lastCompressed = text(payload.item?.compressed);
+      app.state.lastCompressed =
+        typeof payload.item?.compressed === "string" ? payload.item.compressed : String(payload.item?.compressed ?? "");
       await refreshExchangeResults([
         exchangeBlock(
           copy.exchange.results.compressed,
@@ -438,7 +438,7 @@ export async function render(
   root.querySelector("#feed-decompress").addEventListener("click", async () => {
     try {
       const body =
-        app.state.lastCompressed || root.querySelector("#feed-compression-body").value.trim();
+        app.state.lastCompressed || root.querySelector("#feed-compression-body").value;
       const payload = await app.requestJson("/api/journal-exchange/decompress", {
         method: "POST",
         body: JSON.stringify({ body }),
