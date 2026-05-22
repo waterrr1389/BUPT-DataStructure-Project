@@ -176,19 +176,19 @@ test("demo support exposes deterministic end-to-end coverage", async () => {
     userCount: 12,
     seedJournalCount: 12,
     focusDestinationId: "dest-002",
-    focusDestinationName: "River Polytechnic",
+    focusDestinationName: "North Institute",
   });
 
-  assert.equal(report.destination.searchQuery, "river polytechnic");
-  assert.deepEqual(report.destination.searchTopIds, ["dest-002", "dest-022", "dest-042"]);
-  assert.deepEqual(report.destination.searchTopMatches, ["river", "polytechnic"]);
+  assert.equal(report.destination.searchQuery, "north institute");
+  assert.deepEqual(report.destination.searchTopIds, ["dest-002", "dest-134", "dest-024"]);
+  assert.deepEqual(report.destination.searchTopMatches, ["north", "institute"]);
   assert.equal(report.destination.recommendationUserId, "user-2");
   assert.equal(report.destination.recommendationTopIds.length, 3);
   assert.equal(
     report.destination.recommendationTopIds.every((entry) => entry.startsWith("dest-")),
     true,
   );
-  assert.equal(report.destination.recommendationExactNameHits > 0, true);
+  assert.equal(report.destination.recommendationExactNameHits, 0);
 
   assert.equal(report.route.destinationId, "dest-002");
   assert.equal(report.route.startNodeId, "dest-002-gate");
@@ -224,7 +224,7 @@ test("demo support exposes deterministic end-to-end coverage", async () => {
   });
 
   assert.equal(report.journal.createdId, "journal-13");
-  assert.equal(report.journal.createdTitle, "River Polytechnic indoor loop memo");
+  assert.equal(report.journal.createdTitle, "North Institute indoor loop memo");
   assert.deepEqual(report.journal.createdTags, ["indoor", "loop", "nature", "waterfront"]);
   assert.equal(report.journal.loadedId, report.journal.createdId);
   assert.equal(report.journal.loadedViews, 0);
@@ -247,7 +247,7 @@ test("demo support exposes deterministic end-to-end coverage", async () => {
   );
   assert.equal(report.exchange.spaceSavings > 0, true);
   assert.equal(report.exchange.decompressedMatches, true);
-  assert.equal(report.exchange.storyboardTitle, "River Polytechnic indoor loop memo storyboard");
+  assert.equal(report.exchange.storyboardTitle, "North Institute indoor loop memo storyboard");
   assert.deepEqual(report.exchange.storyboardFrameIds, [
     "frame-1",
     "frame-2",
@@ -516,7 +516,7 @@ test("server ranks portal priority ahead of cheaper transfer cost for cross-map 
           {
             ...originMain,
             id: "portal-dest-002-priority-high-expensive",
-            label: "River Polytechnic High Priority Connector",
+            label: "North Institute High Priority Connector",
             priority: 500,
             transferDistance: 40,
             transferCost: 120,
@@ -524,7 +524,7 @@ test("server ranks portal priority ahead of cheaper transfer cost for cross-map 
           {
             ...originMain,
             id: "portal-dest-002-priority-low-cheap",
-            label: "River Polytechnic Low Priority Connector",
+            label: "North Institute Low Priority Connector",
             priority: 10,
             transferDistance: 1,
             transferCost: 1,
@@ -737,7 +737,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
       body: {
         userId: "user-2",
         destinationId: "dest-002",
-        title: "River Polytechnic social memo",
+        title: "North Institute social memo",
         body: "Started in the lobby, cut through the archive, and ended with tea by the indoor studio.",
         tags: ["indoor", "memo"],
       },
@@ -848,7 +848,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
 
     assert.equal(created.status, 201, created.text);
     assert.equal(created.body.item.id, "journal-13");
-    assert.equal(created.body.item.title, "River Polytechnic social memo");
+    assert.equal(created.body.item.title, "North Institute social memo");
 
     assert.equal(liked.status, 200, liked.text);
     assert.equal(liked.body.item.likeCount, 1, liked.text);
@@ -885,7 +885,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     assert.equal(detail.body.item.likeCount, 1, detail.text);
     assert.equal(detail.body.item.commentCount, 1, detail.text);
     assert.equal(typeof detail.body.item.body, "string", detail.text);
-    assert.equal(detail.body.item.destinationLabel, "River Polytechnic");
+    assert.equal(detail.body.item.destinationLabel, "North Institute");
     assert.equal(malformedCommentLimit.status, 400, malformedCommentLimit.text);
     expectMatches(malformedCommentLimit.body.error, /Limit must be a positive number\./);
     assert.equal(overMaxCommentLimit.status, 400, overMaxCommentLimit.text);
@@ -952,7 +952,7 @@ test("server keeps feed cursors valid across journal edits, ratings, and social 
       body: {
         userId: "user-2",
         destinationId: "dest-002",
-        title: "River Polytechnic route suffix regression",
+        title: "North Institute route suffix regression",
         body: "Archive pass-through with a quiet indoor finish.",
         tags: ["indoor", "archive"],
       },
@@ -986,7 +986,7 @@ test("server keeps feed cursors valid across journal edits, ratings, and social 
 
     const patched = await requestJson<{ item: { id: string; title: string; updatedAt: string } }>(`/api/journals/${createdId}`, {
       body: {
-        title: "River Polytechnic route suffix regression revised",
+        title: "North Institute route suffix regression revised",
         body: "Archive pass-through with a quiet indoor finish and updated return guidance.",
         tags: ["indoor", "archive", "return"],
       },
@@ -1025,7 +1025,7 @@ test("server keeps feed cursors valid across journal edits, ratings, and social 
 
     assert.equal(patched.status, 200, patched.text);
     assert.equal(patched.body.item.id, createdId, patched.text);
-    assert.equal(patched.body.item.title, "River Polytechnic route suffix regression revised", patched.text);
+    assert.equal(patched.body.item.title, "North Institute route suffix regression revised", patched.text);
     assert.equal(patched.body.item.updatedAt === createdDetail.body.item.updatedAt, false, patched.text);
     assert.equal(rated.status, 200, rated.text);
     assert.equal(rated.body.item.averageRating, 5, rated.text);

@@ -4,11 +4,11 @@ import path from "node:path";
 import { createAppServices, type AppServices } from "../src/services/index";
 
 const DEMO_DESTINATION_ID = "dest-002";
-const DEMO_DESTINATION_NAME = "River Polytechnic";
-const DEMO_DESTINATION_QUERY = "river polytechnic";
+const DEMO_DESTINATION_NAME = "North Institute";
+const DEMO_DESTINATION_QUERY = "north institute";
 const DEMO_FOOD_QUERY = "noodle lab";
 const DEMO_FULL_TEXT_QUERY = "media lab noodle";
-const DEMO_JOURNAL_TITLE = "River Polytechnic indoor loop memo";
+const DEMO_JOURNAL_TITLE = "North Institute indoor loop memo";
 const DEMO_JOURNAL_BODY =
   "Started at the main gate, crossed Civic Plaza, then moved into the Innovation Center lobby and media lab. " +
   "The noodle lab counter and info station made the route easy to recommend.";

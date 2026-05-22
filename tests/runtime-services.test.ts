@@ -775,7 +775,7 @@ test("world route service respects mode-restricted portal candidates during dete
     {
       ...originMain,
       id: "portal-dest-002-bike-only-fast",
-      label: "River Polytechnic Bike Connector",
+      label: "North Institute Bike Connector",
       allowedModes: ["bike"],
       priority: 300,
       transferDistance: 2,
@@ -784,7 +784,7 @@ test("world route service respects mode-restricted portal candidates during dete
     {
       ...originMain,
       id: "portal-dest-002-walk-only-fast",
-      label: "River Polytechnic Walk Connector",
+      label: "North Institute Walk Connector",
       allowedModes: ["walk"],
       priority: 200,
       transferDistance: 2,
@@ -838,7 +838,7 @@ test("world route service ignores an unused misconfigured lower-priority portal 
   world.portals.push({
     ...originMain,
     id: "portal-dest-002-broken-low-priority",
-    label: "River Polytechnic Broken Connector",
+    label: "North Institute Broken Connector",
     localNodeId: "dest-002-missing-node",
     priority: 1,
   });
@@ -1008,7 +1008,7 @@ test("world route service ranks portal priority ahead of cheaper transfer cost",
     {
       ...originMain,
       id: "portal-dest-002-priority-high-expensive",
-      label: "River Polytechnic High Priority Connector",
+      label: "North Institute High Priority Connector",
       priority: 500,
       transferDistance: 40,
       transferCost: 120,
@@ -1016,7 +1016,7 @@ test("world route service ranks portal priority ahead of cheaper transfer cost",
     {
       ...originMain,
       id: "portal-dest-002-priority-low-cheap",
-      label: "River Polytechnic Low Priority Connector",
+      label: "North Institute Low Priority Connector",
       priority: 10,
       transferDistance: 1,
       transferCost: 1,
@@ -1353,7 +1353,7 @@ test("journal social flows keep feed summaries compact and preserve legacy journ
     body: "Started at the main gate, crossed the lobby, and ended at the archive with a quiet tea stop.",
     destinationId: "dest-002",
     tags: ["indoor", "loop"],
-    title: "River Polytechnic archive route",
+    title: "North Institute archive route",
     userId: "user-2",
   });
   const createdId = (created as { id: string }).id;
@@ -1396,7 +1396,7 @@ test("journal social flows keep feed summaries compact and preserve legacy journ
   assert.equal(detail.likeCount, 1, format(detail));
   assert.equal(detail.viewerHasLiked, true, format(detail));
   assert.equal(typeof detail.summaryBody, "string", format(detail));
-  assert.equal(detail.destinationLabel, "River Polytechnic");
+  assert.equal(detail.destinationLabel, "North Institute");
   assert.equal(detail.userLabel, authorName);
   assert.equal((rated as { averageRating: number }).averageRating, 5, format(rated));
   assert.equal((viewed as { views: number }).views, 1, format(viewed));
@@ -1443,7 +1443,7 @@ test("feed cursors stay valid across social-only journal activity", async () => 
     body: "Indoor archive notes with a tea stop at the end of the route.",
     destinationId: "dest-002",
     tags: ["indoor", "archive"],
-    title: "River Polytechnic cursor stability memo",
+    title: "North Institute cursor stability memo",
     userId: "user-2",
   });
   const createdId = created.id;
@@ -1484,7 +1484,7 @@ test("feed cursors stay valid when the anchor journal is edited and rated", asyn
     body: "Indoor archive notes with an overlook stop before the tea room.",
     destinationId: "dest-002",
     tags: ["indoor", "archive"],
-    title: "River Polytechnic edit stability memo",
+    title: "North Institute edit stability memo",
     userId: "user-2",
   });
   const createdId = created.id;
@@ -1499,7 +1499,7 @@ test("feed cursors stay valid when the anchor journal is edited and rated", asyn
   const updated = await app.journals.update(createdId, {
     body: "Indoor archive notes with an overlook stop before the tea room and a faster return loop.",
     tags: ["indoor", "archive", "return"],
-    title: "River Polytechnic edit stability memo revised",
+    title: "North Institute edit stability memo revised",
   });
   const rated = await app.journals.rate(createdId, "user-4", 5);
   const nextFeedPage = await app.journals.feed({
@@ -1509,7 +1509,7 @@ test("feed cursors stay valid when the anchor journal is edited and rated", asyn
   });
 
   assert.equal(updated.id, createdId, format(updated));
-  assert.equal(updated.title, "River Polytechnic edit stability memo revised", format(updated));
+  assert.equal(updated.title, "North Institute edit stability memo revised", format(updated));
   assert.equal(rated.averageRating, 5, format(rated));
   assert.equal(nextFeedPage.items[0]?.id === createdId, false, format(nextFeedPage));
 });
@@ -1757,7 +1757,7 @@ test("journal social pagination rejects over-max feed and comment limits", async
     body: "Indoor archive path with a short tea stop.",
     destinationId: "dest-002",
     tags: ["indoor", "tea"],
-    title: "River Polytechnic validation route",
+    title: "North Institute validation route",
     userId: "user-2",
   });
   const createdId = (created as { id: string }).id;
