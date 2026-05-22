@@ -1,6 +1,7 @@
 dist/
 node_modules/
 *.tsbuildinfo
+.browser-build.lock
 .DS_Store
 npm-debug.log*
 .humanize/
