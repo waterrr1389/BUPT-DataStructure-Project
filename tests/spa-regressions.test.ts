@@ -1721,6 +1721,9 @@ test("post detail imports compressed journal JSON as a non-mutating preview", as
     assert.ok(preview.innerHTML.includes("Restored bridge note."));
     assert.ok(preview.innerHTML.includes("Second restored line."));
     assert.ok(preview.innerHTML.includes("原文 42 字符"));
+    assert.ok(preview.innerHTML.includes("压缩载荷 8 字符"));
+    assert.ok(preview.innerHTML.includes("压缩比 0.19"));
+    assert.ok(preview.innerHTML.includes("节省比例 0.81"));
     assert.deepEqual(fixture.createCommentCalls, []);
     assert.deepEqual(fixture.actionCalls, []);
     assert.ok(root.innerHTML.includes("Quiet bridge walk."));
@@ -1811,6 +1814,11 @@ test("post detail rejects compressed import variants without mutating the page",
       createImportFile(JSON.stringify(validShape), "journal-compressed.txt", "text/plain"),
       createImportFile("{", "journal-compressed.json"),
       createImportFile(JSON.stringify({ ...validShape, algorithm: "brotli" })),
+      createImportFile(JSON.stringify({
+        algorithm: validShape.algorithm,
+        format: validShape.format,
+        title: validShape.title,
+      })),
       createImportFile(JSON.stringify({ ...validShape, compressedBody: "" })),
       createImportFile(JSON.stringify(validShape)),
     ];
