@@ -843,11 +843,59 @@ test("server rejects blank comment bodies with empty media over HTTP", async () 
       },
       method: "POST",
     });
+    const commentPage = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      totalCount: number;
+    }>(`/api/journals/${created.body.item.id}/comments?limit=10`);
 
     assert.equal(created.status, 201, created.text);
     assert.equal(blankComment.status, 400, blankComment.text);
     assert.equal(blankComment.body.error, "Comment body is required.", blankComment.text);
+    assert.equal(commentPage.status, 200, commentPage.text);
+    assert.equal(commentPage.body.totalCount, 0, commentPage.text);
+    assert.deepEqual(commentPage.body.items, [], commentPage.text);
   });
+});
+
+test("server normalizes legacy comments without media over HTTP", async () => {
+  let journalId = "";
+  let commentId = "";
+
+  await withServer(
+    "comment-legacy-media-http",
+    async ({ requestJson }) => {
+      const commentPage = await requestJson<{
+        items: Array<Record<string, unknown>>;
+        totalCount: number;
+      }>(`/api/journals/${journalId}/comments?limit=10`);
+
+      assert.equal(commentPage.status, 200, commentPage.text);
+      assert.equal(commentPage.body.totalCount, 1, commentPage.text);
+      assert.equal(commentPage.body.items[0]?.id, commentId, commentPage.text);
+      assert.deepEqual(commentPage.body.items[0]?.media, [], commentPage.text);
+    },
+    {
+      prepareServices: async (services) => {
+        const created = await services.journals.create({
+          userId: "user-2",
+          destinationId: "dest-002",
+          title: "North Institute legacy comment route",
+          body: "A route note with an old comment record.",
+          tags: ["indoor", "legacy"],
+        });
+        const legacyComment = await services.journalStore.upsertComment({
+          id: "comment-legacy-http-1",
+          journalId: created.id,
+          userId: "user-5",
+          body: "Legacy comment was stored before media existed.",
+          createdAt: "2026-04-03T09:00:00.000Z",
+          updatedAt: "2026-04-03T09:00:00.000Z",
+        });
+        journalId = created.id;
+        commentId = legacyComment.id;
+      },
+    },
+  );
 });
 
 test("server preserves legacy journal media and exposes compact feed media counts", async () => {
