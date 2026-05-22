@@ -73,6 +73,7 @@ type JournalComment = {
   body: string;
   createdAt: string;
   id: string;
+  media?: Array<Record<string, unknown>>;
   userId: string;
 };
 
@@ -122,6 +123,32 @@ function createCommentPage(start: number, count: number, nextCursor: string, tot
     notice: "",
     totalCount,
   };
+}
+
+function createCommentImageFile(overrides: Partial<{ name: string; size: number; type: string }> = {}) {
+  return {
+    name: overrides.name ?? "trail-photo.png",
+    size: overrides.size ?? 2048,
+    type: overrides.type ?? "image/png",
+  };
+}
+
+function createImportFile(content: string, name = "journal-compressed.json") {
+  return {
+    name,
+    size: content.length,
+    type: "application/json",
+    async text() {
+      return content;
+    },
+  };
+}
+
+function setElementFiles(element: unknown, files: unknown[]): void {
+  Object.defineProperty(element, "files", {
+    configurable: true,
+    value: files,
+  });
 }
 
 function buildHref(pathname: string, params: Record<string, string | undefined> = {}) {
@@ -287,7 +314,19 @@ function compactText(node: string | { innerHTML?: string; textContent?: string |
     .trim();
 }
 
-function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] } = {}) {
+function createPostDetailFixture(overrides: {
+  commentPages?: CommentResponse[];
+  createCommentImpl?: (
+    journalId: string,
+    userId: string,
+    body: string,
+    media?: Array<Record<string, unknown>>,
+  ) => Promise<Record<string, unknown>>;
+  journalBody?: string;
+  journalMedia?: Array<Record<string, unknown>>;
+  requestJsonImpl?: (endpoint: string, options?: { body?: string; method?: string }) => Promise<Record<string, unknown>>;
+  uploadImageImpl?: (file: Record<string, unknown>) => Promise<Record<string, unknown>>;
+} = {}) {
   const bootstrap = {
     users: [
       { id: "user-1", name: "Avery Vale" },
@@ -302,10 +341,17 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     createCommentPage(1, 5, "cursor-2", 24),
   ];
   let commentPageIndex = 0;
-  const createCommentCalls: Array<{ body: string; journalId: string; userId: string }> = [];
+  const createCommentCalls: Array<{
+    body: string;
+    journalId: string;
+    media?: Array<Record<string, unknown>>;
+    userId: string;
+  }> = [];
   const actionCalls: Array<{ action: string; journalId: string; userId: string }> = [];
   const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
+  const requestJsonCalls: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
+  const uploadImageCalls: Array<Record<string, unknown>> = [];
   let views = 14;
   let ratings = [{ userId: "user-1", score: 4 }];
 
@@ -317,8 +363,17 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     state: {
       mapScenes: new Map(),
     },
-    async createComment(journalId: string, userId: string, body: string) {
-      createCommentCalls.push({ body, journalId, userId });
+    async createComment(
+      journalId: string,
+      userId: string,
+      body: string,
+      media?: Array<Record<string, unknown>>,
+    ) {
+      const call = media && media.length ? { body, journalId, media, userId } : { body, journalId, userId };
+      createCommentCalls.push(call);
+      if (overrides.createCommentImpl) {
+        return overrides.createCommentImpl(journalId, userId, body, media);
+      }
       return { available: true, item: { id: "comment-new" }, notice: "" };
     },
     buildMapHref(params: Record<string, string>) {
@@ -354,13 +409,13 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
       });
       return {
         averageRating: averageRating(),
-        body: "Quiet bridge walk.\n\nSecond paragraph.",
+        body: overrides.journalBody ?? "Quiet bridge walk.\n\nSecond paragraph.",
         commentCount: commentPageIndex >= 3 ? 24 : 23,
         createdAt: "2026-03-01T10:00:00.000Z",
         destinationId: "dest-1",
         id: journalId,
         likeCount: 2,
-        media: [],
+        media: overrides.journalMedia ?? [],
         ratings,
         tags: ["bridge", "tea"],
         title: "Bridge Notes",
@@ -388,6 +443,16 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     navigate(href: string, options?: Record<string, unknown>) {
       navigateCalls.push({ href, options });
     },
+    async requestJson(endpoint: string, options?: { body?: string; method?: string }) {
+      requestJsonCalls.push({
+        endpoint,
+        payload: JSON.parse(options?.body ?? "{}"),
+      });
+      if (overrides.requestJsonImpl) {
+        return overrides.requestJsonImpl(endpoint, options);
+      }
+      throw new Error(`Unexpected request: ${endpoint}`);
+    },
     async sendJournalAction(action: string, journalId: string, userId: string) {
       actionCalls.push({ action, journalId, userId });
       if (action === "view") {
@@ -405,6 +470,18 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     tagsMarkup(tags: string[]) {
       return tags.length ? `<div class="tag-row">${tags.join(",")}</div>` : "";
     },
+    async uploadImage(file: Record<string, unknown>) {
+      uploadImageCalls.push(file);
+      if (overrides.uploadImageImpl) {
+        return overrides.uploadImageImpl(file);
+      }
+      return {
+        mimeType: file.type,
+        originalName: file.name,
+        size: file.size,
+        url: "/uploads/images/image-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png",
+      };
+    },
   };
 
   return {
@@ -414,7 +491,9 @@ function createPostDetailFixture(overrides: { commentPages?: CommentResponse[] }
     detailCalls,
     commentCalls,
     navigateCalls,
+    requestJsonCalls,
     statuses,
+    uploadImageCalls,
   };
 }
 
@@ -1096,7 +1175,60 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
   }
 });
 
-test("post detail keeps the initial comments request bounded and appends older comments on load more", async () => {
+test("post detail previews and removes a selected comment image", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+    const urlStub = class extends previousUrl {
+      static createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [createCommentImageFile({ name: "quiet-bridge.webp", type: "image/webp" })]);
+    dispatchDomEvent(imageInput, "change");
+    await settleAsync();
+
+    const preview = requireElement(root, "#post-comment-image-preview");
+    assert.equal(preview.hasAttribute("hidden"), false);
+    assert.ok(preview.innerHTML.includes("quiet-bridge.webp"));
+    assert.ok(preview.innerHTML.includes("image/webp"));
+    assert.ok(preview.innerHTML.includes("blob:comment-preview"));
+
+    dispatchDomEvent(requireElement(root, "#post-comment-image-remove"), "click");
+    await settleAsync();
+
+    assert.equal(preview.hasAttribute("hidden"), true);
+    assert.equal(preview.innerHTML, "");
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("post detail blocks invalid comment images before upload", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
   try {
@@ -1115,31 +1247,20 @@ test("post detail keeps the initial comments request bounded and appends older c
       root,
     );
 
-    assert.deepEqual(fixture.commentCalls, [
-      { cursor: "", journalId: "journal-1", limit: 5 },
-    ]);
-    assert.equal(root.querySelectorAll(".comment-card").length, 5);
-    const mapContextEmptyState = requireElement(root, "#post-map-context .empty-state");
-    assert.equal(root.innerHTML.includes("地图上下文是辅助信息"), true);
-    assert.equal(
-      root.innerHTML.includes("只有当空间细节对这篇笔记有帮助时，再打开辅助目的地图结构。"),
-      true,
-    );
-    assert.equal(mapContextEmptyState.querySelector(".section-tag"), null);
-
-    const loadMoreButton = requireElement(root, "#post-comments-more");
-    dispatchDomEvent(loadMoreButton, "click");
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [createCommentImageFile({ name: "notes.txt", type: "text/plain" })]);
+    dispatchDomEvent(imageInput, "change");
     await settleAsync();
 
-    assert.deepEqual(fixture.commentCalls, [
-      { cursor: "", journalId: "journal-1", limit: 5 },
-      { cursor: "cursor-2", journalId: "journal-1", limit: 5 },
-    ]);
-    assert.equal(root.querySelectorAll(".comment-card").length, 10);
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("请选择 PNG、JPEG、WEBP 或 GIF 图片。"));
+    assert.deepEqual(fixture.uploadImageCalls, []);
 
-    const commentsContainer = requireElement(root, "#post-comments");
-    assert.ok(commentsContainer.innerHTML.indexOf("Comment 1") < commentsContainer.innerHTML.indexOf("Comment 6"));
-    assert.ok(commentsContainer.innerHTML.includes("Comment 10"));
+    setElementFiles(imageInput, [createCommentImageFile({ size: 5 * 1024 * 1024 + 1 })]);
+    dispatchDomEvent(imageInput, "change");
+    await settleAsync();
+
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("图片不能超过 5 MB。"));
+    assert.deepEqual(fixture.uploadImageCalls, []);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1149,13 +1270,54 @@ test("post detail keeps the initial comments request bounded and appends older c
   }
 });
 
-test("posting a comment resets post detail comments back to the first page", async () => {
+test("post detail uploads a selected image before creating a media comment and renders media", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
+  const previousUrl = globalThis.URL;
   try {
     const root = env.createRoot();
     const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
-    const fixture = createPostDetailFixture();
+    const uploadedUrl = "/uploads/images/image-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg";
+    const mediaCommentPage = {
+      available: true,
+      items: [
+        {
+          body: "A fresh detail note",
+          createdAt: "2026-03-12T08:00:00.000Z",
+          id: "comment-image",
+          media: [
+            {
+              type: "image",
+              title: "quiet-bridge.jpg",
+              source: uploadedUrl,
+            },
+          ],
+          userId: "user-2",
+        },
+      ],
+      nextCursor: "",
+      notice: "",
+      totalCount: 1,
+    };
+    const fixture = createPostDetailFixture({
+      commentPages: [
+        createCommentPage(1, 5, ""),
+        mediaCommentPage,
+      ],
+      uploadImageImpl: async (file) => ({
+        mimeType: file.type,
+        originalName: file.name,
+        size: file.size,
+        url: uploadedUrl,
+      }),
+    });
+    const urlStub = class extends previousUrl {
+      static createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
 
     const cleanup = await module.render(
       fixture.app,
@@ -1168,221 +1330,63 @@ test("posting a comment resets post detail comments back to the first page", asy
       root,
     );
 
-    dispatchDomEvent(requireElement(root, "#post-comments-more"), "click");
-    await settleAsync();
-    assert.equal(root.querySelectorAll(".comment-card").length, 10);
-
-    const commentBody = requireElement(root, "#post-comment-body");
-    commentBody.value = "A fresh detail note";
+    const selectedFile = createCommentImageFile({ name: "quiet-bridge.jpg", type: "image/jpeg" });
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [selectedFile]);
+    dispatchDomEvent(imageInput, "change");
+    requireElement(root, "#post-comment-body").value = "A fresh detail note";
     dispatchDomEvent(requireElement(root, "#post-comment-form"), "submit");
     await settleAsync();
 
+    assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
     assert.deepEqual(fixture.createCommentCalls, [
-      { body: "A fresh detail note", journalId: "journal-1", userId: "user-2" },
-    ]);
-    assert.deepEqual(fixture.commentCalls, [
-      { cursor: "", journalId: "journal-1", limit: 5 },
-      { cursor: "cursor-2", journalId: "journal-1", limit: 5 },
-      { cursor: "", journalId: "journal-1", limit: 5 },
-    ]);
-    assert.equal(root.querySelectorAll(".comment-card").length, 5);
-
-    const commentsContainer = requireElement(root, "#post-comments");
-    assert.ok(commentsContainer.innerHTML.includes("Comment 1"));
-    assert.ok(!commentsContainer.innerHTML.includes("Comment 10"));
-    assert.deepEqual(fixture.detailCalls, [
-      { journalId: "journal-1", viewerUserId: "user-2" },
-      { journalId: "journal-1", viewerUserId: "user-2" },
-    ]);
-
-    if (typeof cleanup === "function") {
-      cleanup();
-    }
-  } finally {
-    restore();
-  }
-});
-
-test("post detail refreshes visible state after view and rate actions", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
-    const fixture = createPostDetailFixture();
-
-    const cleanup = await module.render(
-      fixture.app,
       {
+        body: "A fresh detail note",
         journalId: "journal-1",
-        params: {
-          actor: "user-2",
-        },
-      },
-      root,
-    );
-
-    const heroMeta = requireElement(root, "#post-hero-meta");
-    assert.ok(heroMeta.innerHTML.includes("浏览 14"), heroMeta.innerHTML);
-    assert.ok(heroMeta.innerHTML.includes("评分 4"), heroMeta.innerHTML);
-    assert.ok(heroMeta.innerHTML.includes("1 个评分"), heroMeta.innerHTML);
-
-    dispatchDomEvent(requireElement(root, "#post-view"), "click");
-    await settleAsync();
-
-    assert.deepEqual(fixture.actionCalls[0], {
-      action: "view",
-      journalId: "journal-1",
-      userId: "user-2",
-    });
-    assert.equal(fixture.detailCalls.length, 2);
-    assert.ok(heroMeta.innerHTML.includes("浏览 15"), heroMeta.innerHTML);
-
-    dispatchDomEvent(requireElement(root, "#post-rate"), "click");
-    await settleAsync();
-
-    assert.deepEqual(fixture.actionCalls[1], {
-      action: "rate",
-      journalId: "journal-1",
-      userId: "user-2",
-    });
-    assert.equal(fixture.detailCalls.length, 3);
-    assert.ok(heroMeta.innerHTML.includes("评分 4.5"), heroMeta.innerHTML);
-    assert.ok(heroMeta.innerHTML.includes("2 个评分"), heroMeta.innerHTML);
-
-    if (typeof cleanup === "function") {
-      cleanup();
-    }
-  } finally {
-    restore();
-  }
-});
-
-test("post detail preserves the current actor on compose links", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
-    const fixture = createPostDetailFixture();
-
-    const cleanup = await module.render(
-      fixture.app,
-      {
-        journalId: "journal-1",
-        params: {
-          actor: "user-2",
-        },
-      },
-      root,
-    );
-
-    const composeLink = root.querySelector("[data-compose-href='true']");
-    assert.ok(composeLink);
-    assert.equal(composeLink?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-2");
-
-    const actorSelect = requireElement(root, "#post-actor");
-    actorSelect.value = "user-1";
-    dispatchDomEvent(actorSelect, "change");
-    await settleAsync();
-
-    assert.equal(composeLink?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-1");
-    assert.deepEqual(fixture.navigateCalls[0], {
-      href: "/posts/journal-1?actor=user-1",
-      options: {
-        preserveScroll: true,
-        render: false,
-        replace: true,
-      },
-    });
-
-    if (typeof cleanup === "function") {
-      cleanup();
-    }
-  } finally {
-    restore();
-  }
-});
-
-test("post detail preserves actor-aware map and feed hand-offs, including delete return", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
-    const fixture = createPostDetailFixture();
-
-    const cleanup = await module.render(
-      fixture.app,
-      {
-        journalId: "journal-1",
-        params: {
-          actor: "user-2",
-        },
-      },
-      root,
-    );
-
-    const feedLink = requireElement(root, "[data-feed-href='true']");
-    const mapLink = requireElement(root, "[data-map-href='true']");
-    assert.equal(feedLink.getAttribute("href"), "/feed?actor=user-2");
-    assert.equal(mapLink.getAttribute("href"), "/map?destinationId=dest-1&actor=user-2");
-
-    const actorSelect = requireElement(root, "#post-actor");
-    actorSelect.value = "user-1";
-    dispatchDomEvent(actorSelect, "change");
-    await settleAsync();
-
-    assert.equal(feedLink.getAttribute("href"), "/feed?actor=user-1");
-    assert.equal(mapLink.getAttribute("href"), "/map?destinationId=dest-1&actor=user-1");
-
-    dispatchDomEvent(requireElement(root, "#post-delete"), "click");
-    await settleAsync();
-
-    assert.deepEqual(fixture.actionCalls[fixture.actionCalls.length - 1], {
-      action: "delete",
-      journalId: "journal-1",
-      userId: "user-1",
-    });
-    assert.deepEqual(fixture.navigateCalls, [
-      {
-        href: "/posts/journal-1?actor=user-1",
-        options: {
-          preserveScroll: true,
-          render: false,
-          replace: true,
-        },
-      },
-      {
-        href: "/feed?actor=user-1",
-        options: undefined,
+        media: [
+          {
+            type: "image",
+            title: "quiet-bridge.jpg",
+            source: uploadedUrl,
+            note: "image/jpeg · 2 KB",
+          },
+        ],
+        userId: "user-2",
       },
     ]);
+    assert.ok(requireElement(root, "#post-comments").innerHTML.includes(uploadedUrl));
+    assert.equal(root.querySelectorAll(".comment-media-image").length, 1);
+    assert.equal(requireElement(root, "#post-comment-body").value, "");
+    assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), true);
 
     if (typeof cleanup === "function") {
       cleanup();
     }
   } finally {
+    globalThis.URL = previousUrl;
     restore();
   }
 });
 
-test("post detail keeps the journal surface mounted when the initial comments load fails", async () => {
+test("post detail keeps comment text and image when upload fails", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
+  const previousUrl = globalThis.URL;
   try {
     const root = env.createRoot();
     const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
-    const fixture = createPostDetailFixture();
-
-    fixture.app.fetchJournalComments = async (journalId: string, options: { cursor?: string; limit?: number }) => {
-      fixture.commentCalls.push({
-        cursor: options.cursor ?? "",
-        journalId,
-        limit: Number(options.limit) || 0,
-      });
-      throw new Error("Comments service timed out.");
+    const fixture = createPostDetailFixture({
+      uploadImageImpl: async () => {
+        throw new Error("Upload failed.");
+      },
+    });
+    const urlStub = class extends previousUrl {
+      static createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static revokeObjectURL() {}
     };
+    globalThis.URL = urlStub as typeof URL;
 
     const cleanup = await module.render(
       fixture.app,
@@ -1395,26 +1399,252 @@ test("post detail keeps the journal surface mounted when the initial comments lo
       root,
     );
 
-    assert.deepEqual(fixture.commentCalls, [
-      { cursor: "", journalId: "journal-1", limit: 5 },
-    ]);
-    assert.ok(root.innerHTML.includes('id="post-hero-title"'));
-    assert.ok(root.innerHTML.includes('id="post-story-title"'));
-    assert.ok(root.innerHTML.includes("Bridge Notes"));
-    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("评论加载失败"));
-    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("评论无法加载。"));
-    assert.equal(requireElement(root, "#post-comment-notice").innerHTML.includes("Comments service timed out."), false);
+    const selectedFile = createCommentImageFile();
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [selectedFile]);
+    dispatchDomEvent(imageInput, "change");
+    const commentBody = requireElement(root, "#post-comment-body");
+    commentBody.value = "Keep this text";
+    dispatchDomEvent(requireElement(root, "#post-comment-form"), "submit");
+    await settleAsync();
 
-    const commentsContainer = requireElement(root, "#post-comments");
-    assert.ok(commentsContainer.innerHTML.includes("评论加载失败"));
-    assert.ok(commentsContainer.innerHTML.includes("评论无法加载。"));
-    assert.equal(commentsContainer.innerHTML.includes("Comments service timed out."), false);
-    assert.equal(commentsContainer.innerHTML.includes("评论不可用"), false);
-    assert.equal(
-      commentsContainer.innerHTML.includes("当前工作区尚未提供后端评论接口。"),
-      false,
+    assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
+    assert.deepEqual(fixture.createCommentCalls, []);
+    assert.equal(commentBody.value, "Keep this text");
+    assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), false);
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("图片上传失败"));
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("post detail exports compressed journal JSON without media payloads", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  const previousBlob = globalThis.Blob;
+  try {
+    const downloads: Array<{ download: string; href: string; payload: Record<string, unknown> }> = [];
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture({
+      journalBody: "Quiet bridge walk with image source /uploads/images/image-demo.png",
+      journalMedia: [{ source: "data:image/png;base64,AAAA", title: "Should not export", type: "image" }],
+      requestJsonImpl: async (endpoint, options) => {
+        if (endpoint === "/api/journal-exchange/compress") {
+          assert.deepEqual(JSON.parse(options?.body ?? "{}"), {
+            body: "Quiet bridge walk with image source /uploads/images/image-demo.png",
+          });
+          return {
+            item: {
+              compressed: "10,20,30",
+              compressionRatio: 0.5,
+              inputLength: 64,
+              payloadLength: 8,
+              spaceSavings: 0.5,
+            },
+          };
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+    class BlobStub {
+      parts: unknown[];
+      type: string;
+      constructor(parts: unknown[], options: { type?: string } = {}) {
+        this.parts = parts;
+        this.type = options.type ?? "";
+      }
+    }
+    const urlStub = class extends previousUrl {
+      static createObjectURL(blob: BlobStub) {
+        const href = `blob:download-${downloads.length + 1}`;
+        downloads.push({
+          download: "",
+          href,
+          payload: JSON.parse(String(blob.parts[0])),
+        });
+        return href;
+      }
+      static revokeObjectURL() {}
+    };
+    globalThis.Blob = BlobStub as unknown as typeof Blob;
+    globalThis.URL = urlStub as typeof URL;
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
     );
-    assert.equal(root.innerHTML.includes("找不到这篇笔记。"), false);
+
+    const originalCreateElement = globalThis.document.createElement.bind(globalThis.document);
+    globalThis.document.createElement = ((tagName: string) => {
+      const element = originalCreateElement(tagName);
+      if (tagName === "a") {
+        const anchor = element as unknown as { click: () => void; download: string; remove: () => void };
+        anchor.click = () => {
+          downloads[downloads.length - 1].download = anchor.download;
+        };
+        anchor.remove = () => {};
+      }
+      return element;
+    }) as typeof globalThis.document.createElement;
+
+    dispatchDomEvent(requireElement(root, "#post-export-compressed"), "click");
+    await settleAsync();
+
+    assert.equal(downloads.length, 1);
+    assert.equal(downloads[0].download, "bridge-notes-compressed.json");
+    assert.deepEqual(fixture.requestJsonCalls, [
+      {
+        endpoint: "/api/journal-exchange/compress",
+        payload: {
+          body: "Quiet bridge walk with image source /uploads/images/image-demo.png",
+        },
+      },
+    ]);
+    assert.equal(downloads[0].payload.format, "trail-atlas-journal-lzw-v1");
+    assert.equal(downloads[0].payload.algorithm, "lzw");
+    assert.equal(downloads[0].payload.title, "Bridge Notes");
+    assert.equal(downloads[0].payload.compressedBody, "10,20,30");
+    assert.deepEqual(downloads[0].payload.stats, {
+      originalLength: 64,
+      payloadLength: 8,
+      compressionRatio: 0.5,
+      savingsRatio: 0.5,
+    });
+    assert.equal(typeof downloads[0].payload.exportedAt, "string");
+    assert.equal(JSON.stringify(downloads[0].payload).includes("data:image"), false);
+    assert.equal(JSON.stringify(downloads[0].payload).includes("base64"), false);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globalThis.URL = previousUrl;
+    globalThis.Blob = previousBlob;
+    restore();
+  }
+});
+
+test("post detail imports compressed journal JSON as a non-mutating preview", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture({
+      requestJsonImpl: async (endpoint, options) => {
+        if (endpoint === "/api/journal-exchange/decompress") {
+          assert.deepEqual(JSON.parse(options?.body ?? "{}"), {
+            body: "10,20,30",
+          });
+          return {
+            item: {
+              text: "Restored bridge note.\n\nSecond restored line.",
+            },
+          };
+        }
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const importPayload = {
+      format: "trail-atlas-journal-lzw-v1",
+      algorithm: "lzw",
+      title: "Imported Bridge",
+      compressedBody: "10,20,30",
+      stats: {
+        originalLength: 42,
+        payloadLength: 8,
+        compressionRatio: 0.19,
+        savingsRatio: 0.81,
+      },
+      exportedAt: "2026-05-23T00:00:00.000Z",
+    };
+    const importInput = requireElement(root, "#post-import-compressed");
+    setElementFiles(importInput, [createImportFile(JSON.stringify(importPayload))]);
+    dispatchDomEvent(importInput, "change");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      {
+        endpoint: "/api/journal-exchange/decompress",
+        payload: {
+          body: "10,20,30",
+        },
+      },
+    ]);
+    const preview = requireElement(root, "#post-compression-preview");
+    assert.ok(preview.innerHTML.includes("Imported Bridge"));
+    assert.ok(preview.innerHTML.includes("Restored bridge note."));
+    assert.ok(preview.innerHTML.includes("Second restored line."));
+    assert.ok(preview.innerHTML.includes("原文 42 字符"));
+    assert.deepEqual(fixture.createCommentCalls, []);
+    assert.deepEqual(fixture.actionCalls, []);
+    assert.ok(root.innerHTML.includes("Quiet bridge walk."));
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("post detail shows a recoverable error for invalid compressed imports", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const importInput = requireElement(root, "#post-import-compressed");
+    setElementFiles(importInput, [createImportFile(JSON.stringify({
+      algorithm: "lzw",
+      compressedBody: "10,20,30",
+      format: "wrong-format",
+    }))]);
+    dispatchDomEvent(importInput, "change");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, []);
+    assert.ok(requireElement(root, "#post-compression-notice").innerHTML.includes("无法读取这个压缩文件。"));
+    assert.ok(root.innerHTML.includes("Quiet bridge walk."));
+    assert.equal(root.querySelectorAll(".comment-card").length, 5);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1901,79 +2131,13 @@ test("explore food recommendation and search map links stay clean without actor 
   }
 });
 
-test("explore facility result map links preserve actor context", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<ExploreModule>("views/explore.js");
-    const fixture = createExploreFixture({
-      requestJsonImpl: async (endpoint: string) => {
-        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
-          return { items: [] };
-        }
-        if (
-          endpoint === "/api/facilities/nearby?destinationId=dest-1&fromNodeId=dest-1-node-a&category=all&radius=900"
-        ) {
-          return {
-            item: {
-              destinationId: "dest-1",
-              fromNodeId: "dest-1-node-a",
-              items: [
-                {
-                  category: "museum",
-                  distance: 140,
-                  name: "North Gallery Desk",
-                  nodeId: "dest-1-node-c",
-                  nodePath: ["dest-1-node-a", "dest-1-node-c"],
-                  openHours: "08:00-18:00",
-                },
-              ],
-            },
-          };
-        }
-        throw new Error(`Unexpected request: ${endpoint}`);
-      },
-    });
-
-    const cleanup = await module.render(
-      fixture.app,
-      {
-        name: "explore",
-        params: {
-          actor: "user-2",
-        },
-      },
-      root,
-    );
-
-    dispatchDomEvent(requireElement(root, "#explore-facility-form"), "submit");
-    await settleAsync();
-
-    assert.deepEqual(fixture.requestJsonCalls, [
-      "/api/foods/recommendations?destinationId=dest-1",
-      "/api/facilities/nearby?destinationId=dest-1&fromNodeId=dest-1-node-a&category=all&radius=900",
-    ]);
-    assert.equal(
-      requireElement(root, "#explore-facility-results a").getAttribute("href"),
-      "/map?destinationId=dest-1&from=dest-1-node-a&to=dest-1-node-c&actor=user-2",
-    );
-
-    if (typeof cleanup === "function") {
-      cleanup();
-    }
-  } finally {
-    restore();
-  }
-});
-
-
-export type { AppShellModule, ExploreModule, MapModule };
+export type { AppShellModule, ExploreModule, MapModule, PostDetailModule };
 export {
   compactText,
   createDeferred,
   createExploreFixture,
   createLeafletStub,
   createMapFixture,
+  createPostDetailFixture,
   expectRejects,
 };

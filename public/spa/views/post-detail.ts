@@ -396,11 +396,17 @@ export async function render(
   const commentsContainer = root.querySelector("#post-comments");
   const commentsFooter = root.querySelector("#post-comments-footer");
   const commentBody = root.querySelector("#post-comment-body");
+  const commentImageInput = root.querySelector("#post-comment-image");
+  const commentImagePreview = root.querySelector("#post-comment-image-preview");
   const commentSubmitButton = root.querySelector("#post-comment-form button[type='submit']");
+  const compressionNotice = root.querySelector("#post-compression-notice");
+  const compressionPreview = root.querySelector("#post-compression-preview");
+  const compressionImportInput = root.querySelector("#post-import-compressed");
   const actorSelect = root.querySelector("#post-actor");
   const likeButton = root.querySelector("#post-like");
   const heroMeta = root.querySelector("#post-hero-meta");
   let currentLikeAction = "like";
+  let selectedCommentImage = null;
   let commentItems = [];
   let commentsNextCursor = "";
   let commentsTotalCount = 0;
@@ -508,9 +514,49 @@ export async function render(
     commentsFooter.innerHTML = footerParts.join("");
   }
 
+  function renderSelectedCommentImage() {
+    if (!selectedCommentImage) {
+      commentImagePreview.innerHTML = "";
+      commentImagePreview.setAttribute("hidden", "");
+      return;
+    }
+
+    const file = selectedCommentImage.file;
+    const previewImage = selectedCommentImage.previewUrl
+      ? `<img src="${escapeHtml(selectedCommentImage.previewUrl)}" alt="${escapeHtml(copy.commentsSurface.imagePreviewAlt)}" />`
+      : "";
+    commentImagePreview.removeAttribute("hidden");
+    commentImagePreview.innerHTML = `
+      <div class="comment-image-preview-frame">${previewImage}</div>
+      <div class="comment-image-preview-copy">
+        <strong>${escapeHtml(file.name || copy.commentsSurface.imageFallbackTitle)}</strong>
+        <span>${escapeHtml(copy.commentsSurface.imageSummary(file.type || copy.commentsSurface.unknownImageType, formatFileSize(file.size)))}</span>
+      </div>
+      <button type="button" class="ghost" id="post-comment-image-remove">${escapeHtml(copy.commentsSurface.removeImage)}</button>
+    `;
+  }
+
+  function clearSelectedCommentImage() {
+    if (selectedCommentImage) {
+      revokePreviewUrl(selectedCommentImage.previewUrl);
+    }
+    selectedCommentImage = null;
+    commentImageInput.value = "";
+    renderSelectedCommentImage();
+  }
+
+  function setCommentNotice(kind, title, body) {
+    commentNotice.innerHTML = noticeMarkup(kind, title, body);
+  }
+
   function setCommentFormDisabled(disabled) {
     commentBody.disabled = disabled;
+    commentImageInput.disabled = disabled;
     commentSubmitButton.disabled = disabled;
+    const removeImageButton = root.querySelector("#post-comment-image-remove");
+    if (removeImageButton) {
+      removeImageButton.disabled = disabled;
+    }
   }
 
   function applyCommentsResponse(response, reset) {
@@ -568,6 +614,23 @@ export async function render(
       applyCommentsError(error);
       throw error;
     }
+  }
+
+  function renderCompressionPreview(title, restoredBody, stats) {
+    compressionPreview.innerHTML = `
+      <article class="compression-preview-result">
+        <p class="section-tag">${escapeHtml(copy.compression.previewTag)}</p>
+        <h3>${escapeHtml(title)}</h3>
+        ${compressionMetricsMarkup(stats)}
+        <div class="reading-flow">
+          ${splitLines(restoredBody).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+        </div>
+      </article>
+    `;
+  }
+
+  function setCompressionNotice(kind, title, body) {
+    compressionNotice.innerHTML = noticeMarkup(kind, title, body);
   }
 
   renderJournalState(journal);
@@ -639,18 +702,145 @@ export async function render(
       return;
     }
 
+    let submitStage = "comment";
     try {
-      const response = await app.createComment(route.journalId, actorSelect.value, body);
+      setCommentFormDisabled(true);
+      let media = [];
+      if (selectedCommentImage) {
+        submitStage = "upload";
+        const uploaded = await app.uploadImage(selectedCommentImage.file);
+        if (!text(uploaded?.url)) {
+          throw new Error("Uploaded image URL is missing.");
+        }
+        media = [
+          {
+            type: "image",
+            title: text(selectedCommentImage.file.name, copy.commentsSurface.imageFallbackTitle),
+            source: text(uploaded?.url),
+            note: copy.commentsSurface.imageSummary(
+              uploaded?.mimeType || selectedCommentImage.file.type || copy.commentsSurface.unknownImageType,
+              formatFileSize(uploaded?.size ?? selectedCommentImage.file.size),
+            ),
+          },
+        ];
+      }
+      submitStage = "comment";
+      const response = await app.createComment(route.journalId, actorSelect.value, body, media);
       if (!response.available) {
         app.setStatus(response.notice, "note");
         return;
       }
       root.querySelector("#post-comment-body").value = "";
+      clearSelectedCommentImage();
       await refreshJournalDetail();
       await refreshComments({ reset: true });
       app.setStatus(copy.status.commentCreated, "success");
     } catch (error) {
-      app.setStatus(copy.status.commentCreateFailed, "error");
+      const message = submitStage === "upload"
+        ? copy.status.commentImageUploadFailed
+        : copy.status.commentCreateFailed;
+      setCommentNotice("error", copy.commentsSurface.failedTitle, message);
+      app.setStatus(message, "error");
+    } finally {
+      if (commentsAvailable) {
+        setCommentFormDisabled(false);
+      }
+    }
+  });
+
+  commentImageInput.addEventListener("change", () => {
+    const file = commentImageInput.files?.[0] ?? null;
+    if (!file) {
+      clearSelectedCommentImage();
+      return;
+    }
+    if (!COMMENT_IMAGE_MIME_TYPES.has(file.type)) {
+      clearSelectedCommentImage();
+      setCommentNotice("error", copy.commentsSurface.failedTitle, copy.status.invalidCommentImageType);
+      app.setStatus(copy.status.invalidCommentImageType, "error");
+      return;
+    }
+    if (file.size > COMMENT_IMAGE_MAX_SIZE) {
+      clearSelectedCommentImage();
+      setCommentNotice("error", copy.commentsSurface.failedTitle, copy.status.commentImageTooLarge);
+      app.setStatus(copy.status.commentImageTooLarge, "error");
+      return;
+    }
+
+    if (selectedCommentImage) {
+      revokePreviewUrl(selectedCommentImage.previewUrl);
+    }
+    selectedCommentImage = {
+      file,
+      previewUrl: createPreviewUrl(file),
+    };
+    commentNotice.innerHTML = "";
+    renderSelectedCommentImage();
+  });
+
+  commentImagePreview.addEventListener("click", (event) => {
+    const button = event.target.closest("#post-comment-image-remove");
+    if (!button) {
+      return;
+    }
+    clearSelectedCommentImage();
+  });
+
+  root.querySelector("#post-export-compressed").addEventListener("click", async () => {
+    try {
+      const payload = await app.requestJson("/api/journal-exchange/compress", {
+        method: "POST",
+        body: JSON.stringify({
+          body: text(journal.body),
+        }),
+      });
+      const compressedBody = text(payload?.item?.compressed);
+      if (!compressedBody) {
+        throw new Error("Compressed payload is missing.");
+      }
+      const stats = normalizeCompressionStats(payload.item, text(journal.body));
+      const filePayload = {
+        format: COMPRESSED_JOURNAL_FORMAT,
+        algorithm: COMPRESSED_JOURNAL_ALGORITHM,
+        title: text(journal.title, copy.compression.previewFallbackTitle),
+        compressedBody,
+        stats,
+        exportedAt: new Date().toISOString(),
+      };
+      downloadJsonFile(sanitizedDownloadName(journal.title), filePayload);
+      setCompressionNotice("success", copy.compression.exportedTitle, copy.compression.exportedBody);
+      app.setStatus(copy.status.compressionExported, "success");
+    } catch (error) {
+      setCompressionNotice("error", copy.compression.failedTitle, copy.status.compressionExportFailed);
+      app.setStatus(copy.status.compressionExportFailed, "error");
+    }
+  });
+
+  compressionImportInput.addEventListener("change", async () => {
+    const file = compressionImportInput.files?.[0] ?? null;
+    if (!file) {
+      return;
+    }
+
+    try {
+      const raw = await readTextFile(file);
+      const imported = validateCompressedJournalFile(JSON.parse(raw));
+      const payload = await app.requestJson("/api/journal-exchange/decompress", {
+        method: "POST",
+        body: JSON.stringify({
+          body: imported.compressedBody,
+        }),
+      });
+      const restoredBody = text(payload?.item?.text);
+      if (!restoredBody) {
+        throw new Error("Decompressed text is missing.");
+      }
+      renderCompressionPreview(imported.title, restoredBody, imported.stats);
+      setCompressionNotice("success", copy.compression.importedTitle, copy.compression.importedBody);
+      app.setStatus(copy.status.compressionImported, "success");
+    } catch (error) {
+      setCompressionNotice("error", copy.compression.failedTitle, copy.status.compressionImportFailed);
+      app.setStatus(copy.status.compressionImportFailed, "error");
     }
   });
 

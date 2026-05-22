@@ -41,6 +41,29 @@ type RuntimeFs = {
   rm(path: string, options?: { force?: boolean; recursive?: boolean }): Promise<void>;
 };
 
+const imageFixtures = {
+  gif: {
+    bytes: Buffer.from("GIF89a", "ascii"),
+    extension: "gif",
+    mimeType: "image/gif",
+  },
+  jpeg: {
+    bytes: Buffer.from([0xff, 0xd8, 0xff, 0xdb]),
+    extension: "jpg",
+    mimeType: "image/jpeg",
+  },
+  png: {
+    bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    extension: "png",
+    mimeType: "image/png",
+  },
+  webp: {
+    bytes: Buffer.from("RIFF\x04\x00\x00\x00WEBP", "binary"),
+    extension: "webp",
+    mimeType: "image/webp",
+  },
+} as const;
+
 function expectMatches(value: string, pattern: RegExp): void {
   assert.equal(pattern.test(value), true, value);
 }
@@ -168,6 +191,30 @@ function createMultipartBody(file: { content: Buffer; fileName: string; mimeType
   const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
   return {
     body: Buffer.concat([head, file.content, tail]),
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
+}
+
+function createMultiFileMultipartBody(files: Array<{ content: Buffer; fileName: string; mimeType: string }>): {
+  body: Buffer;
+  contentType: string;
+} {
+  const boundary = `trail-atlas-${Math.random().toString(36).slice(2, 10)}`;
+  const parts = files.flatMap((file) => [
+    Buffer.from(
+      [
+        `--${boundary}`,
+        `Content-Disposition: form-data; name="file"; filename="${file.fileName}"`,
+        `Content-Type: ${file.mimeType}`,
+        "",
+        "",
+      ].join("\r\n"),
+    ),
+    file.content,
+    Buffer.from("\r\n"),
+  ]);
+  return {
+    body: Buffer.concat([...parts, Buffer.from(`--${boundary}--\r\n`)]),
     contentType: `multipart/form-data; boundary=${boundary}`,
   };
 }
@@ -318,49 +365,50 @@ test("benchmark support covers the expected algorithm groups", () => {
 
 test("server uploads an image file and serves it from runtime storage", async () => {
   await withServer("image-upload-success", async ({ reloadServices, requestJson, requestText }) => {
-    const imageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    const multipart = createMultipartBody({
-      content: imageBytes,
-      fileName: "../original-name.png",
-      mimeType: "image/png",
-    });
-    const uploaded = await requestJson<{
-      item: {
-        fileName: string;
-        id: string;
-        mimeType: string;
-        originalName: string;
-        size: number;
-        url: string;
-      };
-    }>("/api/uploads/images", {
-      body: multipart.body,
-      headers: { "content-type": multipart.contentType },
-      method: "POST",
-    });
+    for (const [label, fixture] of Object.entries(imageFixtures)) {
+      const multipart = createMultipartBody({
+        content: fixture.bytes,
+        fileName: label === "png" ? "../original-name.png" : `sample.${fixture.extension}`,
+        mimeType: fixture.mimeType,
+      });
+      const uploaded = await requestJson<{
+        item: {
+          fileName: string;
+          id: string;
+          mimeType: string;
+          originalName: string;
+          size: number;
+          url: string;
+        };
+      }>("/api/uploads/images", {
+        body: multipart.body,
+        headers: { "content-type": multipart.contentType },
+        method: "POST",
+      });
 
-    assert.equal(uploaded.status, 201, uploaded.text);
-    assert.equal(uploaded.body.item.mimeType, "image/png", uploaded.text);
-    assert.equal(uploaded.body.item.originalName, "original-name.png", uploaded.text);
-    assert.equal(uploaded.body.item.size, imageBytes.length, uploaded.text);
-    assert.equal(uploaded.body.item.fileName.endsWith(".png"), true, uploaded.text);
-    assert.equal(uploaded.body.item.fileName.includes("original-name"), false, uploaded.text);
-    assert.equal(uploaded.body.item.url, `/uploads/images/${uploaded.body.item.fileName}`, uploaded.text);
-    expectMatches(
-      uploaded.body.item.fileName,
-      /^image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$/,
-    );
+      assert.equal(uploaded.status, 201, uploaded.text);
+      assert.equal(uploaded.body.item.mimeType, fixture.mimeType, uploaded.text);
+      assert.equal(uploaded.body.item.originalName, label === "png" ? "original-name.png" : `sample.${fixture.extension}`, uploaded.text);
+      assert.equal(uploaded.body.item.size, fixture.bytes.length, uploaded.text);
+      assert.equal(uploaded.body.item.fileName.endsWith(`.${fixture.extension}`), true, uploaded.text);
+      assert.equal(uploaded.body.item.fileName.includes("original-name"), false, uploaded.text);
+      assert.equal(uploaded.body.item.url, `/uploads/images/${uploaded.body.item.fileName}`, uploaded.text);
+      expectMatches(
+        uploaded.body.item.fileName,
+        new RegExp(`^image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.${fixture.extension}$`),
+      );
 
-    const served = await requestText(uploaded.body.item.url);
-    assert.equal(served.status, 200, served.text);
-    assert.equal(served.headers["content-type"], "image/png");
-    assert.deepEqual(served.body, imageBytes);
+      const served = await requestText(uploaded.body.item.url);
+      assert.equal(served.status, 200, served.text);
+      assert.equal(served.headers["content-type"], fixture.mimeType);
+      assert.deepEqual(served.body, fixture.bytes);
 
-    await reloadServices();
-    const servedAfterReload = await requestText(uploaded.body.item.url);
-    assert.equal(servedAfterReload.status, 200, servedAfterReload.text);
-    assert.equal(servedAfterReload.headers["content-type"], "image/png");
-    assert.deepEqual(servedAfterReload.body, imageBytes);
+      await reloadServices();
+      const servedAfterReload = await requestText(uploaded.body.item.url);
+      assert.equal(servedAfterReload.status, 200, servedAfterReload.text);
+      assert.equal(servedAfterReload.headers["content-type"], fixture.mimeType);
+      assert.deepEqual(servedAfterReload.body, fixture.bytes);
+    }
   });
 });
 
@@ -381,6 +429,23 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
       fileName: "empty.png",
       mimeType: "image/png",
     });
+    const invalidBytesMultipart = createMultipartBody({
+      content: Buffer.from("declared png but not image bytes", "utf8"),
+      fileName: "fake.png",
+      mimeType: "image/png",
+    });
+    const multiFileMultipart = createMultiFileMultipartBody([
+      {
+        content: imageFixtures.png.bytes,
+        fileName: "first.png",
+        mimeType: "image/png",
+      },
+      {
+        content: imageFixtures.jpeg.bytes,
+        fileName: "second.jpg",
+        mimeType: "image/jpeg",
+      },
+    ]);
     const malformedBoundary = "trail-atlas-malformed";
     const malformedMultipart = Buffer.from(
       [
@@ -407,6 +472,16 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
       headers: { "content-type": emptyMultipart.contentType },
       method: "POST",
     });
+    const invalidBytesUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
+      body: invalidBytesMultipart.body,
+      headers: { "content-type": invalidBytesMultipart.contentType },
+      method: "POST",
+    });
+    const multiFileUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
+      body: multiFileMultipart.body,
+      headers: { "content-type": multiFileMultipart.contentType },
+      method: "POST",
+    });
     const malformedUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
       body: malformedMultipart,
       headers: { "content-type": `multipart/form-data; boundary=${malformedBoundary}` },
@@ -421,10 +496,207 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
     assert.equal(oversizedUpload.body.code, "upload_image_too_large", oversizedUpload.text);
     assert.equal(emptyUpload.status, 400, emptyUpload.text);
     assert.equal(emptyUpload.body.code, "upload_image_empty", emptyUpload.text);
+    assert.equal(invalidBytesUpload.status, 400, invalidBytesUpload.text);
+    assert.equal(invalidBytesUpload.body.code, "upload_invalid_image_bytes", invalidBytesUpload.text);
+    assert.equal(multiFileUpload.status, 400, multiFileUpload.text);
+    assert.equal(multiFileUpload.body.code, "upload_single_file_required", multiFileUpload.text);
     assert.equal(malformedUpload.status, 400, malformedUpload.text);
     assert.equal(malformedUpload.body.code, "upload_invalid_multipart", malformedUpload.text);
     assert.equal(traversal.status, 403, traversal.text);
     assert.equal(encodedTraversal.status, 403, encodedTraversal.text);
+  });
+});
+
+test("server rejects malformed comment media over HTTP", async () => {
+  await withServer("comment-media-http-rejections", async ({ requestJson }) => {
+    const created = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "North Institute comment media validation",
+        body: "A short route note for validating comment media.",
+        tags: ["indoor", "media"],
+      },
+      method: "POST",
+    });
+    const commentPath = `/api/journals/${created.body.item.id}/comments`;
+    const validUploadSource = "/uploads/images/image-11111111-1111-1111-1111-111111111111.png";
+    const cases = [
+      {
+        body: {
+          userId: "user-5",
+          body: "Unsupported media type should fail.",
+          media: [{ type: "video", title: "Archive clip", source: validUploadSource }],
+        },
+        pattern: /Comment media type must be image/,
+      },
+      {
+        body: {
+          userId: "user-5",
+          body: "Missing media title should fail.",
+          media: [{ type: "image", source: validUploadSource }],
+        },
+        pattern: /Comment media title is required/,
+      },
+      {
+        body: {
+          userId: "user-5",
+          body: "Missing media source should fail.",
+          media: [{ type: "image", title: "Archive" }],
+        },
+        pattern: /Comment media source is required/,
+      },
+      {
+        body: {
+          userId: "user-5",
+          body: "Too many images should fail.",
+          media: [
+            { type: "image", title: "Archive entrance", source: validUploadSource },
+            {
+              type: "image",
+              title: "Archive exit",
+              source: "/uploads/images/image-22222222-2222-2222-2222-222222222222.jpg",
+            },
+          ],
+        },
+        pattern: /Comment media supports one image/,
+      },
+      {
+        body: {
+          userId: "user-5",
+          body: "Non-array media should fail.",
+          media: { type: "image", title: "Archive", source: validUploadSource },
+        },
+        pattern: /Comment media must be an array/,
+      },
+      {
+        body: {
+          userId: "user-5",
+          body: "External URLs should fail.",
+          media: [{ type: "image", title: "External archive", source: "https://example.com/archive.png" }],
+        },
+        pattern: /Comment media source must be a generated upload image URL/,
+      },
+      {
+        body: {
+          userId: "user-5",
+          body: "Unrelated local paths should fail.",
+          media: [{ type: "image", title: "Local archive", source: "/assets/archive.png" }],
+        },
+        pattern: /Comment media source must be a generated upload image URL/,
+      },
+    ];
+
+    for (const entry of cases) {
+      const response = await requestJson<{ error: string }>(commentPath, {
+        body: entry.body,
+        method: "POST",
+      });
+      assert.equal(response.status, 400, response.text);
+      expectMatches(response.body.error, entry.pattern);
+    }
+  });
+});
+
+test("server persists uploaded comment media after reload and removes it after deletion", async () => {
+  await withServer("comment-media-http-lifecycle", async ({ reloadServices, requestJson }) => {
+    const created = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "North Institute media lifecycle",
+        body: "A route note for upload-backed comment media persistence.",
+        tags: ["indoor", "media"],
+      },
+      method: "POST",
+    });
+    const multipart = createMultipartBody({
+      content: imageFixtures.png.bytes,
+      fileName: "comment.png",
+      mimeType: "image/png",
+    });
+    const upload = await requestJson<{ item: { mimeType: string; size: number; url: string } }>("/api/uploads/images", {
+      body: multipart.body,
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+    });
+    const media = [
+      {
+        type: "image",
+        title: "Archive route snapshot",
+        source: upload.body.item.url,
+        note: "A compact route preview.",
+      },
+    ];
+    const comment = await requestJson<{ item: { id: string; media: unknown[] } }>(
+      `/api/journals/${created.body.item.id}/comments`,
+      {
+        body: {
+          userId: "user-5",
+          body: "The uploaded route snapshot should persist.",
+          media,
+        },
+        method: "POST",
+      },
+    );
+
+    assert.equal(upload.status, 201, upload.text);
+    assert.equal(upload.body.item.mimeType, "image/png", upload.text);
+    assert.equal(upload.body.item.size, imageFixtures.png.bytes.length, upload.text);
+    assert.equal(comment.status, 201, comment.text);
+    assert.deepEqual(comment.body.item.media, media, comment.text);
+
+    await reloadServices();
+    const reloadedPage = await requestJson<{ items: Array<{ id: string; media: unknown[] }>; totalCount: number }>(
+      `/api/journals/${created.body.item.id}/comments?limit=10`,
+    );
+    assert.equal(reloadedPage.status, 200, reloadedPage.text);
+    assert.equal(reloadedPage.body.totalCount, 1, reloadedPage.text);
+    assert.equal(reloadedPage.body.items[0]?.id, comment.body.item.id, reloadedPage.text);
+    assert.deepEqual(reloadedPage.body.items[0]?.media, media, reloadedPage.text);
+
+    const deleted = await requestJson<{ deleted: boolean }>(`/api/comments/${comment.body.item.id}?userId=user-5`, {
+      method: "DELETE",
+    });
+    const afterDeletePage = await requestJson<{ items: Array<{ id: string; media: unknown[] }>; totalCount: number }>(
+      `/api/journals/${created.body.item.id}/comments?limit=10`,
+    );
+    assert.equal(deleted.status, 200, deleted.text);
+    assert.equal(deleted.body.deleted, true, deleted.text);
+    assert.equal(afterDeletePage.status, 200, afterDeletePage.text);
+    assert.equal(afterDeletePage.body.totalCount, 0, afterDeletePage.text);
+    assert.deepEqual(afterDeletePage.body.items, [], afterDeletePage.text);
+  });
+});
+
+test("server keeps journal exchange compression endpoints compatible", async () => {
+  await withServer("journal-exchange-http-compression", async ({ requestJson }) => {
+    const body = "North Institute indoor archive loop. ".repeat(12);
+    const normalizedBody = body.trim();
+    const compressed = await requestJson<{
+      item: {
+        compressed: string;
+        compressionRatio: number;
+        inputLength: number;
+        payloadLength: number;
+        spaceSavings: number;
+      };
+    }>("/api/journal-exchange/compress", {
+      body: { body },
+      method: "POST",
+    });
+    const decompressed = await requestJson<{ item: { text: string } }>("/api/journal-exchange/decompress", {
+      body: { body: compressed.body.item.compressed },
+      method: "POST",
+    });
+
+    assert.equal(compressed.status, 200, compressed.text);
+    assert.equal(compressed.body.item.inputLength, normalizedBody.length, compressed.text);
+    assert.equal(compressed.body.item.payloadLength, compressed.body.item.compressed.length, compressed.text);
+    assert.equal(compressed.body.item.compressionRatio > 0, true, compressed.text);
+    assert.equal(compressed.body.item.spaceSavings > 0, true, compressed.text);
+    assert.equal(decompressed.status, 200, decompressed.text);
+    assert.equal(decompressed.body.item.text, normalizedBody, decompressed.text);
   });
 });
 
