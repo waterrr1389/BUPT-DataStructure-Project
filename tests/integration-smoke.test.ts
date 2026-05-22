@@ -20,13 +20,15 @@ type JsonResponse<T> = {
 };
 
 type TextResponse = {
+  body: Buffer;
   headers: Record<string, string>;
   status: number;
   text: string;
 };
 
 type RequestOptions = {
-  body?: string | Record<string, unknown>;
+  body?: Buffer | string | Record<string, unknown>;
+  headers?: Record<string, string>;
   method?: string;
 };
 
@@ -69,19 +71,18 @@ function createMockResponse(): {
 }
 
 function createMockRequest(requestPath: string, options: RequestOptions): {
+  headers: Record<string, string>;
   method: string;
   url: string;
   [Symbol.asyncIterator](): AsyncGenerator<Buffer, void, unknown>;
 } {
-  const bodyText =
-    typeof options.body === "string"
-      ? options.body
-      : options.body
-        ? JSON.stringify(options.body)
-        : "";
-  const chunks = bodyText ? [Buffer.from(bodyText)] : [];
+  const chunks =
+    options.body === undefined
+      ? []
+      : [Buffer.isBuffer(options.body) ? options.body : Buffer.from(typeof options.body === "string" ? options.body : JSON.stringify(options.body))];
 
   return {
+    headers: options.headers ?? {},
     method: options.method ?? "GET",
     url: requestPath,
     async *[Symbol.asyncIterator]() {
@@ -95,8 +96,10 @@ function createMockRequest(requestPath: string, options: RequestOptions): {
 async function withServer<T>(
   name: string,
   run: (context: {
+    reloadServices: () => Promise<void>;
     requestJson: <TResponse>(requestPath: string, options?: RequestOptions) => Promise<JsonResponse<TResponse>>;
     requestText: (requestPath: string, options?: RequestOptions) => Promise<TextResponse>;
+    runtimeDir: string;
   }) => Promise<T>,
   options: ServerOptions = {},
 ): Promise<T> {
@@ -106,20 +109,27 @@ async function withServer<T>(
     `ds-ts-integration-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
   );
   await runtimeFs.mkdir(runtimeDir, { recursive: true });
-  const services = await createAppServices({ runtimeDir });
+  let services = await createAppServices({ runtimeDir });
   await services.journalStore.reset();
   await options.prepareServices?.(services);
-  const handler = createServerHandler(services);
+  let handler = createServerHandler(services);
+
+  async function reloadServices(): Promise<void> {
+    services = await createAppServices({ runtimeDir });
+    handler = createServerHandler(services);
+  }
 
   async function requestText(requestPath: string, options: RequestOptions = {}): Promise<TextResponse> {
     const request = createMockRequest(requestPath, options);
     const response = createMockResponse();
     await handler(request as never, response as never);
+    const responseBody = Buffer.concat(response.body);
 
     return {
+      body: responseBody,
       headers: response.headers,
       status: response.statusCode,
-      text: Buffer.concat(response.body).toString("utf8"),
+      text: responseBody.toString("utf8"),
     };
   }
 
@@ -135,10 +145,31 @@ async function withServer<T>(
   }
 
   try {
-    return await run({ requestJson, requestText });
+    return await run({ reloadServices, requestJson, requestText, runtimeDir });
   } finally {
     await runtimeFs.rm(runtimeDir, { force: true, recursive: true });
   }
+}
+
+function createMultipartBody(file: { content: Buffer; fileName: string; mimeType: string }): {
+  body: Buffer;
+  contentType: string;
+} {
+  const boundary = `trail-atlas-${Math.random().toString(36).slice(2, 10)}`;
+  const head = Buffer.from(
+    [
+      `--${boundary}`,
+      `Content-Disposition: form-data; name="file"; filename="${file.fileName}"`,
+      `Content-Type: ${file.mimeType}`,
+      "",
+      "",
+    ].join("\r\n"),
+  );
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+  return {
+    body: Buffer.concat([head, file.content, tail]),
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
 }
 
 function disableWorld(services: AppServices): void {
@@ -283,6 +314,89 @@ test("benchmark support covers the expected algorithm groups", () => {
   );
   assert.ok(results.every((result) => result.iterations === 2));
   assert.ok(results.every((result) => result.durationMs >= 0));
+});
+
+test("server uploads an image file and serves it from runtime storage", async () => {
+  await withServer("image-upload-success", async ({ reloadServices, requestJson, requestText }) => {
+    const imageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const multipart = createMultipartBody({
+      content: imageBytes,
+      fileName: "../original-name.png",
+      mimeType: "image/png",
+    });
+    const uploaded = await requestJson<{
+      item: {
+        fileName: string;
+        id: string;
+        mimeType: string;
+        originalName: string;
+        size: number;
+        url: string;
+      };
+    }>("/api/uploads/images", {
+      body: multipart.body,
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+    });
+
+    assert.equal(uploaded.status, 201, uploaded.text);
+    assert.equal(uploaded.body.item.mimeType, "image/png", uploaded.text);
+    assert.equal(uploaded.body.item.originalName, "original-name.png", uploaded.text);
+    assert.equal(uploaded.body.item.size, imageBytes.length, uploaded.text);
+    assert.equal(uploaded.body.item.fileName.endsWith(".png"), true, uploaded.text);
+    assert.equal(uploaded.body.item.fileName.includes("original-name"), false, uploaded.text);
+    assert.equal(uploaded.body.item.url, `/uploads/images/${uploaded.body.item.fileName}`, uploaded.text);
+    expectMatches(
+      uploaded.body.item.fileName,
+      /^image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$/,
+    );
+
+    const served = await requestText(uploaded.body.item.url);
+    assert.equal(served.status, 200, served.text);
+    assert.equal(served.headers["content-type"], "image/png");
+    assert.deepEqual(served.body, imageBytes);
+
+    await reloadServices();
+    const servedAfterReload = await requestText(uploaded.body.item.url);
+    assert.equal(servedAfterReload.status, 200, servedAfterReload.text);
+    assert.equal(servedAfterReload.headers["content-type"], "image/png");
+    assert.deepEqual(servedAfterReload.body, imageBytes);
+  });
+});
+
+test("server rejects invalid image uploads and unsafe uploaded image paths", async () => {
+  await withServer("image-upload-rejections", async ({ requestJson }) => {
+    const textMultipart = createMultipartBody({
+      content: Buffer.from("not an image", "utf8"),
+      fileName: "note.txt",
+      mimeType: "text/plain",
+    });
+    const oversizedMultipart = createMultipartBody({
+      content: Buffer.alloc((5 * 1024 * 1024) + 1, 0x61),
+      fileName: "large.png",
+      mimeType: "image/png",
+    });
+
+    const textUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
+      body: textMultipart.body,
+      headers: { "content-type": textMultipart.contentType },
+      method: "POST",
+    });
+    const oversizedUpload = await requestJson<{ code: string; error: string }>("/api/uploads/images", {
+      body: oversizedMultipart.body,
+      headers: { "content-type": oversizedMultipart.contentType },
+      method: "POST",
+    });
+    const traversal = await requestJson<{ error: string }>("/uploads/images/../journals.json");
+    const encodedTraversal = await requestJson<{ error: string }>("/uploads/images/%2e%2e%2fjournals.json");
+
+    assert.equal(textUpload.status, 415, textUpload.text);
+    assert.equal(textUpload.body.code, "upload_unsupported_image_type", textUpload.text);
+    assert.equal(oversizedUpload.status, 413, oversizedUpload.text);
+    assert.equal(oversizedUpload.body.code, "upload_image_too_large", oversizedUpload.text);
+    assert.equal(traversal.status, 403, traversal.text);
+    assert.equal(encodedTraversal.status, 403, encodedTraversal.text);
+  });
 });
 
 test("server exposes read-only world summary and details while keeping bootstrap lightweight", async () => {

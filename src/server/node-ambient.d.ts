@@ -1,5 +1,7 @@
 declare class Buffer extends Uint8Array {
+  static alloc(size: number, fill?: number): Buffer;
   static from(data: string | Uint8Array | readonly number[]): Buffer;
+  static from(data: string, encoding: string): Buffer;
   static concat(list: readonly Uint8Array[]): Buffer;
   static isBuffer(value: unknown): value is Buffer;
   toString(encoding?: string): string;

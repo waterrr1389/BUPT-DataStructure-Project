@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
+import busboy from "busboy";
+import { randomUUID } from "node:crypto";
 import { parseDestinationSortBy, type WorldRoutePlanInvalidRequestRecord } from "../services/contracts";
 import { createAppServices, type AppServices } from "../services/index";
 import { isWorldRouteServiceError } from "../services/world-route-service";
@@ -16,11 +18,42 @@ function resolvePublicDirFromServerLocation(): string {
 
 const publicDir = resolvePublicDirFromServerLocation();
 const WORLD_ROUTE_INVALID_REQUEST_MESSAGE = "Invalid world route request.";
+const IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+const IMAGE_UPLOAD_ROUTE_PREFIX = "/uploads/images/";
+const UPLOAD_IMAGE_MIME_EXTENSIONS = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+} as const;
+
+type UploadImageMimeType = keyof typeof UPLOAD_IMAGE_MIME_EXTENSIONS;
+
+type UploadedImage = {
+  fileName: string;
+  id: string;
+  mimeType: UploadImageMimeType;
+  originalName: string;
+  size: number;
+  url: string;
+};
 
 class RequestBodyError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "RequestBodyError";
+  }
+}
+
+class UploadRequestError extends Error {
+  readonly code: string;
+  readonly statusCode: number;
+
+  constructor(statusCode: number, code: string, message: string) {
+    super(message);
+    this.name = "UploadRequestError";
+    this.code = code;
+    this.statusCode = statusCode;
   }
 }
 
@@ -51,6 +84,15 @@ function mimeType(filePath: string): string {
   }
   if (filePath.endsWith(".png")) {
     return "image/png";
+  }
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  if (filePath.endsWith(".webp")) {
+    return "image/webp";
+  }
+  if (filePath.endsWith(".gif")) {
+    return "image/gif";
   }
   if (filePath.endsWith(".json")) {
     return "application/json; charset=utf-8";
@@ -96,6 +138,202 @@ async function serveStatic(requestPath: string, response: ServerResponse): Promi
     }
     json(response, 404, { error: "Not found" });
   }
+}
+
+function isUploadImageMimeType(mimeTypeValue: string): mimeTypeValue is UploadImageMimeType {
+  return Object.prototype.hasOwnProperty.call(UPLOAD_IMAGE_MIME_EXTENSIONS, mimeTypeValue);
+}
+
+function uploadImagesDir(runtimeDir: string): string {
+  return path.join(runtimeDir, "uploads", "images");
+}
+
+function safeUploadImageFileName(fileName: string): boolean {
+  return /^image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif)$/.test(fileName);
+}
+
+function rawPathname(requestUrl: string): string {
+  const queryIndex = requestUrl.indexOf("?");
+  const hashIndex = requestUrl.indexOf("#");
+  const endIndex = Math.min(
+    queryIndex === -1 ? requestUrl.length : queryIndex,
+    hashIndex === -1 ? requestUrl.length : hashIndex,
+  );
+  return requestUrl.slice(0, endIndex) || "/";
+}
+
+function decodePathSegment(segment: string): string | null {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}
+
+function uploadedImageFileNameFromUrl(requestUrl: string): { fileName: string | null; matched: boolean } {
+  const pathName = rawPathname(requestUrl);
+  if (!pathName.startsWith(IMAGE_UPLOAD_ROUTE_PREFIX)) {
+    return { fileName: null, matched: false };
+  }
+
+  const rawFileName = pathName.slice(IMAGE_UPLOAD_ROUTE_PREFIX.length);
+  const decodedFileName = decodePathSegment(rawFileName);
+  if (
+    decodedFileName === null ||
+    decodedFileName.length === 0 ||
+    decodedFileName.includes("/") ||
+    decodedFileName.includes("\\") ||
+    decodedFileName.includes("..") ||
+    !safeUploadImageFileName(decodedFileName)
+  ) {
+    return { fileName: null, matched: true };
+  }
+
+  return { fileName: decodedFileName, matched: true };
+}
+
+async function serveUploadedImage(
+  request: IncomingMessage,
+  response: ServerResponse,
+  runtimeDir: string,
+): Promise<boolean> {
+  const matchedFile = uploadedImageFileNameFromUrl(request.url ?? "/");
+  if (!matchedFile.matched) {
+    return false;
+  }
+  if (request.method !== "GET") {
+    json(response, 404, { error: "Not found" });
+    return true;
+  }
+  if (!matchedFile.fileName) {
+    json(response, 403, { error: "Forbidden" });
+    return true;
+  }
+
+  const targetPath = path.join(uploadImagesDir(runtimeDir), matchedFile.fileName);
+  try {
+    const content = await fs.readFile(targetPath);
+    response.writeHead(200, {
+      "content-type": mimeType(targetPath),
+      "cache-control": "public, max-age=300, must-revalidate",
+    });
+    response.end(content);
+  } catch (error) {
+    const candidate = error as NodeJS.ErrnoException;
+    if (candidate.code === "ENOENT") {
+      json(response, 404, { error: "Not found" });
+      return true;
+    }
+    throw error;
+  }
+  return true;
+}
+
+async function parseImageUpload(request: IncomingMessage, runtimeDir: string): Promise<UploadedImage> {
+  let parser: busboy.Busboy;
+  try {
+    parser = busboy({
+      headers: request.headers ?? {},
+      limits: {
+        fields: 0,
+        files: 1,
+        fileSize: IMAGE_UPLOAD_MAX_BYTES,
+        parts: 2,
+      },
+    });
+  } catch {
+    throw new UploadRequestError(400, "upload_invalid_multipart", "Request must be multipart form data.");
+  }
+
+  let uploadError: UploadRequestError | null = null;
+  let fileSeen = false;
+  let originalName = "";
+  let mimeTypeValue: UploadImageMimeType | null = null;
+  let size = 0;
+  const chunks: Buffer[] = [];
+
+  const setUploadError = (nextError: UploadRequestError): void => {
+    if (!uploadError) {
+      uploadError = nextError;
+    }
+  };
+
+  const closePromise = new Promise<void>((resolve, reject) => {
+    parser.on("file", (_name, stream, info) => {
+      if (fileSeen) {
+        setUploadError(new UploadRequestError(400, "upload_single_file_required", "Only one image file can be uploaded."));
+        stream.resume();
+        return;
+      }
+      fileSeen = true;
+      originalName = info.filename ?? "";
+      if (!isUploadImageMimeType(info.mimeType)) {
+        setUploadError(new UploadRequestError(415, "upload_unsupported_image_type", "Unsupported image MIME type."));
+        stream.resume();
+        return;
+      }
+
+      mimeTypeValue = info.mimeType;
+      stream.on("limit", () => {
+        setUploadError(new UploadRequestError(413, "upload_image_too_large", "Image exceeds the 5 MB limit."));
+      });
+      stream.on("data", (chunk: Buffer) => {
+        if (uploadError) {
+          return;
+        }
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        size += buffer.length;
+        chunks.push(buffer);
+      });
+    });
+    parser.on("filesLimit", () => {
+      setUploadError(new UploadRequestError(400, "upload_single_file_required", "Only one image file can be uploaded."));
+    });
+    parser.on("fieldsLimit", () => {
+      setUploadError(new UploadRequestError(400, "upload_single_file_required", "Only one image file can be uploaded."));
+    });
+    parser.on("partsLimit", () => {
+      setUploadError(new UploadRequestError(400, "upload_single_file_required", "Only one image file can be uploaded."));
+    });
+    parser.on("error", () => {
+      reject(new UploadRequestError(400, "upload_invalid_multipart", "Request must be valid multipart form data."));
+    });
+    parser.on("close", () => {
+      resolve();
+    });
+  });
+
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    parser.write(buffer);
+  }
+  parser.end();
+  await closePromise;
+
+  if (uploadError) {
+    throw uploadError;
+  }
+  if (!fileSeen || !mimeTypeValue) {
+    throw new UploadRequestError(400, "upload_image_required", "An image file is required.");
+  }
+  if (size === 0) {
+    throw new UploadRequestError(400, "upload_image_empty", "Image file must not be empty.");
+  }
+
+  const id = randomUUID();
+  const fileName = `image-${id}.${UPLOAD_IMAGE_MIME_EXTENSIONS[mimeTypeValue]}`;
+  const content = Buffer.concat(chunks);
+  await fs.mkdir(uploadImagesDir(runtimeDir), { recursive: true });
+  await fs.writeFile(path.join(uploadImagesDir(runtimeDir), fileName), content);
+
+  return {
+    fileName,
+    id,
+    mimeType: mimeTypeValue,
+    originalName,
+    size,
+    url: `${IMAGE_UPLOAD_ROUTE_PREFIX}${fileName}`,
+  };
 }
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
@@ -250,6 +488,21 @@ async function handleApi(
     const token = readCookie(request, "trail_atlas_session");
     json(response, 200, await services.bootstrap(token));
     return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/uploads/images") {
+    try {
+      json(response, 201, {
+        item: await parseImageUpload(request, services.runtime.runtimeDir),
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof UploadRequestError) {
+        json(response, error.statusCode, { error: error.message, code: error.code });
+        return true;
+      }
+      throw error;
+    }
   }
 
   if (request.method === "POST" && url.pathname === "/api/auth/register") {
@@ -688,6 +941,9 @@ async function handleApi(
 export function createServerHandler(services: AppServices) {
   return async (request: IncomingMessage, response: ServerResponse) => {
     try {
+      if (await serveUploadedImage(request, response, services.runtime.runtimeDir)) {
+        return;
+      }
       const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
       const handled = await handleApi(request, response, services, requestUrl);
       if (!handled) {
