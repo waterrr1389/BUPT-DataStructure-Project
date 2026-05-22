@@ -20,6 +20,7 @@ import type {
   JournalLikeRecord,
   JournalRecord,
   JournalUpdateInput,
+  UserRecord,
 } from "./contracts";
 import type { JournalStore } from "./journal-store";
 import type { ResolvedRuntime } from "./runtime";
@@ -251,20 +252,30 @@ function filterJournals(
     .filter((journal) => (options.userId ? journal.userId === options.userId : true));
 }
 
-function requireKnownUser(runtime: ResolvedRuntime, userId: string, errorMessage = "User is required.") {
-  const user = findUser(runtime.seedData.users, assertNonEmpty(userId, errorMessage));
+function requireKnownUser(
+  runtime: ResolvedRuntime,
+  userId: string,
+  findUserFn: ((userId: string) => UserRecord | null) | undefined,
+  errorMessage = "User is required.",
+) {
+  const id = assertNonEmpty(userId, errorMessage);
+  const user = findUserFn ? findUserFn(id) : findUser(runtime.seedData.users, id);
   if (!user) {
     throw new Error(`Unknown user: ${userId}`);
   }
   return user;
 }
 
-export function createJournalService(runtime: ResolvedRuntime, store: JournalStore) {
+export function createJournalService(
+  runtime: ResolvedRuntime,
+  store: JournalStore,
+  findUserFn?: (userId: string) => UserRecord | null,
+) {
   async function loadViewerUserId(viewerUserId?: string): Promise<string | undefined> {
     if (!viewerUserId) {
       return undefined;
     }
-    return requireKnownUser(runtime, viewerUserId, "Viewer user is required.").id;
+    return requireKnownUser(runtime, viewerUserId, findUserFn, "Viewer user is required.").id;
   }
 
   async function loadJournal(journalId: string): Promise<JournalRecord> {
@@ -322,7 +333,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
     },
 
     async create(input: JournalCreateInput) {
-      const user = requireKnownUser(runtime, input.userId, "Journal author is required.");
+      const user = requireKnownUser(runtime, input.userId, findUserFn, "Journal author is required.");
       const destination = findDestination(
         runtime.seedData.destinations,
         assertNonEmpty(input.destinationId, "Destination is required."),
@@ -347,8 +358,11 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       return buildJournalDetail(runtime, journal, buildSocialMaps([], []));
     },
 
-    async update(journalId: string, input: JournalUpdateInput) {
+    async update(journalId: string, input: JournalUpdateInput, options?: { currentUserId?: string }) {
       const [existing, maps] = await Promise.all([loadJournal(journalId), loadSocialMaps({ journalId })]);
+      if (options?.currentUserId && existing.userId !== options.currentUserId) {
+        throw new Error("Cannot update another user's journal.");
+      }
       const updated: JournalRecord = {
         ...existing,
         title: input.title ? assertNonEmpty(input.title, "Journal title is required.") : existing.title,
@@ -362,7 +376,11 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
       return buildJournalDetail(runtime, updated, maps);
     },
 
-    async delete(journalId: string) {
+    async delete(journalId: string, options?: { currentUserId?: string }) {
+      const journal = await loadJournal(journalId);
+      if (options?.currentUserId && journal.userId !== options.currentUserId) {
+        throw new Error("Cannot delete another user's journal.");
+      }
       const removed = await store.remove(journalId);
       if (!removed) {
         throw new Error(`Unknown journal: ${journalId}`);
@@ -382,7 +400,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
     },
 
     async rate(journalId: string, userId: string, score: number) {
-      const user = requireKnownUser(runtime, userId);
+      const user = requireKnownUser(runtime, userId, findUserFn);
       if (!Number.isInteger(score) || score < 1 || score > 5) {
         throw new Error("Journal score must be an integer between 1 and 5.");
       }
@@ -432,7 +450,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
     },
 
     async createComment(journalId: string, input: JournalCommentCreateInput) {
-      const user = requireKnownUser(runtime, input.userId);
+      const user = requireKnownUser(runtime, input.userId, findUserFn);
       const journal = await loadJournal(journalId);
       const comments = await store.listComments();
       const timestamp = nowIso();
@@ -449,7 +467,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
     },
 
     async deleteComment(commentId: string, userId: string) {
-      const user = requireKnownUser(runtime, userId);
+      const user = requireKnownUser(runtime, userId, findUserFn);
       const comment = await store.getComment(commentId);
       if (!comment) {
         throw new Error(`Unknown comment: ${commentId}`);
@@ -462,7 +480,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
     },
 
     async like(journalId: string, userId: string) {
-      const user = requireKnownUser(runtime, userId);
+      const user = requireKnownUser(runtime, userId, findUserFn);
       const journal = await loadJournal(journalId);
       const existing = await store.getLike(journalId, user.id);
       if (existing) {
@@ -479,7 +497,7 @@ export function createJournalService(runtime: ResolvedRuntime, store: JournalSto
     },
 
     async unlike(journalId: string, userId: string) {
-      const user = requireKnownUser(runtime, userId);
+      const user = requireKnownUser(runtime, userId, findUserFn);
       await loadJournal(journalId);
       const removed = await store.removeLike(journalId, user.id);
       if (!removed) {

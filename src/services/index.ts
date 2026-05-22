@@ -1,3 +1,4 @@
+import { createAuthService } from "./auth-service";
 import { createDestinationService } from "./destination-service";
 import { createExchangeService } from "./exchange-service";
 import { createFacilityService } from "./facility-service";
@@ -5,6 +6,7 @@ import { createFoodService } from "./food-service";
 import { createJournalService } from "./journal-service";
 import { JournalStore } from "./journal-store";
 import { createRouteService } from "./route-service";
+import { UserStore } from "./user-store";
 import { createWorldRouteService } from "./world-route-service";
 import { createWorldService } from "./world-service";
 import type { ServiceContextOptions, UserRecord } from "./contracts";
@@ -23,19 +25,27 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
     runtimeDir: runtime.runtimeDir,
     seedJournals: runtime.seedData.journals,
   });
+  const userStore = new UserStore({ seedUsers: runtime.seedData.users });
+  const auth = createAuthService(userStore);
 
   const destinations = createDestinationService(runtime);
   const routing = createRouteService(runtime);
   const facilities = createFacilityService(runtime);
-  const journals = createJournalService(runtime, journalStore);
+  const journals = createJournalService(runtime, journalStore, (userId) => userStore.findById(userId));
   const exchange = createExchangeService(runtime, journalStore);
   const foods = createFoodService(runtime);
   const world = createWorldService(runtime);
   const worldRouting = createWorldRouteService(runtime);
 
+  function getCurrentUser(token?: string): UserRecord | null {
+    return auth.resolveUserFromToken(token) ?? null;
+  }
+
   return {
     runtime,
     journalStore,
+    userStore,
+    auth,
     destinations,
     routing,
     facilities,
@@ -44,7 +54,8 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
     foods,
     world,
     worldRouting,
-    async bootstrap() {
+    getCurrentUser,
+    async bootstrap(authToken?: string) {
       return {
         users: runtime.seedData.users.map(summarizeBootstrapUser),
         categories: destinations.listCategories(),
@@ -52,6 +63,7 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
         featured: destinations.listCatalog(12),
         destinations: destinations.listAll(),
         source: runtime.source,
+        currentUser: getCurrentUser(authToken) ?? null,
       };
     },
   };
