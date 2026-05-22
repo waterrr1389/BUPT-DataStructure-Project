@@ -284,6 +284,46 @@ test("post detail preserves actor-aware map and feed hand-offs, including delete
   }
 });
 
+test("post detail keeps legacy journal media source fallback visible", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture({
+      journalMedia: [
+        {
+          source: "/uploads/images/legacy-harbor-source.jpg",
+          title: "Legacy harbor frame",
+          type: "image",
+        },
+      ],
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    assert.equal(root.querySelectorAll(".media-strip .media-card").length, 1);
+    assert.ok(root.innerHTML.includes("Legacy harbor frame"));
+    assert.ok(root.innerHTML.includes("/uploads/images/legacy-harbor-source.jpg"));
+    assert.ok(root.innerHTML.includes("图片"));
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
 test("post detail keeps the journal surface mounted when the initial comments load fails", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();

@@ -174,6 +174,30 @@ test("feed exchange compression controls keep the legacy endpoint contract", asy
     const root = env.createRoot();
     const module = await importSpaModule<FeedModule>("views/feed.js");
     const fixture = createFeedFixture();
+    const exchangeRequests: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
+
+    fixture.app.requestJson = async (endpoint: string, options?: { body?: string }) => {
+      exchangeRequests.push({
+        endpoint,
+        payload: JSON.parse(options?.body ?? "{}"),
+      });
+      if (endpoint === "/api/journal-exchange/compress") {
+        return {
+          item: {
+            compressed: "10,20,30",
+            ratio: 0.5,
+          },
+        };
+      }
+      if (endpoint === "/api/journal-exchange/decompress") {
+        return {
+          item: {
+            text: "Restored feed exchange note.",
+          },
+        };
+      }
+      throw new Error(`Unexpected request: ${endpoint}`);
+    };
 
     await module.render(
       fixture.app,
@@ -190,15 +214,34 @@ test("feed exchange compression controls keep the legacy endpoint contract", asy
     dispatchDomEvent(requireElement(root, "#feed-compression-form"), "submit");
     await settleAsync();
 
-    assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/compress"]);
+    assert.deepEqual(exchangeRequests, [
+      {
+        endpoint: "/api/journal-exchange/compress",
+        payload: {
+          body: "Quiet feed exchange note.",
+        },
+      },
+    ]);
+    assert.equal((fixture.app.state as { lastCompressed?: string }).lastCompressed, "10,20,30");
     assert.ok(requireElement(root, "#feed-exchange-results").innerHTML.includes("10,20,30"));
 
+    requireElement(root, "#feed-compression-body").value = "Manual fallback text must not win.";
     dispatchDomEvent(requireElement(root, "#feed-decompress"), "click");
     await settleAsync();
 
-    assert.deepEqual(fixture.requestJsonCalls, [
-      "/api/journal-exchange/compress",
-      "/api/journal-exchange/decompress",
+    assert.deepEqual(exchangeRequests, [
+      {
+        endpoint: "/api/journal-exchange/compress",
+        payload: {
+          body: "Quiet feed exchange note.",
+        },
+      },
+      {
+        endpoint: "/api/journal-exchange/decompress",
+        payload: {
+          body: "10,20,30",
+        },
+      },
     ]);
     assert.ok(requireElement(root, "#feed-exchange-results").innerHTML.includes("Restored feed exchange note."));
   } finally {
