@@ -8,9 +8,11 @@
     "node": ">=20"
   },
   "dependencies": {
+    "busboy": "^1.6.0",
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
+    "@types/busboy": "^1.5.4",
     "@types/leaflet": "^1.9.20",
     "typescript": "^5.6.3"
   },
