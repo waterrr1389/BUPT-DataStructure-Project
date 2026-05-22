@@ -1228,6 +1228,53 @@ test("post detail previews and removes a selected comment image", async () => {
   }
 });
 
+test("post detail releases selected comment image previews on cleanup", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const revokedUrls: string[] = [];
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static override revokeObjectURL(url: string) {
+        revokedUrls.push(url);
+      }
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [createCommentImageFile({ name: "quiet-bridge.webp", type: "image/webp" })]);
+    dispatchDomEvent(imageInput, "change");
+    await settleAsync();
+
+    assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), false);
+    assert.deepEqual(revokedUrls, []);
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+    assert.deepEqual(revokedUrls, ["blob:comment-preview"]);
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
 test("post detail blocks invalid comment images before upload", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();

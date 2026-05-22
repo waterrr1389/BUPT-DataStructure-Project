@@ -887,5 +887,9 @@ export async function render(
 
   return () => {
     disposed = true;
+    if (selectedCommentImage) {
+      revokePreviewUrl(selectedCommentImage.previewUrl);
+      selectedCommentImage = null;
+    }
   };
 }
