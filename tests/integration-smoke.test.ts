@@ -739,6 +739,175 @@ test("server persists uploaded comment media after reload and removes it after d
   });
 });
 
+test("server hides parent journal comments after deleting a journal with media comments", async () => {
+  await withServer("journal-comment-parent-delete-http", async ({ requestJson }) => {
+    const created = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "North Institute comment cleanup route",
+        body: "A route note with plain and image comments that should disappear with the parent journal.",
+        tags: ["indoor", "cleanup"],
+      },
+      method: "POST",
+    });
+    const multipart = createMultipartBody({
+      content: imageFixtures.png.bytes,
+      fileName: "cleanup-comment.png",
+      mimeType: "image/png",
+    });
+    const upload = await requestJson<{ item: { url: string } }>("/api/uploads/images", {
+      body: multipart.body,
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+    });
+    const media = [
+      {
+        type: "image",
+        title: "Cleanup image",
+        source: upload.body.item.url,
+      },
+    ];
+    const plainComment = await requestJson<{ item: { id: string; media: unknown[] } }>(
+      `/api/journals/${created.body.item.id}/comments`,
+      {
+        body: {
+          userId: "user-5",
+          body: "Plain comment should not survive as a visible stale record.",
+        },
+        method: "POST",
+      },
+    );
+    const mediaComment = await requestJson<{ item: { id: string; media: unknown[] } }>(
+      `/api/journals/${created.body.item.id}/comments`,
+      {
+        body: {
+          userId: "user-6",
+          body: "Image comment should not survive as a visible stale record.",
+          media,
+        },
+        method: "POST",
+      },
+    );
+    const beforeDelete = await requestJson<{
+      items: Array<{ id: string; media: unknown[] }>;
+      totalCount: number;
+    }>(`/api/journals/${created.body.item.id}/comments?limit=10`);
+    const deleted = await requestJson<{ deleted: boolean }>(`/api/journals/${created.body.item.id}`, {
+      method: "DELETE",
+    });
+    const afterDelete = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments?limit=10`);
+
+    assert.equal(created.status, 201, created.text);
+    assert.equal(upload.status, 201, upload.text);
+    assert.equal(plainComment.status, 201, plainComment.text);
+    assert.deepEqual(plainComment.body.item.media, [], plainComment.text);
+    assert.equal(mediaComment.status, 201, mediaComment.text);
+    assert.deepEqual(mediaComment.body.item.media, media, mediaComment.text);
+    assert.equal(beforeDelete.status, 200, beforeDelete.text);
+    assert.equal(beforeDelete.body.totalCount, 2, beforeDelete.text);
+    assert.equal(
+      beforeDelete.body.items.some((item) => item.id === plainComment.body.item.id),
+      true,
+      beforeDelete.text,
+    );
+    assert.equal(
+      beforeDelete.body.items.some((item) => item.id === mediaComment.body.item.id && item.media.length === 1),
+      true,
+      beforeDelete.text,
+    );
+    assert.equal(deleted.status, 200, deleted.text);
+    assert.equal(deleted.body.deleted, true, deleted.text);
+    assert.equal(afterDelete.status, 400, afterDelete.text);
+    expectMatches(afterDelete.body.error, new RegExp(`Unknown journal: ${created.body.item.id}`));
+  });
+});
+
+test("server rejects blank comment bodies with empty media over HTTP", async () => {
+  await withServer("comment-blank-body-empty-media-http", async ({ requestJson }) => {
+    const created = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "North Institute blank comment validation",
+        body: "A route note for validating empty image comment payloads.",
+        tags: ["indoor", "validation"],
+      },
+      method: "POST",
+    });
+    const blankComment = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments`, {
+      body: {
+        userId: "user-5",
+        body: "   ",
+        media: [],
+      },
+      method: "POST",
+    });
+
+    assert.equal(created.status, 201, created.text);
+    assert.equal(blankComment.status, 400, blankComment.text);
+    assert.equal(blankComment.body.error, "Comment body is required.", blankComment.text);
+  });
+});
+
+test("server preserves legacy journal media and exposes compact feed media counts", async () => {
+  await withServer("journal-legacy-media-http", async ({ requestJson }) => {
+    const legacyMedia = [
+      {
+        type: "image",
+        title: "Archive route card",
+        source: "generated://journal-media/archive-route-card",
+        note: "Legacy generated image card.",
+      },
+      {
+        type: "video",
+        title: "Archive route clip",
+        source: "generated://journal-media/archive-route-clip",
+      },
+    ];
+    const created = await requestJson<{ item: { id: string; media: unknown[] } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "North Institute legacy media route",
+        body: "A route note carrying legacy generated journal media.",
+        tags: ["indoor", "legacy"],
+        media: legacyMedia,
+      },
+      method: "POST",
+    });
+    const detail = await requestJson<{ item: { media: unknown[] } }>(`/api/journals/${created.body.item.id}`);
+    const patched = await requestJson<{ item: { media: unknown[]; title: string } }>(`/api/journals/${created.body.item.id}`, {
+      body: {
+        userId: "user-2",
+        title: "North Institute legacy media route update",
+        body: "Updated route text should not clear legacy media.",
+      },
+      method: "PATCH",
+    });
+    const feed = await requestJson<{
+      items: Array<Record<string, unknown>>;
+      totalCount: number;
+    }>("/api/feed?limit=1");
+
+    assert.equal(created.status, 201, created.text);
+    assert.deepEqual(created.body.item.media, legacyMedia, created.text);
+    assert.equal(detail.status, 200, detail.text);
+    assert.deepEqual(detail.body.item.media, legacyMedia, detail.text);
+    assert.equal(patched.status, 200, patched.text);
+    assert.equal(patched.body.item.title, "North Institute legacy media route update", patched.text);
+    assert.deepEqual(patched.body.item.media, legacyMedia, patched.text);
+    assert.equal(feed.status, 200, feed.text);
+    assert.equal(feed.body.totalCount > 1, true, feed.text);
+    assert.equal(feed.body.items[0]?.id, created.body.item.id, feed.text);
+    assert.equal(feed.body.items[0]?.mediaCount, legacyMedia.length, feed.text);
+    assert.equal("media" in (feed.body.items[0] ?? {}), false, feed.text);
+    assert.equal("body" in (feed.body.items[0] ?? {}), false, feed.text);
+    assert.equal("ratings" in (feed.body.items[0] ?? {}), false, feed.text);
+    assert.equal("comments" in (feed.body.items[0] ?? {}), false, feed.text);
+  });
+});
+
 test("server keeps journal exchange compression endpoints compatible", async () => {
   await withServer("journal-exchange-http-compression", async ({ requestJson }) => {
     const body = "North Institute indoor archive loop. ".repeat(12);
