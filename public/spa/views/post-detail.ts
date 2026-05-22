@@ -56,6 +56,14 @@ function compressionNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(numberValue) ? numberValue : fallback;
 }
 
+function requiredCompressionStat(stats, key: string): number {
+  const value = stats?.[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error("Compressed journal file has invalid stats.");
+  }
+  return value;
+}
+
 function normalizeCompressionStats(item, body: string) {
   const compressed = text(item?.compressed);
   const inputLength = compressionNumber(item?.inputLength ?? item?.originalLength, body.length);
@@ -142,9 +150,17 @@ function validateCompressedJournalFile(payload) {
   if (!compressedBody) {
     throw new Error("Compressed journal file is missing a body payload.");
   }
+  if (!payload.stats || typeof payload.stats !== "object") {
+    throw new Error("Compressed journal file is missing stats.");
+  }
   return {
     compressedBody,
-    stats: payload.stats || {},
+    stats: {
+      inputLength: requiredCompressionStat(payload.stats, "inputLength"),
+      payloadLength: requiredCompressionStat(payload.stats, "payloadLength"),
+      compressionRatio: requiredCompressionStat(payload.stats, "compressionRatio"),
+      spaceSavings: requiredCompressionStat(payload.stats, "spaceSavings"),
+    },
     title: text(payload.title, appCopy.postDetail.compression.previewFallbackTitle),
   };
 }

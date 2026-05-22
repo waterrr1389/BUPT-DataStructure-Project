@@ -1267,17 +1267,27 @@ test("post detail uploads a selected image before creating a media comment and r
       notice: "",
       totalCount: 1,
     };
+    const sequence: string[] = [];
     const fixture = createPostDetailFixture({
       commentPages: [
         createCommentPage(1, 5, ""),
         mediaCommentPage,
       ],
-      uploadImageImpl: async (file) => ({
-        mimeType: file.type,
-        originalName: file.name,
-        size: file.size,
-        url: uploadedUrl,
-      }),
+      createCommentImpl: async () => {
+        sequence.push("create-comment");
+        return { available: true, item: { id: "comment-image" }, notice: "" };
+      },
+      uploadImageImpl: async (file) => {
+        sequence.push("upload-start");
+        await Promise.resolve();
+        sequence.push("upload-finish");
+        return {
+          mimeType: file.type,
+          originalName: file.name,
+          size: file.size,
+          url: uploadedUrl,
+        };
+      },
     });
     const urlStub = class extends previousUrl {
       static override createObjectURL() {
@@ -1306,6 +1316,7 @@ test("post detail uploads a selected image before creating a media comment and r
     dispatchDomEvent(requireElement(root, "#post-comment-form"), "submit");
     await settleAsync();
 
+    assert.deepEqual(sequence, ["upload-start", "upload-finish", "create-comment"]);
     assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
     assert.deepEqual(fixture.createCommentCalls, [
       {
@@ -1808,6 +1819,12 @@ test("post detail rejects compressed import variants without mutating the page",
       algorithm: "lzw",
       title: "Imported Bridge",
       compressedBody: "10,20,30",
+      stats: {
+        inputLength: 42,
+        payloadLength: 8,
+        compressionRatio: 0.19,
+        spaceSavings: 0.81,
+      },
     };
     const importInput = requireElement(root, "#post-import-compressed");
     const cases = [
@@ -1820,6 +1837,27 @@ test("post detail rejects compressed import variants without mutating the page",
         title: validShape.title,
       })),
       createImportFile(JSON.stringify({ ...validShape, compressedBody: "" })),
+      createImportFile(JSON.stringify({
+        algorithm: validShape.algorithm,
+        compressedBody: validShape.compressedBody,
+        format: validShape.format,
+        title: validShape.title,
+      })),
+      createImportFile(JSON.stringify({
+        ...validShape,
+        stats: {
+          compressionRatio: validShape.stats.compressionRatio,
+          inputLength: validShape.stats.inputLength,
+          spaceSavings: validShape.stats.spaceSavings,
+        },
+      })),
+      createImportFile(JSON.stringify({
+        ...validShape,
+        stats: {
+          ...validShape.stats,
+          payloadLength: "not-a-number",
+        },
+      })),
       createImportFile(JSON.stringify(validShape)),
     ];
 
