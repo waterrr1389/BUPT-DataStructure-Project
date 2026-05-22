@@ -1545,10 +1545,10 @@ test("post detail exports compressed journal JSON without media payloads", async
           return {
             item: {
               compressed: "10,20,30",
-              compressionRatio: 0.5,
-              inputLength: 64,
+              originalLength: 64,
               payloadLength: 8,
-              spaceSavings: 0.5,
+              ratio: 0.5,
+              savingsRatio: 0.5,
             },
           };
         }
@@ -1624,11 +1624,13 @@ test("post detail exports compressed journal JSON without media payloads", async
     assert.equal(downloads[0].payload.title, "Bridge Notes");
     assert.equal(downloads[0].payload.compressedBody, "10,20,30");
     assert.deepEqual(downloads[0].payload.stats, {
-      originalLength: 64,
+      inputLength: 64,
       payloadLength: 8,
       compressionRatio: 0.5,
-      savingsRatio: 0.5,
+      spaceSavings: 0.5,
     });
+    assert.equal(Object.prototype.hasOwnProperty.call(downloads[0].payload.stats, "originalLength"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(downloads[0].payload.stats, "savingsRatio"), false);
     assert.equal(typeof downloads[0].payload.exportedAt, "string");
     assert.equal(JSON.stringify(downloads[0].payload).includes("data:image"), false);
     assert.equal(JSON.stringify(downloads[0].payload).includes("base64"), false);
@@ -1694,10 +1696,10 @@ test("post detail imports compressed journal JSON as a non-mutating preview", as
       title: "Imported Bridge",
       compressedBody: "10,20,30",
       stats: {
-        originalLength: 42,
+        inputLength: 42,
         payloadLength: 8,
         compressionRatio: 0.19,
-        savingsRatio: 0.81,
+        spaceSavings: 0.81,
       },
       exportedAt: "2026-05-23T00:00:00.000Z",
     };

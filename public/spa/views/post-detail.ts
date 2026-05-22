@@ -58,29 +58,29 @@ function compressionNumber(value: unknown, fallback = 0): number {
 
 function normalizeCompressionStats(item, body: string) {
   const compressed = text(item?.compressed);
-  const originalLength = compressionNumber(item?.inputLength, body.length);
+  const inputLength = compressionNumber(item?.inputLength ?? item?.originalLength, body.length);
   const payloadLength = compressionNumber(item?.payloadLength, compressed.length);
   const compressionRatio = compressionNumber(
     item?.compressionRatio ?? item?.ratio,
-    originalLength > 0 ? payloadLength / originalLength : 0,
+    inputLength > 0 ? payloadLength / inputLength : 0,
   );
-  const savingsRatio = compressionNumber(item?.spaceSavings, 1 - compressionRatio);
+  const spaceSavings = compressionNumber(item?.spaceSavings ?? item?.savingsRatio, 1 - compressionRatio);
 
   return {
-    originalLength,
+    inputLength,
     payloadLength,
     compressionRatio,
-    savingsRatio,
+    spaceSavings,
   };
 }
 
 function compressionMetricsMarkup(stats) {
   const copy = appCopy.postDetail.compression.metrics;
   return resultMetaMarkup([
-    copy.originalLength(stats?.originalLength ?? 0),
+    copy.originalLength(stats?.inputLength ?? stats?.originalLength ?? 0),
     copy.payloadLength(stats?.payloadLength ?? 0),
     copy.compressionRatio(stats?.compressionRatio ?? 0),
-    copy.savingsRatio(stats?.savingsRatio ?? 0),
+    copy.savingsRatio(stats?.spaceSavings ?? stats?.savingsRatio ?? 0),
   ]);
 }
 
