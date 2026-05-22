@@ -164,6 +164,67 @@ function asObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function readCookie(request: IncomingMessage, name: string): string | undefined {
+  const cookieHeader = request.headers?.cookie;
+  if (!cookieHeader) {
+    return undefined;
+  }
+  const headerValue = Array.isArray(cookieHeader) ? cookieHeader.join(";") : cookieHeader;
+  const cookies = headerValue.split(";");
+  for (const cookie of cookies) {
+    const [key, ...rest] = cookie.trim().split("=");
+    if (key === name && rest.length > 0) {
+      return rest.join("=");
+    }
+  }
+  return undefined;
+}
+
+function setCookie(
+  response: ServerResponse,
+  name: string,
+  value: string,
+  options: { httpOnly?: boolean; path?: string; sameSite?: string } = {},
+): void {
+  const parts = [`${name}=${value}`];
+  if (options.httpOnly) {
+    parts.push("HttpOnly");
+  }
+  if (options.path) {
+    parts.push(`Path=${options.path}`);
+  }
+  if (options.sameSite) {
+    parts.push(`SameSite=${options.sameSite}`);
+  }
+  const existing = response.getHeader("Set-Cookie");
+  if (Array.isArray(existing)) {
+    response.setHeader("Set-Cookie", [...existing, parts.join("; ")]);
+  } else if (existing) {
+    response.setHeader("Set-Cookie", [String(existing), parts.join("; ")]);
+  } else {
+    response.setHeader("Set-Cookie", parts.join("; "));
+  }
+}
+
+function clearCookie(response: ServerResponse, name: string): void {
+  setCookie(response, name, "", { httpOnly: true, path: "/", sameSite: "Lax" });
+}
+
+function resolveCurrentUserId(
+  request: IncomingMessage,
+  services: AppServices,
+  bodyUserId?: string,
+): string | undefined {
+  const token = readCookie(request, "trail_atlas_session");
+  if (token) {
+    const user = services.auth.resolveUserFromToken(token);
+    if (user) {
+      return user.id;
+    }
+  }
+  return bodyUserId ?? undefined;
+}
+
 async function handleApi(
   request: IncomingMessage,
   response: ServerResponse,
@@ -186,7 +247,69 @@ async function handleApi(
   }
 
   if (request.method === "GET" && url.pathname === "/api/bootstrap") {
-    json(response, 200, await services.bootstrap());
+    const token = readCookie(request, "trail_atlas_session");
+    json(response, 200, await services.bootstrap(token));
+    return true;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/register") {
+    try {
+      const body = asObject(await readBody(request));
+      const result = services.auth.register({
+        name: String(body.name ?? ""),
+        password: String(body.password ?? ""),
+        interests: Array.isArray(body.interests) ? body.interests.map(String) : undefined,
+        dietaryPreferences: Array.isArray(body.dietaryPreferences) ? body.dietaryPreferences.map(String) : undefined,
+        homeDestinationId: body.homeDestinationId ? String(body.homeDestinationId) : undefined,
+      });
+      setCookie(response, "trail_atlas_session", result.token, { httpOnly: true, path: "/", sameSite: "Lax" });
+      json(response, 201, { item: { id: result.user.id, name: result.user.name } });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === "Username already exists.") {
+        json(response, 409, { error: message, code: "auth_duplicate_username" });
+        return true;
+      }
+      throw error;
+    }
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/login") {
+    try {
+      const body = asObject(await readBody(request));
+      const result = services.auth.login(String(body.name ?? ""), String(body.password ?? ""));
+      setCookie(response, "trail_atlas_session", result.token, { httpOnly: true, path: "/", sameSite: "Lax" });
+      json(response, 200, { item: { id: result.user.id, name: result.user.name } });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === "Invalid credentials.") {
+        json(response, 401, { error: message, code: "auth_invalid_credentials" });
+        return true;
+      }
+      throw error;
+    }
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+    const token = readCookie(request, "trail_atlas_session");
+    if (token) {
+      services.auth.logout(token);
+    }
+    clearCookie(response, "trail_atlas_session");
+    json(response, 200, { ok: true });
+    return true;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/auth/me") {
+    const token = readCookie(request, "trail_atlas_session");
+    const user = token ? services.auth.resolveUserFromToken(token) : null;
+    if (user) {
+      json(response, 200, { item: user });
+      return true;
+    }
+    json(response, 401, { error: "Not authenticated.", code: "auth_unauthenticated" });
     return true;
   }
 
@@ -346,9 +469,10 @@ async function handleApi(
 
   if (request.method === "POST" && url.pathname === "/api/journals") {
     const body = asObject(await readBody(request));
+    const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
     json(response, 201, {
       item: await services.journals.create({
-        userId: String(body.userId ?? ""),
+        userId: currentUserId ?? String(body.userId ?? ""),
         destinationId: String(body.destinationId ?? ""),
         title: String(body.title ?? ""),
         body: String(body.body ?? ""),
@@ -379,21 +503,26 @@ async function handleApi(
     }
     if (request.method === "PATCH" && parts.length === 3) {
       const body = asObject(await readBody(request));
+      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
       json(response, 200, {
-        item: await services.journals.update(journalId, {
-          title: body.title ? String(body.title) : undefined,
-          body: body.body ? String(body.body) : undefined,
-          tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
-          media: Array.isArray(body.media)
-            ? body.media.map((entry) => ({
-                type: String((entry as Record<string, unknown>).type ?? "image") as "image" | "video",
-                title: String((entry as Record<string, unknown>).title ?? ""),
-                source: String((entry as Record<string, unknown>).source ?? ""),
-                note: (entry as Record<string, unknown>).note ? String((entry as Record<string, unknown>).note) : undefined,
-              }))
-            : undefined,
-          recommendedFor: Array.isArray(body.recommendedFor) ? body.recommendedFor.map(String) : undefined,
-        }),
+        item: await services.journals.update(
+          journalId,
+          {
+            title: body.title ? String(body.title) : undefined,
+            body: body.body ? String(body.body) : undefined,
+            tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
+            media: Array.isArray(body.media)
+              ? body.media.map((entry) => ({
+                  type: String((entry as Record<string, unknown>).type ?? "image") as "image" | "video",
+                  title: String((entry as Record<string, unknown>).title ?? ""),
+                  source: String((entry as Record<string, unknown>).source ?? ""),
+                  note: (entry as Record<string, unknown>).note ? String((entry as Record<string, unknown>).note) : undefined,
+                }))
+              : undefined,
+            recommendedFor: Array.isArray(body.recommendedFor) ? body.recommendedFor.map(String) : undefined,
+          },
+          currentUserId ? { currentUserId } : undefined,
+        ),
       });
       return true;
     }
@@ -411,9 +540,10 @@ async function handleApi(
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "comments") {
       const body = asObject(await readBody(request));
+      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
       json(response, 201, {
         item: await services.journals.createComment(journalId, {
-          userId: String(body.userId ?? ""),
+          userId: currentUserId ?? String(body.userId ?? ""),
           body: String(body.body ?? ""),
         }),
       });
@@ -421,23 +551,31 @@ async function handleApi(
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "likes") {
       const body = asObject(await readBody(request));
+      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
       json(response, 200, {
-        item: await services.journals.like(journalId, String(body.userId ?? "")),
+        item: await services.journals.like(journalId, currentUserId ?? String(body.userId ?? "")),
       });
       return true;
     }
     if (request.method === "DELETE" && parts.length === 4 && parts[3] === "likes") {
       const body = asObject(await readBody(request));
+      const currentUserId = resolveCurrentUserId(
+        request,
+        services,
+        body.userId ? String(body.userId) : url.searchParams.get("userId") ?? undefined,
+      );
       json(response, 200, {
         item: await services.journals.unlike(
           journalId,
-          String(body.userId ?? url.searchParams.get("userId") ?? ""),
+          currentUserId ?? String(body.userId ?? url.searchParams.get("userId") ?? ""),
         ),
       });
       return true;
     }
     if (request.method === "DELETE" && parts.length === 3) {
-      json(response, 200, await services.journals.delete(journalId));
+      const body = asObject(await readBody(request));
+      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
+      json(response, 200, await services.journals.delete(journalId, currentUserId ? { currentUserId } : undefined));
       return true;
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "view") {
@@ -446,8 +584,9 @@ async function handleApi(
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "rate") {
       const body = asObject(await readBody(request));
+      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
       json(response, 200, {
-        item: await services.journals.rate(journalId, String(body.userId ?? ""), Number(body.score)),
+        item: await services.journals.rate(journalId, currentUserId ?? String(body.userId ?? ""), Number(body.score)),
       });
       return true;
     }
@@ -455,10 +594,15 @@ async function handleApi(
 
   if (request.method === "DELETE" && parts[1] === "comments" && parts.length === 3) {
     const body = asObject(await readBody(request));
+    const currentUserId = resolveCurrentUserId(
+      request,
+      services,
+      body.userId ? String(body.userId) : url.searchParams.get("userId") ?? undefined,
+    );
     json(
       response,
       200,
-      await services.journals.deleteComment(parts[2], String(body.userId ?? url.searchParams.get("userId") ?? "")),
+      await services.journals.deleteComment(parts[2], currentUserId ?? String(body.userId ?? url.searchParams.get("userId") ?? "")),
     );
     return true;
   }
