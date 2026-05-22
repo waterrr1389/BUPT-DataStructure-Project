@@ -8,6 +8,7 @@ import "./integration-smoke.test";
 import "./journal-consumers.test";
 import "./journal-presentation.test";
 import "./route-visualization-markers.test";
+import "./runtime-services-exchange.test";
 import "./runtime-services-journal-media.test";
 import "./runtime-services.test";
 import "./spa-regressions.test";

@@ -1203,24 +1203,6 @@ test("world route service returns the world unavailable contract when world mode
   throw new Error("Expected world route planning to fail when world mode is disabled.");
 });
 
-test("journal exchange compression preserves leading and trailing body whitespace", async () => {
-  const app = await createIsolatedApp("journal-exchange-lossless-whitespace");
-  const body = "  North Institute indoor archive loop.\n\nSecond line.  \n";
-  const compressed = app.exchange.compress(body);
-  const decompressed = app.exchange.decompress(compressed.compressed);
-
-  assert.equal(compressed.inputLength, body.length, format(compressed));
-  assert.equal(decompressed.text, body);
-
-  const leadingWhitespacePayload = app.exchange.compress("abcdefghi");
-  assert.equal(leadingWhitespacePayload.compressed.startsWith("\t"), true, format(leadingWhitespacePayload));
-  assert.equal(app.exchange.decompress(leadingWhitespacePayload.compressed).text, "abcdefghi");
-
-  const trailingWhitespacePayload = app.exchange.compress("0123456789abcdefghijklmnopqrstuvw");
-  assert.equal(trailingWhitespacePayload.compressed.endsWith(" "), true, format(trailingWhitespacePayload));
-  assert.equal(app.exchange.decompress(trailingWhitespacePayload.compressed).text, "0123456789abcdefghijklmnopqrstuvw");
-});
-
 test("fallback seed exposes distinct scenic and campus graph variants", async () => {
   const app = await createIsolatedApp("graph-variants");
   const scenicLoop = edgeIds(app, "dest-001");
