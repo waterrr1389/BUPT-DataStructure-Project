@@ -1,5 +1,6 @@
 import "./algorithms-core.test";
 import "./algorithms-routing.test";
+import "./auth.test";
 import "./app-smoke.test";
 import "./browser-build-guard.test";
 import "./data-seed.test";
