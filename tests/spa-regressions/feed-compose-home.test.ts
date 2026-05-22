@@ -1,0 +1,207 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  createSpaDomEnvironment,
+  dispatchDomEvent,
+  importSpaModule,
+  requireElement,
+  settleAsync,
+} from "../support/spa-harness";
+import {
+  createComposeFixture,
+  createFeedFixture,
+  createHomeFixture,
+  type ComposeModule,
+  type FeedModule,
+  type HomeModule,
+} from "../spa-regressions.test";
+
+test("compose respects the actor route param and preserves it on publish", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ComposeModule>("views/compose.js");
+    const fixture = createComposeFixture();
+
+    await module.render(
+      fixture.app,
+      {
+        name: "compose",
+        params: {
+          actor: "user-2",
+          destinationId: "dest-2",
+        },
+      },
+      root,
+    );
+
+    assert.equal(requireElement(root, "#compose-user").value, "user-2");
+    assert.equal(requireElement(root, "#compose-destination").value, "dest-2");
+
+    requireElement(root, "#compose-title").value = "Harbor dusk";
+    requireElement(root, "#compose-body").value = "Watched the lights come on above the pier.";
+    dispatchDomEvent(requireElement(root, "#compose-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      {
+        endpoint: "/api/journals",
+        payload: {
+          body: "Watched the lights come on above the pier.",
+          destinationId: "dest-2",
+          media: [],
+          tags: [],
+          title: "Harbor dusk",
+          userId: "user-2",
+        },
+      },
+    ]);
+    assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9?actor=user-2"]);
+  } finally {
+    restore();
+  }
+});
+
+test("home preview strips dead journal action buttons", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<HomeModule>("views/home.js");
+    const fixture = createHomeFixture();
+
+    await module.render(fixture.app, { name: "home", params: {} }, root);
+
+    assert.equal(root.querySelectorAll("[data-journal-id]").length, 1);
+    assert.equal(root.querySelectorAll("button[data-action]").length, 0);
+    assert.equal(root.innerHTML.includes("校园 · 北码头"), true);
+    assert.equal(root.innerHTML.includes("campus · North Wharf"), false);
+    assert.deepEqual(fixture.fetchFeedCalls, [{ limit: 3 }]);
+  } finally {
+    restore();
+  }
+});
+
+test("feed actions handle exchange cards and preserve recommendation mode", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<FeedModule>("views/feed.js");
+    const fixture = createFeedFixture();
+
+    await module.render(
+      fixture.app,
+      {
+        name: "feed",
+        params: {
+          actor: "user-2",
+          author: "user-1",
+          destinationId: "dest-1",
+        },
+      },
+      root,
+    );
+
+    assert.equal(fixture.fetchFeedCalls.length, 1);
+    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-2");
+    assert.equal(
+      requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
+      "/posts/journal-feed-1?actor=user-2",
+    );
+
+    requireElement(root, "#feed-exchange-query").value = "indoor";
+    dispatchDomEvent(requireElement(root, "#feed-exchange-search-form"), "submit");
+    await settleAsync();
+
+    assert.equal(
+      requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
+      "/posts/journal-exchange-1?actor=user-2",
+    );
+    assert.equal(root.querySelector("#feed-exchange-results button[data-action='like']"), null);
+    assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 likes"), false);
+    assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 comments"), false);
+
+    const actorSelect = requireElement(root, "#feed-actor");
+    actorSelect.value = "user-1";
+    dispatchDomEvent(actorSelect, "change");
+    await settleAsync();
+
+    assert.equal(fixture.fetchFeedCalls.length, 2);
+    assert.equal(fixture.fetchFeedCalls[1]?.viewerUserId, "user-1");
+    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-1");
+    assert.equal(
+      requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
+      "/posts/journal-feed-1?actor=user-1",
+    );
+    assert.equal(
+      requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
+      "/posts/journal-exchange-1?actor=user-1",
+    );
+
+    dispatchDomEvent(requireElement(root, "#feed-load-recommended"), "click");
+    await settleAsync();
+
+    assert.equal(fixture.fetchRecommendedCalls.length, 1);
+    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
+    assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
+    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
+
+    const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='view']");
+    dispatchDomEvent(exchangeButton, "click");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/search?query=indoor"]);
+    assert.deepEqual(fixture.sendJournalActionCalls, [
+      { action: "view", journalId: "journal-exchange-1", userId: "user-1" },
+    ]);
+    assert.equal(fixture.fetchRecommendedCalls.length, 2);
+    assert.equal(fixture.fetchFeedCalls.length, 2);
+    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
+    assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
+    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
+  } finally {
+    restore();
+  }
+});
+
+test("feed exchange compression controls keep the legacy endpoint contract", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<FeedModule>("views/feed.js");
+    const fixture = createFeedFixture();
+
+    await module.render(
+      fixture.app,
+      {
+        name: "feed",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    requireElement(root, "#feed-compression-body").value = "Quiet feed exchange note.";
+    dispatchDomEvent(requireElement(root, "#feed-compression-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/compress"]);
+    assert.ok(requireElement(root, "#feed-exchange-results").innerHTML.includes("10,20,30"));
+
+    dispatchDomEvent(requireElement(root, "#feed-decompress"), "click");
+    await settleAsync();
+
+    assert.deepEqual(fixture.requestJsonCalls, [
+      "/api/journal-exchange/compress",
+      "/api/journal-exchange/decompress",
+    ]);
+    assert.ok(requireElement(root, "#feed-exchange-results").innerHTML.includes("Restored feed exchange note."));
+  } finally {
+    restore();
+  }
+});

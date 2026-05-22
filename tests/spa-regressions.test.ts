@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -133,11 +134,11 @@ function createCommentImageFile(overrides: Partial<{ name: string; size: number;
   };
 }
 
-function createImportFile(content: string, name = "journal-compressed.json") {
+function createImportFile(content: string, name = "journal-compressed.json", type = "application/json") {
   return {
     name,
     size: content.length,
-    type: "application/json",
+    type,
     async text() {
       return content;
     },
@@ -1001,6 +1002,21 @@ function createFeedFixture() {
           items: [{ id: "journal-exchange-1", title: "Exchange note", userId: "user-1" }],
         };
       }
+      if (endpoint === "/api/journal-exchange/compress") {
+        return {
+          item: {
+            compressed: "10,20,30",
+            ratio: 0.5,
+          },
+        };
+      }
+      if (endpoint === "/api/journal-exchange/decompress") {
+        return {
+          item: {
+            text: "Restored feed exchange note.",
+          },
+        };
+      }
       throw new Error(`Unexpected request: ${endpoint}`);
     },
     async sendJournalAction(action: string, journalId: string, userId: string) {
@@ -1024,156 +1040,6 @@ function createFeedFixture() {
     statuses,
   };
 }
-
-test("compose respects the actor route param and preserves it on publish", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<ComposeModule>("views/compose.js");
-    const fixture = createComposeFixture();
-
-    await module.render(
-      fixture.app,
-      {
-        name: "compose",
-        params: {
-          actor: "user-2",
-          destinationId: "dest-2",
-        },
-      },
-      root,
-    );
-
-    assert.equal(requireElement(root, "#compose-user").value, "user-2");
-    assert.equal(requireElement(root, "#compose-destination").value, "dest-2");
-
-    requireElement(root, "#compose-title").value = "Harbor dusk";
-    requireElement(root, "#compose-body").value = "Watched the lights come on above the pier.";
-    dispatchDomEvent(requireElement(root, "#compose-form"), "submit");
-    await settleAsync();
-
-    assert.deepEqual(fixture.requestJsonCalls, [
-      {
-        endpoint: "/api/journals",
-        payload: {
-          body: "Watched the lights come on above the pier.",
-          destinationId: "dest-2",
-          media: [],
-          tags: [],
-          title: "Harbor dusk",
-          userId: "user-2",
-        },
-      },
-    ]);
-    assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9?actor=user-2"]);
-  } finally {
-    restore();
-  }
-});
-
-test("home preview strips dead journal action buttons", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<HomeModule>("views/home.js");
-    const fixture = createHomeFixture();
-
-    await module.render(fixture.app, { name: "home", params: {} }, root);
-
-    assert.equal(root.querySelectorAll("[data-journal-id]").length, 1);
-    assert.equal(root.querySelectorAll("button[data-action]").length, 0);
-    assert.equal(root.innerHTML.includes("校园 · 北码头"), true);
-    assert.equal(root.innerHTML.includes("campus · North Wharf"), false);
-    assert.deepEqual(fixture.fetchFeedCalls, [{ limit: 3 }]);
-  } finally {
-    restore();
-  }
-});
-
-test("feed actions handle exchange cards and preserve recommendation mode", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<FeedModule>("views/feed.js");
-    const fixture = createFeedFixture();
-
-    await module.render(
-      fixture.app,
-      {
-        name: "feed",
-        params: {
-          actor: "user-2",
-          author: "user-1",
-          destinationId: "dest-1",
-        },
-      },
-      root,
-    );
-
-    assert.equal(fixture.fetchFeedCalls.length, 1);
-    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-2");
-    assert.equal(
-      requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
-      "/posts/journal-feed-1?actor=user-2",
-    );
-
-    requireElement(root, "#feed-exchange-query").value = "indoor";
-    dispatchDomEvent(requireElement(root, "#feed-exchange-search-form"), "submit");
-    await settleAsync();
-
-    assert.equal(
-      requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
-      "/posts/journal-exchange-1?actor=user-2",
-    );
-    assert.equal(root.querySelector("#feed-exchange-results button[data-action='like']"), null);
-    assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 likes"), false);
-    assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 comments"), false);
-
-    const actorSelect = requireElement(root, "#feed-actor");
-    actorSelect.value = "user-1";
-    dispatchDomEvent(actorSelect, "change");
-    await settleAsync();
-
-    assert.equal(fixture.fetchFeedCalls.length, 2);
-    assert.equal(fixture.fetchFeedCalls[1]?.viewerUserId, "user-1");
-    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-1");
-    assert.equal(
-      requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
-      "/posts/journal-feed-1?actor=user-1",
-    );
-    assert.equal(
-      requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
-      "/posts/journal-exchange-1?actor=user-1",
-    );
-
-    dispatchDomEvent(requireElement(root, "#feed-load-recommended"), "click");
-    await settleAsync();
-
-    assert.equal(fixture.fetchRecommendedCalls.length, 1);
-    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
-    assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
-    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
-
-    const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='view']");
-    dispatchDomEvent(exchangeButton, "click");
-    await settleAsync();
-
-    assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/search?query=indoor"]);
-    assert.deepEqual(fixture.sendJournalActionCalls, [
-      { action: "view", journalId: "journal-exchange-1", userId: "user-1" },
-    ]);
-    assert.equal(fixture.fetchRecommendedCalls.length, 2);
-    assert.equal(fixture.fetchFeedCalls.length, 2);
-    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
-    assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
-    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
-  } finally {
-    restore();
-  }
-});
 
 test("post detail previews and removes a selected comment image", async () => {
   const env = createSpaDomEnvironment();
@@ -1218,6 +1084,61 @@ test("post detail previews and removes a selected comment image", async () => {
 
     assert.equal(preview.hasAttribute("hidden"), true);
     assert.equal(preview.innerHTML, "");
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("post detail submits no media after a selected comment image is removed", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture();
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static override revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [createCommentImageFile({ name: "quiet-bridge.webp", type: "image/webp" })]);
+    dispatchDomEvent(imageInput, "change");
+    await settleAsync();
+
+    dispatchDomEvent(requireElement(root, "#post-comment-image-remove"), "click");
+    requireElement(root, "#post-comment-body").value = "Plain after removal";
+    dispatchDomEvent(requireElement(root, "#post-comment-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.uploadImageCalls, []);
+    assert.deepEqual(fixture.createCommentCalls, [
+      {
+        body: "Plain after removal",
+        journalId: "journal-1",
+        userId: "user-2",
+      },
+    ]);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1470,6 +1391,140 @@ test("post detail keeps comment text and image when upload fails", async () => {
   }
 });
 
+test("post detail keeps comment text and image when media comment creation fails", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const uploadedUrl = "/uploads/images/image-cccccccc-cccc-cccc-cccc-cccccccccccc.png";
+    const fixture = createPostDetailFixture({
+      createCommentImpl: async () => {
+        throw new Error("Comment failed.");
+      },
+      uploadImageImpl: async (file) => ({
+        mimeType: file.type,
+        originalName: file.name,
+        size: file.size,
+        url: uploadedUrl,
+      }),
+    });
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static override revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const selectedFile = createCommentImageFile({ name: "quiet-bridge.png", type: "image/png" });
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [selectedFile]);
+    dispatchDomEvent(imageInput, "change");
+    const commentBody = requireElement(root, "#post-comment-body");
+    commentBody.value = "Keep this failed comment";
+    dispatchDomEvent(requireElement(root, "#post-comment-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
+    assert.equal(fixture.createCommentCalls.length, 1);
+    assert.equal(commentBody.value, "Keep this failed comment");
+    assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), false);
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("评论发布失败"));
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("post detail marks broken comment images without changing the card bounds", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture({
+      commentPages: [
+        {
+          available: true,
+          items: [
+            {
+              body: "Image source may fail in a classroom demo.",
+              createdAt: "2026-03-12T08:00:00.000Z",
+              id: "comment-broken-image",
+              media: [
+                {
+                  type: "image",
+                  title: "Missing route image",
+                  source: "/uploads/images/image-missing.png",
+                },
+              ],
+              userId: "user-2",
+            },
+          ],
+          nextCursor: "",
+          notice: "",
+          totalCount: 1,
+        },
+      ],
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const image = requireElement(root, ".comment-media-image");
+    dispatchDomEvent(image, "error");
+    await settleAsync();
+    const frame = requireElement(root, ".comment-media-frame");
+
+    assert.equal(image.classList.contains("is-load-failed"), true);
+    assert.equal(image.getAttribute("alt"), "图片加载失败");
+    assert.equal(frame.classList.contains("is-image-load-failed"), true);
+    assert.equal(frame.getAttribute("data-image-error"), "图片加载失败");
+    assert.ok(requireElement(root, "#post-comments").innerHTML.includes("Image source may fail in a classroom demo."));
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    restore();
+  }
+});
+
+test("post detail comment media CSS keeps broken and narrow images bounded", async () => {
+  const css = await fs.readFile(path.join(process.cwd(), "public", "styles.css"), "utf8");
+
+  assert.match(css, /\.comment-media-frame\s*\{[\s\S]*?width:\s*min\(100%,\s*520px\)/);
+  assert.match(css, /\.comment-media-image\s*\{[\s\S]*?aspect-ratio:\s*16\s*\/\s*9/);
+  assert.match(css, /\.comment-media-image\s*\{[\s\S]*?max-height:\s*320px/);
+  assert.match(css, /\.comment-media-frame\.is-image-load-failed::before\s*\{[\s\S]*?min-height:\s*clamp/);
+  assert.match(css, /\.comment-media-frame figcaption\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
+});
+
 test("post detail exports compressed journal JSON without media payloads", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -1534,6 +1589,9 @@ test("post detail exports compressed journal JSON without media payloads", async
       },
       root,
     );
+    const originalCommentsHtml = requireElement(root, "#post-comments").innerHTML;
+    const originalHeroMeta = requireElement(root, "#post-hero-meta").innerHTML;
+    const originalStoryHtml = requireElement(root, ".detail-story-card").innerHTML;
 
     const originalCreateElement = globalThis.document.createElement.bind(globalThis.document);
     globalThis.document.createElement = ((tagName: string) => {
@@ -1574,6 +1632,18 @@ test("post detail exports compressed journal JSON without media payloads", async
     assert.equal(typeof downloads[0].payload.exportedAt, "string");
     assert.equal(JSON.stringify(downloads[0].payload).includes("data:image"), false);
     assert.equal(JSON.stringify(downloads[0].payload).includes("base64"), false);
+    assert.deepEqual(fixture.createCommentCalls, []);
+    assert.deepEqual(fixture.actionCalls, []);
+    assert.deepEqual(fixture.commentCalls, [
+      { cursor: "", journalId: "journal-1", limit: 5 },
+    ]);
+    assert.deepEqual(fixture.detailCalls, [
+      { journalId: "journal-1", viewerUserId: "user-2" },
+    ]);
+    assert.equal(requireElement(root, "#post-comments").innerHTML, originalCommentsHtml);
+    assert.equal(requireElement(root, "#post-hero-meta").innerHTML, originalHeroMeta);
+    assert.equal(requireElement(root, ".detail-story-card").innerHTML, originalStoryHtml);
+    assert.equal(root.querySelectorAll(".media-strip .media-card").length, 1);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1702,85 +1772,16 @@ test("post detail shows a recoverable error for invalid compressed imports", asy
   }
 });
 
-test("explore defers destination details until the facility surface is first touched", async () => {
+test("post detail rejects compressed import variants without mutating the page", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
   try {
     const root = env.createRoot();
-    const module = await importSpaModule<ExploreModule>("views/explore.js");
-    const fixture = createExploreFixture();
-
-    const cleanup = await module.render(
-      fixture.app,
-      {
-        name: "explore",
-        params: {},
-      },
-      root,
-    );
-
-    assert.deepEqual(fixture.ensureDestinationDetailsCalls, []);
-    assert.deepEqual(fixture.requestJsonCalls, ["/api/foods/recommendations?destinationId=dest-1"]);
-
-    const facilityForm = requireElement(root, "#explore-facility-form");
-    dispatchDomEvent(facilityForm, "focusin");
-    dispatchDomEvent(facilityForm, "pointerdown");
-    await settleAsync();
-
-    assert.deepEqual(fixture.ensureDestinationDetailsCalls, ["dest-1"]);
-
-    if (typeof cleanup === "function") {
-      cleanup();
-    }
-  } finally {
-    restore();
-  }
-});
-
-test("explore destination cards preserve actor context across featured, search, and recommendation results", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<ExploreModule>("views/explore.js");
-    const fixture = createExploreFixture({
-      requestJsonImpl: async (endpoint: string) => {
-        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
-          return { items: [] };
-        }
-        if (endpoint === "/api/destinations?query=harbor&limit=8") {
-          return {
-            items: [
-              {
-                categories: ["museum"],
-                description: "Lantern decks and quiet overlooks.",
-                heat: 76,
-                id: "dest-2",
-                name: "Lantern Point",
-                nodeCount: 9,
-                rating: 4.6,
-                region: "East Bluffs",
-                type: "campus",
-              },
-            ],
-          };
-        }
-        if (endpoint === "/api/destinations/recommendations?query=harbor&limit=8") {
-          return {
-            items: [
-              {
-                categories: ["museum"],
-                description: "Reeds, galleries, and late ferry light.",
-                heat: 82,
-                id: "dest-3",
-                name: "Reed Market",
-                nodeCount: 11,
-                rating: 4.9,
-                region: "South Basin",
-                type: "district",
-              },
-            ],
-          };
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture({
+      requestJsonImpl: async (endpoint) => {
+        if (endpoint === "/api/journal-exchange/decompress") {
+          throw new Error("Decompression failed.");
         }
         throw new Error(`Unexpected request: ${endpoint}`);
       },
@@ -1789,7 +1790,7 @@ test("explore destination cards preserve actor context across featured, search, 
     const cleanup = await module.render(
       fixture.app,
       {
-        name: "explore",
+        journalId: "journal-1",
         params: {
           actor: "user-2",
         },
@@ -1797,203 +1798,41 @@ test("explore destination cards preserve actor context across featured, search, 
       root,
     );
 
-    const featuredLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
-    assert.equal(featuredLinks[0]?.getAttribute("href"), "/map?destinationId=dest-1&actor=user-2");
-    assert.equal(featuredLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-2");
-    assert.equal(requireElement(root, "#explore-category").innerHTML.includes('<option value="museum">博物馆</option>'), true);
-    assert.equal(requireElement(root, "#explore-food-cuisine").innerHTML.includes('<option value="tea">茶饮</option>'), true);
-    assert.equal(root.innerHTML.includes("校园 · 北码头"), true);
-    assert.equal(root.innerHTML.includes("campus · North Wharf"), false);
-    assert.equal(root.innerHTML.includes("博物馆"), true);
+    const validShape = {
+      format: "trail-atlas-journal-lzw-v1",
+      algorithm: "lzw",
+      title: "Imported Bridge",
+      compressedBody: "10,20,30",
+    };
+    const importInput = requireElement(root, "#post-import-compressed");
+    const cases = [
+      createImportFile(JSON.stringify(validShape), "journal-compressed.txt", "text/plain"),
+      createImportFile("{", "journal-compressed.json"),
+      createImportFile(JSON.stringify({ ...validShape, algorithm: "brotli" })),
+      createImportFile(JSON.stringify({ ...validShape, compressedBody: "" })),
+      createImportFile(JSON.stringify(validShape)),
+    ];
 
-    requireElement(root, "#explore-query").value = "harbor";
-    dispatchDomEvent(requireElement(root, "#explore-destination-form"), "submit");
-    await settleAsync();
+    for (const file of cases) {
+      setElementFiles(importInput, [file]);
+      dispatchDomEvent(importInput, "change");
+      await settleAsync();
 
-    const searchLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
-    assert.equal(searchLinks[0]?.getAttribute("href"), "/map?destinationId=dest-2&actor=user-2");
-    assert.equal(searchLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-2&actor=user-2");
-    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("校园 · 东崖"), true);
-    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("campus · East Bluffs"), false);
-
-    dispatchDomEvent(requireElement(root, "#explore-destination-recommend"), "click");
-    await settleAsync();
-
-    const recommendationLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
-    assert.equal(recommendationLinks[0]?.getAttribute("href"), "/map?destinationId=dest-3&actor=user-2");
-    assert.equal(recommendationLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-3&actor=user-2");
-    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("街区 · 南湾"), true);
-    assert.equal(requireElement(root, "#explore-destination-results").innerHTML.includes("district · South Basin"), false);
-
-    if (typeof cleanup === "function") {
-      cleanup();
+      assert.ok(requireElement(root, "#post-compression-notice").innerHTML.includes("无法读取这个压缩文件。"));
+      assert.ok(root.innerHTML.includes("Quiet bridge walk."));
+      assert.equal(root.querySelectorAll(".comment-card").length, 5);
+      assert.deepEqual(fixture.createCommentCalls, []);
+      assert.deepEqual(fixture.actionCalls, []);
     }
-  } finally {
-    restore();
-  }
-});
 
-test("explore destination cards keep clean URLs when no actor is present", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<ExploreModule>("views/explore.js");
-    const fixture = createExploreFixture({
-      requestJsonImpl: async (endpoint: string) => {
-        if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
-          return { items: [] };
-        }
-        if (endpoint === "/api/destinations?query=harbor&limit=8") {
-          return {
-            items: [
-              {
-                categories: ["museum"],
-                description: "Lantern decks and quiet overlooks.",
-                heat: 76,
-                id: "dest-2",
-                name: "Lantern Point",
-                nodeCount: 9,
-                rating: 4.6,
-                region: "East Bluffs",
-                type: "campus",
-              },
-            ],
-          };
-        }
-        if (endpoint === "/api/destinations/recommendations?query=harbor&limit=8") {
-          return {
-            items: [
-              {
-                categories: ["museum"],
-                description: "Reeds, galleries, and late ferry light.",
-                heat: 82,
-                id: "dest-3",
-                name: "Reed Market",
-                nodeCount: 11,
-                rating: 4.9,
-                region: "South Basin",
-                type: "district",
-              },
-            ],
-          };
-        }
-        throw new Error(`Unexpected request: ${endpoint}`);
-      },
-    });
-
-    const cleanup = await module.render(
-      fixture.app,
+    assert.deepEqual(fixture.requestJsonCalls, [
       {
-        name: "explore",
-        params: {},
-      },
-      root,
-    );
-
-    const featuredLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
-    assert.equal(featuredLinks[0]?.getAttribute("href"), "/map?destinationId=dest-1");
-    assert.equal(featuredLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-1");
-
-    requireElement(root, "#explore-query").value = "harbor";
-    dispatchDomEvent(requireElement(root, "#explore-destination-form"), "submit");
-    await settleAsync();
-
-    const searchLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
-    assert.equal(searchLinks[0]?.getAttribute("href"), "/map?destinationId=dest-2");
-    assert.equal(searchLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-2");
-
-    dispatchDomEvent(requireElement(root, "#explore-destination-recommend"), "click");
-    await settleAsync();
-
-    const recommendationLinks = root.querySelectorAll("#explore-destination-results .destination-card a");
-    assert.equal(recommendationLinks[0]?.getAttribute("href"), "/map?destinationId=dest-3");
-    assert.equal(recommendationLinks[1]?.getAttribute("href"), "/compose?destinationId=dest-3");
-
-    if (typeof cleanup === "function") {
-      cleanup();
-    }
-  } finally {
-    restore();
-  }
-});
-
-test("explore ignores stale facility node loads after destination changes", async () => {
-  const env = createSpaDomEnvironment();
-  const restore = env.install();
-  const detailsById = new Map([
-    [
-      "dest-1",
-      {
-        graph: {
-          nodes: [
-            { id: "dest-1-node-a", name: "Atrium" },
-            { id: "dest-1-node-b", name: "Bridge" },
-          ],
+        endpoint: "/api/journal-exchange/decompress",
+        payload: {
+          body: "10,20,30",
         },
       },
-    ],
-    [
-      "dest-2",
-      {
-        graph: {
-          nodes: [
-            { id: "dest-2-node-a", name: "Garden" },
-            { id: "dest-2-node-b", name: "Lookout" },
-          ],
-        },
-      },
-    ],
-  ]);
-  const staleDest1Details = createDeferred<Record<string, unknown>>();
-  let delayDest1 = false;
-
-  try {
-    const root = env.createRoot();
-    const module = await importSpaModule<ExploreModule>("views/explore.js");
-    const fixture = createExploreFixture({
-      destinationOptions: [
-        { id: "dest-1", label: "Harbor Reach", name: "Harbor Reach" },
-        { id: "dest-2", label: "Lantern Point", name: "Lantern Point" },
-      ],
-      ensureDestinationDetailsImpl: async (destinationId: string) => {
-        if (delayDest1 && destinationId === "dest-1") {
-          return staleDest1Details.promise;
-        }
-        const details = detailsById.get(destinationId);
-        if (!details) {
-          throw new Error(`Unknown destination: ${destinationId}`);
-        }
-        return details;
-      },
-    });
-
-    const cleanup = await module.render(
-      fixture.app,
-      {
-        name: "explore",
-        params: {},
-      },
-      root,
-    );
-
-    delayDest1 = true;
-    dispatchDomEvent(requireElement(root, "#explore-facility-form"), "focusin");
-    const facilityDestinationSelect = requireElement(root, "#explore-facility-destination");
-    facilityDestinationSelect.value = "dest-2";
-    dispatchDomEvent(facilityDestinationSelect, "change");
-    await settleAsync();
-
-    const facilityNodeSelect = requireElement(root, "#explore-facility-node");
-    assert.equal(facilityNodeSelect.value, "dest-2-node-a");
-
-    staleDest1Details.resolve(detailsById.get("dest-1") as Record<string, unknown>);
-    await settleAsync();
-
-    assert.equal(facilityDestinationSelect.value, "dest-2");
-    assert.equal(facilityNodeSelect.value, "dest-2-node-a");
-    assert.equal(facilityNodeSelect.innerHTML.includes("dest-1-node-a"), false);
-    assert.equal(facilityNodeSelect.innerHTML.includes("dest-2-node-a"), true);
+    ]);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -2003,11 +1842,14 @@ test("explore ignores stale facility node loads after destination changes", asyn
   }
 });
 
-export type { AppShellModule, ExploreModule, MapModule, PostDetailModule };
+export type { AppShellModule, ComposeModule, ExploreModule, FeedModule, HomeModule, MapModule, PostDetailModule };
 export {
   compactText,
+  createComposeFixture,
   createDeferred,
   createExploreFixture,
+  createFeedFixture,
+  createHomeFixture,
   createLeafletStub,
   createMapFixture,
   createPostDetailFixture,

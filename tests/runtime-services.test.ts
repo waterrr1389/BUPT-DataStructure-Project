@@ -1358,6 +1358,13 @@ test("journal social flows keep feed summaries compact and preserve legacy journ
   const created = await app.journals.create({
     body: "Started at the main gate, crossed the lobby, and ended at the archive with a quiet tea stop.",
     destinationId: "dest-002",
+    media: [
+      {
+        type: "image",
+        title: "Archive route card",
+        source: "generated://journal-media/archive-route-card",
+      },
+    ],
     tags: ["indoor", "loop"],
     title: "North Institute archive route",
     userId: "user-2",
@@ -1416,6 +1423,7 @@ test("journal social flows keep feed summaries compact and preserve legacy journ
   assert.equal(feedPage.items[0] ? "graph" in feedPage.items[0] : false, false, format(feedPage.items[0]));
   assert.equal(feedPage.items[0]?.viewerHasLiked, true, format(feedPage.items[0]));
   assert.equal(feedPage.items[0]?.commentCount, 2, format(feedPage.items[0]));
+  assert.equal(feedPage.items[0]?.mediaCount, 1, format(feedPage.items[0]));
   assert.equal(nextFeedPage.items[0]?.id === createdId, false, format(nextFeedPage));
 
   assert.equal(commentPage.totalCount, 2, format(commentPage));
