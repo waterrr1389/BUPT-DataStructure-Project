@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { averageRating, excerpt } from "./fallback-algorithms";
 import {
   assertNonEmpty,
@@ -30,6 +32,8 @@ const COMMENT_CURSOR_KIND = "comment";
 const FEED_CURSOR_KIND = "feed";
 const GENERATED_UPLOAD_IMAGE_SOURCE_PATTERN =
   /^\/uploads\/images\/image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif)$/;
+const GENERATED_UPLOAD_IMAGE_SOURCE_CAPTURE =
+  /^\/uploads\/images\/(image-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|gif))$/;
 
 type JournalListOptions = {
   destinationId?: string;
@@ -279,6 +283,27 @@ function normalizeNewCommentMedia(media: JournalCommentCreateInput["media"] | un
   });
 }
 
+async function requireUploadedCommentMediaFiles(
+  runtime: ResolvedRuntime,
+  media: JournalMedia[],
+): Promise<void> {
+  for (const item of media) {
+    const fileName = item.source.match(GENERATED_UPLOAD_IMAGE_SOURCE_CAPTURE)?.[1];
+    if (!fileName) {
+      continue;
+    }
+    try {
+      await fs.readFile(path.join(runtime.runtimeDir, "uploads", "images", fileName));
+    } catch (error) {
+      const candidate = error as NodeJS.ErrnoException;
+      if (candidate.code === "ENOENT") {
+        throw new Error("Comment media source must reference an uploaded image.");
+      }
+      throw error;
+    }
+  }
+}
+
 function buildCommentView(runtime: ResolvedRuntime, comment: JournalCommentRecord): JournalCommentView {
   return {
     ...comment,
@@ -498,12 +523,14 @@ export function createJournalService(
       const journal = await loadJournal(journalId);
       const comments = await store.listComments();
       const timestamp = nowIso();
+      const body = assertNonEmpty(input.body, "Comment body is required.");
       const media = normalizeNewCommentMedia(input.media);
+      await requireUploadedCommentMediaFiles(runtime, media);
       const comment: JournalCommentRecord = {
         id: nextCommentId(comments),
         journalId: journal.id,
         userId: user.id,
-        body: assertNonEmpty(input.body, "Comment body is required."),
+        body,
         media,
         createdAt: timestamp,
         updatedAt: timestamp,

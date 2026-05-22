@@ -60,6 +60,12 @@ async function createRuntimeDir(name: string): Promise<string> {
   return runtimeDir;
 }
 
+async function writeUploadedImage(runtimeDir: string, fileName: string): Promise<void> {
+  const uploadDir = path.join(runtimeDir, "uploads", "images");
+  await fs.mkdir(uploadDir, { recursive: true });
+  await fs.writeFile(path.join(uploadDir, fileName), "test image bytes");
+}
+
 function disableWorld(app: AppServices): void {
   app.runtime.seedData = {
     ...app.runtime.seedData,
@@ -1454,6 +1460,7 @@ test("journal comment media is normalized and legacy comments stay compatible", 
       note: "  North door after lunch  ",
     },
   ];
+  await writeUploadedImage(app.runtime.runtimeDir, "image-11111111-1111-1111-1111-111111111111.webp");
 
   const plainComment = await app.journals.createComment(created.id, {
     body: "Plain comment still works.",
@@ -1612,6 +1619,21 @@ test("journal comment media rejects unsupported payloads", async () => {
         userId: "user-5",
       }),
     /Comment media source must be a generated upload image URL/,
+  );
+  await expectRejects(
+    () =>
+      app.journals.createComment(created.id, {
+        body: "Forged generated upload paths should not be persisted as comment media.",
+        media: [
+          {
+            type: "image",
+            title: "Forged archive",
+            source: "/uploads/images/image-66666666-6666-6666-6666-666666666666.webp",
+          },
+        ],
+        userId: "user-5",
+      }),
+    /Comment media source must reference an uploaded image/,
   );
 });
 
@@ -1900,6 +1922,7 @@ test("journal likes and comments persist across service reloads and reset clears
   const runtimeDir = await createRuntimeDir("journal-social-persistence");
   const app = await createAppServices({ runtimeDir });
   await app.journalStore.reset();
+  await writeUploadedImage(runtimeDir, "image-55555555-5555-5555-5555-555555555555.webp");
 
   const comment = await app.journals.createComment("journal-1", {
     body: "Archive routes need that indoor cutoff.",
