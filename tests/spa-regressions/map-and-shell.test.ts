@@ -1288,6 +1288,8 @@ test("map world view plans cross-map itineraries from marker and detail-panel se
     assert.ok(explanationMarkup, "Expected world route explanation markup.");
     const explanationText = compactText(explanationMarkup[1] ?? "");
     assert.equal(explanationText.includes("入口换乘"), true);
+    assert.equal(explanationText.includes("Harbor Gate Lift"), true);
+    assert.equal(explanationText.includes("Harbor Reach"), true);
     assert.equal(explanationText.includes("Bridge"), true);
     assert.equal(explanationText.includes("Harbor Gate"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
@@ -1299,7 +1301,12 @@ test("map world view plans cross-map itineraries from marker and detail-panel se
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 road"), false);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 bridge"), false);
     assert.equal(explanationText.includes("Lantern Lift"), true);
+    assert.equal(explanationText.includes("Lantern Point"), true);
     assert.equal(explanationText.includes("Lantern Bridge → Garden"), true);
+    assert.equal(explanationText.includes("portal-1"), false);
+    assert.equal(explanationText.includes("portal-2"), false);
+    assert.equal(explanationText.includes("dest-1"), false);
+    assert.equal(explanationText.includes("dest-2"), false);
     assert.equal(explanationText.includes("dest-1-node-b"), false);
     assert.equal(explanationText.includes("dest-2-node-a"), false);
     assert.equal(worldRouteResult.innerHTML.includes("方向 世界地图到本地地图"), true);
@@ -1668,12 +1675,16 @@ test("map world view explains unreachable cross-map prefix itineraries without r
     assert.ok(explanationMarkup, "Expected world route explanation markup.");
     const explanationText = compactText(explanationMarkup[1] ?? "");
     assert.equal(explanationText.includes("入口换乘"), true);
+    assert.equal(explanationText.includes("Harbor Gate Lift"), true);
+    assert.equal(explanationText.includes("Harbor Reach"), true);
     assert.equal(explanationText.includes("Bridge"), true);
     assert.equal(explanationText.includes("Harbor Gate"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), false);
     assert.equal(explanationText.includes("世界路段 world-edge-1"), false);
     assert.equal(explanationText.includes("世界路段：Harbor Gate → Axis Hub"), true);
+    assert.equal(explanationText.includes("portal-1"), false);
+    assert.equal(explanationText.includes("dest-1"), false);
     assert.equal(explanationText.includes("dest-1-node-b"), false);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 隧道"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 tunnel"), false);

@@ -366,6 +366,11 @@ async function verifyWorldMapViewport(session: CdpSession, baseUrl: string, cook
 }
 
 test("world map renders real Leaflet raster and vector layers in Chromium", async (t) => {
+  if (typeof globalThis.WebSocket !== "function") {
+    t.skip("Global WebSocket is unavailable; skipping real-browser world map visual smoke test.");
+    return;
+  }
+
   const chromium = findChromiumExecutable();
   if (!chromium) {
     t.skip("Chromium executable not found; skipping real-browser world map visual smoke test.");
