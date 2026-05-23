@@ -427,6 +427,11 @@ test("journal write endpoints require authenticated session", async () => {
         body: { userId: "user-forged" },
       },
       {
+        path: "/api/journals/journal-404/view",
+        method: "POST",
+        body: { userId: "user-forged" },
+      },
+      {
         path: "/api/journals/journal-404/rate",
         method: "POST",
         body: { userId: "user-forged", score: 5 },
@@ -513,6 +518,14 @@ test("authenticated journal writes ignore forged body and query userId", async (
     assert.equal(unlike.status, 200);
     assert.equal(unlike.body.item.viewerHasLiked, false);
     assert.equal(unlike.body.item.likeCount, 0);
+
+    const view = await requestJson<Record<string, any>>(`/api/journals/${journalId}/view?userId=${encodeURIComponent(forgedId)}`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: { userId: forgedId },
+    });
+    assert.equal(view.status, 200);
+    assert.equal(view.body.item.views, 1);
 
     const rate = await requestJson<Record<string, any>>(`/api/journals/${journalId}/rate`, {
       method: "POST",

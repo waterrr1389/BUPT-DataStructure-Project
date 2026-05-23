@@ -1018,6 +1018,10 @@ async function handleApi(
       return true;
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "view") {
+      const currentUserId = requireSessionUserId(request, response, services);
+      if (!currentUserId) {
+        return true;
+      }
       json(response, 200, { item: await services.journals.recordView(journalId) });
       return true;
     }
