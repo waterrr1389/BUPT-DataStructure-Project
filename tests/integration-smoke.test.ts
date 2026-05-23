@@ -408,7 +408,96 @@ test("server uploads an image file and serves it from runtime storage", async ()
       assert.equal(servedAfterReload.status, 200, servedAfterReload.text);
       assert.equal(servedAfterReload.headers["content-type"], fixture.mimeType);
       assert.deepEqual(servedAfterReload.body, fixture.bytes);
+
+      const deletedUpload = await requestJson<{ deleted: boolean }>(
+        `/api/uploads/images/${uploaded.body.item.fileName}`,
+        {
+          method: "DELETE",
+        },
+      );
+      const servedAfterDelete = await requestText(uploaded.body.item.url);
+      assert.equal(deletedUpload.status, 200, deletedUpload.text);
+      assert.equal(deletedUpload.body.deleted, true, deletedUpload.text);
+      assert.equal(servedAfterDelete.status, 404, servedAfterDelete.text);
     }
+  });
+});
+
+test("server deletes only unreferenced uploaded images", async () => {
+  await withServer("image-upload-delete-policy", async ({ requestJson, requestText }) => {
+    const created = await requestJson<{ item: { id: string } }>("/api/journals", {
+      body: {
+        userId: "user-2",
+        destinationId: "dest-002",
+        title: "North Institute uploaded image cleanup",
+        body: "A route note for validating uploaded image cleanup.",
+        tags: ["indoor", "cleanup"],
+      },
+      method: "POST",
+    });
+    const multipart = createMultipartBody({
+      content: imageFixtures.png.bytes,
+      fileName: "referenced-comment.png",
+      mimeType: "image/png",
+    });
+    const upload = await requestJson<{
+      item: {
+        fileName: string;
+        url: string;
+      };
+    }>("/api/uploads/images", {
+      body: multipart.body,
+      headers: { "content-type": multipart.contentType },
+      method: "POST",
+    });
+    const media = [
+      {
+        type: "image",
+        title: "Referenced upload",
+        source: upload.body.item.url,
+      },
+    ];
+    const comment = await requestJson<{ item: { id: string; media: unknown[] } }>(
+      `/api/journals/${created.body.item.id}/comments`,
+      {
+        body: {
+          userId: "user-5",
+          body: "This uploaded image should be protected while referenced.",
+          media,
+        },
+        method: "POST",
+      },
+    );
+    const referencedDelete = await requestJson<{ code: string; error: string }>(
+      `/api/uploads/images/${upload.body.item.fileName}`,
+      {
+        method: "DELETE",
+      },
+    );
+    const servedAfterReferencedDelete = await requestText(upload.body.item.url);
+    const deletedComment = await requestJson<{ deleted: boolean }>(`/api/comments/${comment.body.item.id}?userId=user-5`, {
+      method: "DELETE",
+    });
+    const unreferencedDelete = await requestJson<{ deleted: boolean }>(
+      `/api/uploads/images/${upload.body.item.fileName}`,
+      {
+        method: "DELETE",
+      },
+    );
+    const servedAfterDelete = await requestText(upload.body.item.url);
+
+    assert.equal(created.status, 201, created.text);
+    assert.equal(upload.status, 201, upload.text);
+    assert.equal(comment.status, 201, comment.text);
+    assert.deepEqual(comment.body.item.media, media, comment.text);
+    assert.equal(referencedDelete.status, 409, referencedDelete.text);
+    assert.equal(referencedDelete.body.code, "upload_image_referenced", referencedDelete.text);
+    assert.equal(servedAfterReferencedDelete.status, 200, servedAfterReferencedDelete.text);
+    assert.equal(deletedComment.status, 200, deletedComment.text);
+    assert.equal(deletedComment.body.deleted, true, deletedComment.text);
+    assert.equal(unreferencedDelete.status, 200, unreferencedDelete.text);
+    assert.equal(unreferencedDelete.body.deleted, true, unreferencedDelete.text);
+    assert.equal(servedAfterDelete.status, 404, servedAfterDelete.text);
   });
 });
 
@@ -489,6 +578,12 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
     });
     const traversal = await requestJson<{ error: string }>("/uploads/images/../journals.json");
     const encodedTraversal = await requestJson<{ error: string }>("/uploads/images/%2e%2e%2fjournals.json");
+    const invalidApiDelete = await requestJson<{ error: string }>("/api/uploads/images/not-generated.png", {
+      method: "DELETE",
+    });
+    const encodedApiDeleteTraversal = await requestJson<{ error: string }>("/api/uploads/images/%2e%2e%2fjournals.json", {
+      method: "DELETE",
+    });
 
     assert.equal(textUpload.status, 415, textUpload.text);
     assert.equal(textUpload.body.code, "upload_unsupported_image_type", textUpload.text);
@@ -504,6 +599,8 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
     assert.equal(malformedUpload.body.code, "upload_invalid_multipart", malformedUpload.text);
     assert.equal(traversal.status, 403, traversal.text);
     assert.equal(encodedTraversal.status, 403, encodedTraversal.text);
+    assert.equal(invalidApiDelete.status, 403, invalidApiDelete.text);
+    assert.equal(encodedApiDeleteTraversal.status, 403, encodedApiDeleteTraversal.text);
   });
 });
 
@@ -615,7 +712,7 @@ test("server rejects malformed comment media over HTTP", async () => {
 });
 
 test("server rejects uploaded comment media for unknown journal or user", async () => {
-  await withServer("comment-media-http-known-entities", async ({ requestJson }) => {
+  await withServer("comment-media-http-known-entities", async ({ requestJson, requestText }) => {
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
         userId: "user-2",
@@ -626,45 +723,67 @@ test("server rejects uploaded comment media for unknown journal or user", async 
       },
       method: "POST",
     });
-    const multipart = createMultipartBody({
+    const unknownJournalMultipart = createMultipartBody({
       content: imageFixtures.png.bytes,
-      fileName: "comment.png",
+      fileName: "unknown-journal-comment.png",
       mimeType: "image/png",
     });
-    const upload = await requestJson<{ item: { url: string } }>("/api/uploads/images", {
-      body: multipart.body,
-      headers: { "content-type": multipart.contentType },
+    const unknownJournalUpload = await requestJson<{ item: { url: string } }>("/api/uploads/images", {
+      body: unknownJournalMultipart.body,
+      headers: { "content-type": unknownJournalMultipart.contentType },
       method: "POST",
     });
-    const media = [
+    const unknownJournalMedia = [
       {
         type: "image",
         title: "Archive route snapshot",
-        source: upload.body.item.url,
+        source: unknownJournalUpload.body.item.url,
       },
     ];
     const unknownJournal = await requestJson<{ error: string }>("/api/journals/journal-missing/comments", {
       body: {
         userId: "user-5",
         body: "Unknown journals should still fail with media.",
-        media,
+        media: unknownJournalMedia,
       },
       method: "POST",
     });
+    const servedAfterUnknownJournal = await requestText(unknownJournalUpload.body.item.url);
+    const unknownUserMultipart = createMultipartBody({
+      content: imageFixtures.png.bytes,
+      fileName: "unknown-user-comment.png",
+      mimeType: "image/png",
+    });
+    const unknownUserUpload = await requestJson<{ item: { url: string } }>("/api/uploads/images", {
+      body: unknownUserMultipart.body,
+      headers: { "content-type": unknownUserMultipart.contentType },
+      method: "POST",
+    });
+    const unknownUserMedia = [
+      {
+        type: "image",
+        title: "Archive route snapshot",
+        source: unknownUserUpload.body.item.url,
+      },
+    ];
     const unknownUser = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments`, {
       body: {
         userId: "user-missing",
         body: "Unknown users should still fail with media.",
-        media,
+        media: unknownUserMedia,
       },
       method: "POST",
     });
+    const servedAfterUnknownUser = await requestText(unknownUserUpload.body.item.url);
 
-    assert.equal(upload.status, 201, upload.text);
+    assert.equal(unknownJournalUpload.status, 201, unknownJournalUpload.text);
     assert.equal(unknownJournal.status, 400, unknownJournal.text);
     expectMatches(unknownJournal.body.error, /Unknown journal: journal-missing/);
+    assert.equal(servedAfterUnknownJournal.status, 404, servedAfterUnknownJournal.text);
+    assert.equal(unknownUserUpload.status, 201, unknownUserUpload.text);
     assert.equal(unknownUser.status, 400, unknownUser.text);
     expectMatches(unknownUser.body.error, /Unknown user: user-missing/);
+    assert.equal(servedAfterUnknownUser.status, 404, servedAfterUnknownUser.text);
   });
 });
 

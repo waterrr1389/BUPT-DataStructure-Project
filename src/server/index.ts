@@ -212,6 +212,24 @@ function uploadedImageFileNameFromUrl(requestUrl: string): { fileName: string | 
   return { fileName: decodedFileName, matched: true };
 }
 
+function apiUploadImageFileName(parts: string[]): string | null {
+  if (parts.length !== 4 || parts[1] !== "uploads" || parts[2] !== "images") {
+    return null;
+  }
+  const decodedFileName = decodePathSegment(parts[3] ?? "");
+  if (
+    decodedFileName === null ||
+    decodedFileName.length === 0 ||
+    decodedFileName.includes("/") ||
+    decodedFileName.includes("\\") ||
+    decodedFileName.includes("..") ||
+    !safeUploadImageFileName(decodedFileName)
+  ) {
+    return null;
+  }
+  return decodedFileName;
+}
+
 async function serveUploadedImage(
   request: IncomingMessage,
   response: ServerResponse,
@@ -247,6 +265,54 @@ async function serveUploadedImage(
     throw error;
   }
   return true;
+}
+
+function uploadedImageFileNamesFromCommentMedia(media: unknown): string[] {
+  if (!media) {
+    return [];
+  }
+  const entries = Array.isArray(media) ? media : [media];
+  const fileNames = new Set<string>();
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const source = (entry as Record<string, unknown>).source;
+    if (typeof source !== "string") {
+      continue;
+    }
+    const fileName = uploadedImageFileNameFromUrl(source).fileName;
+    if (fileName) {
+      fileNames.add(fileName);
+    }
+  }
+  return [...fileNames];
+}
+
+async function uploadedImageIsReferenced(services: AppServices, fileName: string): Promise<boolean> {
+  const source = `${IMAGE_UPLOAD_ROUTE_PREFIX}${fileName}`;
+  const [journals, comments] = await Promise.all([
+    services.journalStore.list(),
+    services.journalStore.listComments(),
+  ]);
+  return journals.some((journal) => journal.media.some((item) => item.source === source)) ||
+    comments.some((comment) => comment.media.some((item) => item.source === source));
+}
+
+async function cleanupUnpersistedUploadedImages(services: AppServices, fileNames: string[]): Promise<void> {
+  await Promise.all(fileNames.map(async (fileName) => {
+    if (await uploadedImageIsReferenced(services, fileName)) {
+      return;
+    }
+    try {
+      await fs.unlink(path.join(uploadImagesDir(services.runtime.runtimeDir), fileName));
+    } catch (error) {
+      const candidate = error as NodeJS.ErrnoException;
+      if (candidate.code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }));
 }
 
 async function parseImageUpload(request: IncomingMessage, runtimeDir: string): Promise<UploadedImage> {
@@ -566,6 +632,30 @@ async function handleApi(
     }
   }
 
+  if (request.method === "DELETE" && parts[1] === "uploads" && parts[2] === "images") {
+    const fileName = apiUploadImageFileName(parts);
+    if (!fileName) {
+      json(response, 403, { error: "Forbidden" });
+      return true;
+    }
+    if (await uploadedImageIsReferenced(services, fileName)) {
+      json(response, 409, { error: "Uploaded image is still referenced.", code: "upload_image_referenced" });
+      return true;
+    }
+    try {
+      await fs.unlink(path.join(uploadImagesDir(services.runtime.runtimeDir), fileName));
+      json(response, 200, { deleted: true });
+    } catch (error) {
+      const candidate = error as NodeJS.ErrnoException;
+      if (candidate.code === "ENOENT") {
+        json(response, 404, { error: "Not found" });
+        return true;
+      }
+      throw error;
+    }
+    return true;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/auth/register") {
     try {
       const body = asObject(await readBody(request));
@@ -855,14 +945,24 @@ async function handleApi(
     if (request.method === "POST" && parts.length === 4 && parts[3] === "comments") {
       const body = asObject(await readBody(request));
       const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
-      const media = parseCommentMedia(body);
-      json(response, 201, {
-        item: await services.journals.createComment(journalId, {
-          userId: currentUserId ?? String(body.userId ?? ""),
-          body: String(body.body ?? ""),
-          media,
-        }),
-      });
+      const uploadedMediaFileNames = uploadedImageFileNamesFromCommentMedia(body.media);
+      try {
+        const media = parseCommentMedia(body);
+        json(response, 201, {
+          item: await services.journals.createComment(journalId, {
+            userId: currentUserId ?? String(body.userId ?? ""),
+            body: String(body.body ?? ""),
+            media,
+          }),
+        });
+      } catch (error) {
+        try {
+          await cleanupUnpersistedUploadedImages(services, uploadedMediaFileNames);
+        } catch {
+          // Preserve the original comment failure response; cleanup is a best-effort recovery.
+        }
+        throw error;
+      }
       return true;
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "likes") {

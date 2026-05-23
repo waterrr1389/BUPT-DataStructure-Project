@@ -48,11 +48,13 @@ declare module "node:fs/promises" {
   export function readFile(filePath: string): Promise<Buffer>;
   export function readFile(filePath: string, encoding: "utf8"): Promise<string>;
   export function mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
+  export function unlink(path: string): Promise<void>;
   export function writeFile(path: string, data: string | Uint8Array, encoding?: "utf8"): Promise<void>;
 
   const fs: {
     mkdir: typeof mkdir;
     readFile: typeof readFile;
+    unlink: typeof unlink;
     writeFile: typeof writeFile;
   };
 

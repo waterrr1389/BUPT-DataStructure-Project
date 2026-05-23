@@ -705,6 +705,15 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     return payload?.item;
   }
 
+  async function deleteUploadedImage(url) {
+    const source = String(url || "");
+    if (!source.startsWith("/uploads/images/")) {
+      return;
+    }
+    const fileName = source.slice("/uploads/images/".length);
+    await requestJson(`/api/uploads/images/${encodeURIComponent(fileName)}`, { method: "DELETE" });
+  }
+
   /**
    * Creates a comment and reports whether the comment endpoint is available.
    */
@@ -959,6 +968,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     fetchJournalDetail,
     fetchJournalComments,
     uploadImage,
+    deleteUploadedImage,
     createComment,
     sendJournalAction,
     start,

@@ -171,6 +171,8 @@ export interface SpaApp {
   ): Promise<CommentResponse>;
   /** Uploads a local image with multipart form data and returns server media metadata. */
   uploadImage(file: File): Promise<UploadedImageItem>;
+  /** Deletes an uploaded image that has not been attached to persisted content. */
+  deleteUploadedImage(url: string): Promise<void>;
   /** Attempts to create a journal comment and reports comment endpoint availability. */
   createComment(
     journalId: string,

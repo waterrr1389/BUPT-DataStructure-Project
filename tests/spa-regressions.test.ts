@@ -353,6 +353,7 @@ function createPostDetailFixture(overrides: {
   const requestJsonCalls: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
   const uploadImageCalls: Array<Record<string, unknown>> = [];
+  const deleteUploadedImageCalls: string[] = [];
   let views = 14;
   let ratings = [{ userId: "user-1", score: 4 }];
 
@@ -483,6 +484,9 @@ function createPostDetailFixture(overrides: {
         url: "/uploads/images/image-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png",
       };
     },
+    async deleteUploadedImage(url: string) {
+      deleteUploadedImageCalls.push(url);
+    },
   };
 
   return {
@@ -495,6 +499,7 @@ function createPostDetailFixture(overrides: {
     requestJsonCalls,
     statuses,
     uploadImageCalls,
+    deleteUploadedImageCalls,
   };
 }
 
@@ -1333,6 +1338,7 @@ test("post detail uploads a selected image before creating a media comment and r
         userId: "user-2",
       },
     ]);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, []);
     assert.ok(requireElement(root, "#post-comments").innerHTML.includes(uploadedUrl));
     assert.equal(root.querySelectorAll(".comment-media-image").length, 1);
     assert.equal(requireElement(root, "#post-comment-body").value, "");
@@ -1389,9 +1395,72 @@ test("post detail keeps comment text and image when upload fails", async () => {
 
     assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
     assert.deepEqual(fixture.createCommentCalls, []);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, []);
     assert.equal(commentBody.value, "Keep this text");
     assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), false);
     assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("图片上传失败"));
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("post detail does not upload selected images when comments are unavailable", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const fixture = createPostDetailFixture({
+      commentPages: [
+        {
+          available: false,
+          items: [],
+          nextCursor: "",
+          notice: "当前工作区尚未接入评论接口。",
+          totalCount: 0,
+        },
+      ],
+    });
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static override revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const selectedFile = createCommentImageFile({ name: "quiet-bridge.png", type: "image/png" });
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [selectedFile]);
+    dispatchDomEvent(imageInput, "change");
+    const commentBody = requireElement(root, "#post-comment-body");
+    commentBody.value = "Do not upload this unavailable comment";
+    dispatchDomEvent(requireElement(root, "#post-comment-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.uploadImageCalls, []);
+    assert.deepEqual(fixture.createCommentCalls, []);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, []);
+    assert.equal(commentBody.value, "Do not upload this unavailable comment");
+    assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), false);
+    assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("当前工作区尚未提供后端评论接口。"));
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1451,9 +1520,77 @@ test("post detail keeps comment text and image when media comment creation fails
 
     assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
     assert.equal(fixture.createCommentCalls.length, 1);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, [uploadedUrl]);
     assert.equal(commentBody.value, "Keep this failed comment");
     assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), false);
     assert.ok(requireElement(root, "#post-comment-notice").innerHTML.includes("评论发布失败"));
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("post detail deletes uploaded image when media comment creation becomes unavailable", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
+    const uploadedUrl = "/uploads/images/image-dddddddd-dddd-dddd-dddd-dddddddddddd.png";
+    const fixture = createPostDetailFixture({
+      createCommentImpl: async () => ({
+        available: false,
+        notice: "Comments are temporarily unavailable.",
+      }),
+      uploadImageImpl: async (file) => ({
+        mimeType: file.type,
+        originalName: file.name,
+        size: file.size,
+        url: uploadedUrl,
+      }),
+    });
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:comment-preview";
+      }
+      static override revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        journalId: "journal-1",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    const selectedFile = createCommentImageFile({ name: "quiet-bridge.png", type: "image/png" });
+    const imageInput = requireElement(root, "#post-comment-image");
+    setElementFiles(imageInput, [selectedFile]);
+    dispatchDomEvent(imageInput, "change");
+    const commentBody = requireElement(root, "#post-comment-body");
+    commentBody.value = "Keep this unavailable comment";
+    dispatchDomEvent(requireElement(root, "#post-comment-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
+    assert.equal(fixture.createCommentCalls.length, 1);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, [uploadedUrl]);
+    assert.equal(commentBody.value, "Keep this unavailable comment");
+    assert.equal(requireElement(root, "#post-comment-image-preview").hasAttribute("hidden"), false);
+    assert.deepEqual(fixture.statuses[fixture.statuses.length - 1], {
+      message: "Comments are temporarily unavailable.",
+      tone: "note",
+    });
 
     if (typeof cleanup === "function") {
       cleanup();

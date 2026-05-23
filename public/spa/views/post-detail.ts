@@ -605,6 +605,17 @@ export async function render(
     }
   }
 
+  async function deleteUploadedCommentImage(url) {
+    if (!url || typeof app.deleteUploadedImage !== "function") {
+      return;
+    }
+    try {
+      await app.deleteUploadedImage(url);
+    } catch {
+      // Cleanup is best-effort; the visible recovery path is preserving the draft.
+    }
+  }
+
   function applyCommentsResponse(response, reset) {
     commentNotice.innerHTML = response.notice
       ? noticeMarkup(response.available ? "note" : "quiet", copy.commentsSurface.statusTitle, response.notice)
@@ -745,22 +756,30 @@ export async function render(
       app.setStatus(copy.status.emptyComment, "error");
       return;
     }
+    if (!commentsAvailable) {
+      setCommentNotice("note", copy.commentsSurface.statusTitle, copy.commentsSurface.unavailableBody);
+      app.setStatus(copy.commentsSurface.unavailableBody, "note");
+      return;
+    }
 
     let submitStage = "comment";
+    let uploadedImageUrl = "";
+    let commentPersisted = false;
     try {
       setCommentFormDisabled(true);
       let media = [];
       if (selectedCommentImage) {
         submitStage = "upload";
         const uploaded = await app.uploadImage(selectedCommentImage.file);
-        if (!text(uploaded?.url)) {
+        uploadedImageUrl = text(uploaded?.url);
+        if (!uploadedImageUrl) {
           throw new Error("Uploaded image URL is missing.");
         }
         media = [
           {
             type: "image",
             title: text(selectedCommentImage.file.name, copy.commentsSurface.imageFallbackTitle),
-            source: text(uploaded?.url),
+            source: uploadedImageUrl,
             note: copy.commentsSurface.imageSummary(
               uploaded?.mimeType || selectedCommentImage.file.type || copy.commentsSurface.unknownImageType,
               formatFileSize(uploaded?.size ?? selectedCommentImage.file.size),
@@ -771,15 +790,20 @@ export async function render(
       submitStage = "comment";
       const response = await app.createComment(route.journalId, actorSelect.value, body, media);
       if (!response.available) {
+        await deleteUploadedCommentImage(uploadedImageUrl);
         app.setStatus(response.notice, "note");
         return;
       }
+      commentPersisted = true;
       root.querySelector("#post-comment-body").value = "";
       clearSelectedCommentImage();
       await refreshJournalDetail();
       await refreshComments({ reset: true });
       app.setStatus(copy.status.commentCreated, "success");
     } catch (error) {
+      if (!commentPersisted) {
+        await deleteUploadedCommentImage(uploadedImageUrl);
+      }
       const message = submitStage === "upload"
         ? copy.status.commentImageUploadFailed
         : copy.status.commentCreateFailed;
