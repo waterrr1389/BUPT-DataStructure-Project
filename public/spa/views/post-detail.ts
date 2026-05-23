@@ -618,7 +618,7 @@ export async function render(
     setCommentFormDisabled(!response.available);
   }
 
-  function applyCommentsError(error) {
+  function applyCommentsError() {
     commentsLoading = false;
     commentsError = copy.status.commentsLoadFailed;
     commentNotice.innerHTML = noticeMarkup("error", copy.commentsSurface.failedTitle, commentsError);
@@ -657,7 +657,7 @@ export async function render(
       if (disposed) {
         return;
       }
-      applyCommentsError(error);
+      applyCommentsError();
       throw error;
     }
   }
