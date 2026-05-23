@@ -121,6 +121,14 @@ function hasCatalogDestinationNamePrefix(label: string, destinationName: string)
   return label === destinationName || label.startsWith(`${destinationName} `);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function includesCatalogDestinationName(label: string, destinationName: string): boolean {
+  return new RegExp(`(^|\\s)${escapeRegExp(destinationName)}($|\\s)`, "i").test(label);
+}
+
 function ensureUniqueIds<T extends { id: string }>(
   entries: readonly T[],
   label: string,
@@ -376,6 +384,17 @@ function validateWorldPortal(
       issues.push(
         `world portal "${portal.id}" label "${portal.label}" must begin with catalog destination name "${destination.name}"`,
       );
+    } else if (portal.portalType !== "main-gate") {
+      const mixedDestination = [...destinationById.values()].find(
+        (candidate) =>
+          candidate.id !== destination.id &&
+          includesCatalogDestinationName(portal.label, candidate.name),
+      );
+      if (mixedDestination) {
+        issues.push(
+          `world portal "${portal.id}" label "${portal.label}" must not include another catalog destination name "${mixedDestination.name}"`,
+        );
+      }
     }
   }
   if (!Number.isInteger(portal.priority) || portal.priority < 0) {

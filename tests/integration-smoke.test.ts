@@ -5,6 +5,7 @@ import test from "node:test";
 
 import { collectBenchmarkResults } from "../scripts/benchmark-support";
 import { createDemoReport } from "../scripts/demo-support";
+import { destinationById } from "../src/data/seed";
 import { createServerHandler } from "../src/server/index";
 import { WORLD_ROUTE_PORTAL_SELECTION_TIE_BREAK_ORDER } from "../src/services/contracts";
 import { createAppServices, type AppServices } from "../src/services/index";
@@ -1153,16 +1154,37 @@ test("server exposes read-only world summary and details while keeping bootstrap
     const summary = await requestJson<{
       enabled: boolean;
       world?: Record<string, unknown>;
-      regions: Array<Record<string, unknown>>;
-      destinations: Array<Record<string, unknown>>;
+      regions: Array<{ id: string; name: string }>;
+      destinations: Array<{
+        destinationId: string;
+        iconType: string;
+        label: string;
+        regionId: string;
+        x: number;
+        y: number;
+      }>;
       capabilities: Record<string, unknown>;
     }>("/api/world");
     const details = await requestJson<{
       world: {
         id: string;
-        graph: { nodes: unknown[]; edges: unknown[] };
-        portals: unknown[];
-        regions: unknown[];
+        graph: {
+          nodes: Array<{ destinationId?: string; id: string; kind: string; label: string }>;
+          edges: unknown[];
+        };
+        portals: Array<{
+          destinationId: string;
+          id: string;
+          label: string;
+          portalType: string;
+          worldNodeId: string;
+        }>;
+        regions: Array<{ id: string; name: string }>;
+        destinations: Array<{
+          destinationId: string;
+          label: string;
+          regionId: string;
+        }>;
       };
     }>("/api/world/details");
     const bootstrap = await requestJson<Record<string, unknown>>("/api/bootstrap");
@@ -1192,6 +1214,54 @@ test("server exposes read-only world summary and details while keeping bootstrap
     assert.equal(details.body.world.graph.nodes.length > 0, true, details.text);
     assert.equal(details.body.world.graph.edges.length > 0, true, details.text);
     assert.equal(details.body.world.portals.length > 0, true, details.text);
+
+    const summaryRegionById = new Map(summary.body.regions.map((region) => [region.id, region]));
+    const detailRegionById = new Map(details.body.world.regions.map((region) => [region.id, region]));
+    const detailPlacementByDestinationId = new Map(
+      details.body.world.destinations.map((placement) => [placement.destinationId, placement]),
+    );
+    for (const placement of summary.body.destinations) {
+      const destination = destinationById.get(placement.destinationId);
+      const summaryRegion = summaryRegionById.get(placement.regionId);
+      const detailPlacement = detailPlacementByDestinationId.get(placement.destinationId);
+      const detailRegion = detailRegionById.get(detailPlacement?.regionId ?? "");
+
+      assert.ok(destination, `Expected catalog destination ${placement.destinationId}`);
+      assert.ok(summaryRegion, `Expected summary region ${placement.regionId}`);
+      assert.ok(detailPlacement, `Expected detail placement ${placement.destinationId}`);
+      assert.ok(detailRegion, `Expected detail region ${detailPlacement?.regionId}`);
+      assert.equal(placement.label, `${destination.name} · ${summaryRegion.name}`);
+      assert.equal(detailPlacement.label, `${destination.name} · ${detailRegion.name}`);
+    }
+
+    const portalWorldNodeById = new Map(
+      details.body.world.graph.nodes
+        .filter((node) => node.kind === "portal")
+        .map((node) => [node.id, node]),
+    );
+    for (const portal of details.body.world.portals) {
+      const destination = destinationById.get(portal.destinationId);
+      const portalWorldNode = portalWorldNodeById.get(portal.worldNodeId);
+
+      assert.ok(destination, `Expected catalog destination ${portal.destinationId}`);
+      assert.ok(portalWorldNode, `Expected portal world node ${portal.worldNodeId}`);
+      assert.equal(portalWorldNode.destinationId, portal.destinationId);
+      assert.equal(portalWorldNode.label, `${destination.name} Gate`);
+      if (portal.portalType === "main-gate") {
+        assert.equal(portal.label, `${destination.name} Main Gate`);
+      } else {
+        assert.equal(
+          portal.label === destination.name || portal.label.startsWith(`${destination.name} `),
+          true,
+          portal.label,
+        );
+        for (const otherDestination of destinationById.values()) {
+          if (otherDestination.id !== destination.id) {
+            assert.equal(portal.label.includes(otherDestination.name), false, portal.label);
+          }
+        }
+      }
+    }
 
     assert.equal(bootstrap.status, 200, bootstrap.text);
     assert.equal("world" in bootstrap.body, false, bootstrap.text);

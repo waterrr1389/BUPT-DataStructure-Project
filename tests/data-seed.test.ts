@@ -24,6 +24,11 @@ function expectedDestinationId(index: number): string {
   return `dest-${String(index + 1).padStart(3, "0")}`;
 }
 
+const EXPECTED_DESTINATION_IDS = Array.from(
+  { length: 220 },
+  (_, index) => expectedDestinationId(index),
+);
+
 function hasAdjacentRepeatedWords(value: string): boolean {
   const words = value.trim().split(/\s+/).filter(Boolean);
   return words.some((word, index) => {
@@ -58,9 +63,8 @@ test("seedData exports a validation-ready dataset with matching lookups", () => 
 });
 
 test("seed destination ids stay stable while names remain unique and credible", () => {
-  assert.deepEqual(seedData.destinations.map((destination) => destination.id), [
-    ...Array.from({ length: seedData.destinations.length }, (_, index) => expectedDestinationId(index)),
-  ]);
+  assert.equal(seedData.destinations.length, 220);
+  assert.deepEqual(seedData.destinations.map((destination) => destination.id), EXPECTED_DESTINATION_IDS);
 
   const names = seedData.destinations.map((destination) => destination.name);
   assert.equal(new Set(names).size, names.length);
@@ -246,6 +250,29 @@ test("validateSeedData rejects invalid world references and portal semantics", (
         portal.label = "Wrong Destination Connector";
       },
       expectedIssue: /world portal "portal-dest-001-main" label "Wrong Destination Connector" must begin with catalog destination name "Amber Bay"/,
+    },
+    {
+      name: "non-main world portal label must not mix another catalog name",
+      mutate: (candidate) => {
+        const portal = candidate.world!.portals[0];
+        portal.portalType = "connector";
+        portal.label = "Amber Bay North Institute Connector";
+      },
+      expectedIssue: /world portal "portal-dest-001-main" label "Amber Bay North Institute Connector" must not include another catalog destination name "North Institute"/,
+    },
+    {
+      name: "world portal must not be wired to another destination portal node",
+      mutate: (candidate) => {
+        candidate.world!.portals[0].worldNodeId = "world-node-dest-002-main";
+      },
+      expectedIssue: /world portal "portal-dest-001-main" destination "dest-001" does not match world node destination "dest-002"/,
+    },
+    {
+      name: "world placement must not reference another destination portal",
+      mutate: (candidate) => {
+        candidate.world!.destinations[0].portalIds = ["portal-dest-002-main"];
+      },
+      expectedIssue: /world destination placement "dest-001" references portal "portal-dest-002-main" for destination "dest-002"/,
     },
   ];
 

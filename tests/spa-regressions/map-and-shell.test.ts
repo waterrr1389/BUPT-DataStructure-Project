@@ -9,6 +9,7 @@ import {
   settleAsync,
 } from "../support/spa-harness";
 import { getRuntimePublicAssetPath } from "../support/runtime-public";
+import { destinationById, worldData } from "../../src/data/seed";
 import {
   compactText,
   createDeferred,
@@ -21,6 +22,21 @@ import {
 
 function requireRuntimePublicModule<TModule>(relativePath: string): TModule {
   return require(getRuntimePublicAssetPath(relativePath)) as TModule;
+}
+
+function selectOptions(select: {
+  innerHTML: string;
+  querySelectorAll(selector: string): Array<{
+    getAttribute(name: string): string | null;
+  }>;
+}): Array<{ label: string; value: string }> {
+  const labels = Array.from(select.innerHTML.matchAll(/<option\b[^>]*>([^<]*)<\/option>/gi)).map(
+    (match) => (match[1] ?? "").trim(),
+  );
+  return Array.from(select.querySelectorAll("option")).map((option, index) => ({
+    label: labels[index] ?? "",
+    value: option.getAttribute("value") ?? "",
+  }));
 }
 
 test("explore facility result map links stay clean without actor context", async () => {
@@ -509,6 +525,103 @@ test("map ignores stale node loads after destination changes", async () => {
     }
   } finally {
     globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    restore();
+  }
+});
+
+test("map world route destination selectors use stable catalog ids and labels", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: true,
+              destinationRouting: true,
+              worldView: true,
+            },
+            destinations: worldData.destinations.map((destination) => ({
+              destinationId: destination.destinationId,
+              iconType: destination.iconType,
+              label: destination.label,
+              regionId: destination.regionId,
+              x: destination.x,
+              y: destination.y,
+            })),
+            enabled: true,
+            regions: worldData.regions.map((region) => ({
+              id: region.id,
+              name: region.name,
+            })),
+            world: {
+              backgroundImage: worldData.backgroundImage,
+              height: worldData.height,
+              id: worldData.id,
+              name: worldData.name,
+              width: worldData.width,
+            },
+          };
+        }
+
+        if (endpoint === "/api/world/details") {
+          return { world: worldData };
+        }
+
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    const scopeSelect = requireElement(root, "#world-route-scope");
+    scopeSelect.value = "cross-map";
+    dispatchDomEvent(scopeSelect, "change");
+
+    const regionById = new Map(worldData.regions.map((region) => [region.id, region]));
+    const expectedOptions = worldData.destinations.map((placement) => {
+      const destination = destinationById.get(placement.destinationId);
+      const region = regionById.get(placement.regionId);
+      assert.ok(destination, `Expected catalog destination ${placement.destinationId}`);
+      assert.ok(region, `Expected world region ${placement.regionId}`);
+      return {
+        label: `${destination.name} · ${region.name}`,
+        value: placement.destinationId,
+      };
+    });
+    const expectedValues = expectedOptions.map((option) => option.value);
+    const expectedLabels = expectedOptions.map((option) => option.label);
+
+    assert.deepEqual(selectOptions(requireElement(root, "#world-route-from-destination")), expectedOptions);
+    assert.deepEqual(selectOptions(requireElement(root, "#world-route-to-destination")), expectedOptions);
+    assert.deepEqual(expectedValues, worldData.destinations.map((placement) => placement.destinationId));
+    assert.equal(expectedValues.every((value) => /^dest-\d{3}$/.test(value)), true);
+    assert.equal(new Set(expectedLabels).size, expectedLabels.length);
+    assert.equal(requireElement(root, "#world-route-from-destination").getAttribute("disabled"), null);
+    assert.equal(requireElement(root, "#world-route-to-destination").getAttribute("disabled"), null);
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
     restore();
   }
 });
