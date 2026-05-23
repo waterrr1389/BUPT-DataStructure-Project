@@ -20,4 +20,5 @@ import "./spa-regressions/map-and-shell.test";
 import "./spa-regressions/map-world-fallback-and-shell.test";
 import "./spa-regressions/post-detail.test";
 import "./world-route-error-contracts.test";
+import "./world-map-asset-contract.test";
 import "./world-route-invalid-request.test";

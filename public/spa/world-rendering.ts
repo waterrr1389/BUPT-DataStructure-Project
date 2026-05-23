@@ -37,6 +37,23 @@ const DESTINATION_MARKER_COLORS = {
   "scenic-lookout": "#546b42",
   "scenic-market": "#9a3412",
 };
+const WORLD_ROAD_STYLES = {
+  airlift: { color: "#6d5bd0", dashArray: "2 10", opacity: 0.68, weight: 3 },
+  bridge: { color: "#c76f2a", dashArray: "", opacity: 0.78, weight: 4 },
+  ferry: { color: "#2c6e91", dashArray: "12 7 2 7", opacity: 0.72, weight: 3 },
+  rail: { color: "#49505a", dashArray: "10 6", opacity: 0.7, weight: 3 },
+  road: { color: "#8b6f47", dashArray: "", opacity: 0.58, weight: 3 },
+  trail: { color: "#4f7a46", dashArray: "3 7", opacity: 0.72, weight: 2 },
+  tunnel: { color: "#5f6470", dashArray: "2 8", opacity: 0.62, weight: 3 },
+};
+const WORLD_ROAD_FALLBACK_STYLE = { color: "#65717b", dashArray: "4 6", opacity: 0.58, weight: 3 };
+const WORLD_NODE_STYLES = {
+  hub: { color: "#ffffff", fillColor: "#112031", fillOpacity: 0.92, radius: 7, weight: 2 },
+  junction: { color: "#112031", fillColor: "#f0a43a", fillOpacity: 0.9, radius: 5, weight: 1.5 },
+  portal: { color: "#ffffff", fillColor: "#2c6e91", fillOpacity: 0.94, radius: 6, weight: 2 },
+  "region-center": { color: "#ffffff", fillColor: "#546b42", fillOpacity: 0.92, radius: 6, weight: 2 },
+};
+const WORLD_NODE_FALLBACK_STYLE = { color: "#ffffff", fillColor: "#65717b", fillOpacity: 0.88, radius: 5, weight: 1.5 };
 const WORLD_ROUTE_STRATEGIES = ["distance", "time", "mixed"];
 const WORLD_ROUTE_MODES = ["walk", "bike", "shuttle", "mixed"];
 
@@ -197,6 +214,38 @@ function markerRadiusFor(destination) {
     return 10;
   }
   return Math.max(8, Math.min(radius, 18));
+}
+
+/**
+ * Resolves baseline road-network styling by world graph road type.
+ */
+function roadStyleFor(edge) {
+  const roadType = text(edge?.roadType, "road");
+  const style = WORLD_ROAD_STYLES[roadType] || WORLD_ROAD_FALLBACK_STYLE;
+  return {
+    ...style,
+    className: `world-road world-road-${roadType}`,
+    interactive: false,
+    lineCap: "round",
+    lineJoin: "round",
+    worldLayer: "baseline-road",
+    worldRoadType: roadType,
+  };
+}
+
+/**
+ * Resolves graph-node styling without competing with destination markers.
+ */
+function nodeStyleFor(node) {
+  const kind = text(node?.kind, "junction");
+  const style = WORLD_NODE_STYLES[kind] || WORLD_NODE_FALLBACK_STYLE;
+  return {
+    ...style,
+    className: `world-graph-node world-graph-node-${kind}`,
+    interactive: false,
+    worldLayer: "graph-node",
+    worldNodeKind: kind,
+  };
 }
 
 /**
@@ -784,6 +833,45 @@ async function mountWorldMap(container, world, options = {}) {
     }
   });
 
+  const nodeById = new Map(
+    safeArray(world?.graph?.nodes).map((node) => [text(node?.id), node]),
+  );
+  safeArray(world?.graph?.edges).forEach((edge) => {
+    if (typeof L.polyline !== "function") {
+      return;
+    }
+
+    const fromNode = nodeById.get(text(edge?.from));
+    const toNode = nodeById.get(text(edge?.to));
+    const fromPoint = fromNode ? toLatLngPair([fromNode.x, fromNode.y]) : null;
+    const toPoint = toNode ? toLatLngPair([toNode.x, toNode.y]) : null;
+    if (!fromPoint || !toPoint) {
+      return;
+    }
+
+    const layer = L.polyline([fromPoint, toPoint], roadStyleFor(edge)).addTo(map);
+    if (typeof layer.bindTooltip === "function") {
+      layer.bindTooltip(text(edge?.roadType, "road"), { sticky: true });
+    }
+  });
+
+  safeArray(world?.graph?.nodes).forEach((node) => {
+    if (typeof L.circleMarker !== "function") {
+      return;
+    }
+
+    const x = Number(node?.x);
+    const y = Number(node?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
+    }
+
+    const layer = L.circleMarker([y, x], nodeStyleFor(node)).addTo(map);
+    if (typeof layer.bindTooltip === "function") {
+      layer.bindTooltip(text(node?.label, text(node?.id)), { direction: "top" });
+    }
+  });
+
   safeArray(world?.destinations).forEach((destination) => {
     if (typeof L.circleMarker !== "function") {
       return;
@@ -800,8 +888,10 @@ async function mountWorldMap(container, world, options = {}) {
       color: "#112031",
       fillColor: markerColorFor(destination),
       fillOpacity: 0.96,
+      interactive: true,
       radius: markerRadiusFor(destination),
       weight: 2,
+      worldLayer: "destination-marker",
     }).addTo(map);
 
     if (typeof layer.bindTooltip === "function") {
@@ -840,10 +930,12 @@ async function mountWorldMap(container, world, options = {}) {
     }
     activeRouteLayer = L.polyline(points, {
       color: "#d95d1e",
+      className: "world-active-route",
       lineCap: "round",
       lineJoin: "round",
       opacity: 0.92,
       weight: 5,
+      worldLayer: "active-route",
     }).addTo(map);
     if (typeof activeRouteLayer.bringToFront === "function") {
       activeRouteLayer.bringToFront();
@@ -1023,6 +1115,13 @@ export async function renderWorldMapView(app, route, root) {
         <article class="surface-card world-map-shell">
           <div class="world-map-frame">
             <div id="world-map-canvas" class="world-map-canvas" aria-label="${escapeHtml(copy.planner.ariaLabel)}"></div>
+            <div class="world-map-legend" aria-label="世界地图图层">
+              <span class="world-map-legend-item"><span class="world-map-legend-road world-map-legend-road-main"></span>道路</span>
+              <span class="world-map-legend-item"><span class="world-map-legend-road world-map-legend-road-rail"></span>轨道</span>
+              <span class="world-map-legend-item"><span class="world-map-legend-road world-map-legend-road-trail"></span>步道</span>
+              <span class="world-map-legend-item"><span class="world-map-legend-node world-map-legend-node-hub"></span>枢纽</span>
+              <span class="world-map-legend-item"><span class="world-map-legend-node world-map-legend-node-portal"></span>入口</span>
+            </div>
           </div>
         </article>
       </div>

@@ -124,6 +124,21 @@
     min-height: 420px;
   }
 
+  .world-map-legend {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .world-map-legend-item {
+    flex: 0 0 auto;
+    min-height: 28px;
+    font-size: 0.74rem;
+  }
+
   .world-route-form .control-grid {
     grid-template-columns: 1fr;
   }

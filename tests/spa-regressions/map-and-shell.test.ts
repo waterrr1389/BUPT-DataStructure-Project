@@ -626,6 +626,193 @@ test("map world route destination selectors use stable catalog ids and labels", 
   }
 });
 
+test("map world view renders baseline road and graph node layers before route planning", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const runtimeGlobals = globalThis as Record<string, unknown>;
+  const previousLeaflet = runtimeGlobals.L;
+
+  try {
+    const leaflet = createLeafletStub();
+    runtimeGlobals.L = leaflet.L;
+    const roadTypes = ["road", "rail", "trail", "bridge", "tunnel", "ferry", "airlift", "service-link"];
+    const graphNodes = [
+      { id: "world-node-hub", kind: "hub", label: "Central Hub", x: 300, y: 300 },
+      { id: "world-node-junction", kind: "junction", label: "Junction", x: 500, y: 240 },
+      { id: "world-node-portal", kind: "portal", label: "Portal", x: 700, y: 360 },
+      { id: "world-node-region", kind: "region-center", label: "Region Center", x: 440, y: 520 },
+      { id: "world-node-fallback", kind: "switch", label: "Fallback Node", x: 760, y: 560 },
+    ];
+
+    const root = env.createRoot();
+    const module = await importSpaModule<MapModule>("views/map.js");
+    const fixture = createMapFixture({
+      requestJsonImpl: async (endpoint: string) => {
+        if (endpoint === "/api/world") {
+          return {
+            capabilities: {
+              crossMapRouting: true,
+              destinationRouting: true,
+              worldView: true,
+            },
+            destinations: [
+              {
+                destinationId: "dest-1",
+                iconType: "campus-waterfront",
+                label: "Harbor Reach",
+                regionId: "region-core",
+                x: 700,
+                y: 360,
+              },
+            ],
+            enabled: true,
+            regions: [{ id: "region-core", name: "Core" }],
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              width: 1024,
+            },
+          };
+        }
+
+        if (endpoint === "/api/world/details") {
+          return {
+            world: {
+              backgroundImage: "/assets/world-map/atlas-placeholder.svg",
+              destinations: [
+                {
+                  destinationId: "dest-1",
+                  iconType: "campus-waterfront",
+                  label: "Harbor Reach",
+                  portalIds: ["portal-1"],
+                  radius: 18,
+                  regionId: "region-core",
+                  x: 700,
+                  y: 360,
+                },
+              ],
+              graph: {
+                edges: roadTypes.map((roadType, index) => ({
+                  allowedModes: ["walk"],
+                  bidirectional: true,
+                  congestion: 0.1,
+                  distance: 100 + index,
+                  from: graphNodes[index % graphNodes.length].id,
+                  id: `world-edge-${roadType}`,
+                  roadType,
+                  to: graphNodes[(index + 1) % graphNodes.length].id,
+                })),
+                nodes: graphNodes,
+              },
+              height: 768,
+              id: "world-1",
+              name: "Atlas Overworld",
+              portals: [
+                {
+                  allowedModes: ["walk"],
+                  destinationId: "dest-1",
+                  direction: "bidirectional",
+                  id: "portal-1",
+                  label: "Harbor Gate Lift",
+                  localNodeId: "dest-1-node-b",
+                  portalType: "gate",
+                  priority: 1,
+                  transferCost: 8,
+                  transferDistance: 12,
+                  worldNodeId: "world-node-portal",
+                },
+              ],
+              regions: [
+                {
+                  id: "region-core",
+                  name: "Core",
+                  polygon: [
+                    [100, 100],
+                    [900, 120],
+                    [860, 680],
+                    [120, 640],
+                  ],
+                  tags: [],
+                },
+              ],
+              width: 1024,
+            },
+          };
+        }
+
+        throw new Error(`Unexpected request: ${endpoint}`);
+      },
+    });
+
+    const cleanup = await module.render(
+      fixture.app,
+      {
+        name: "map",
+        params: {
+          view: "world",
+        },
+      },
+      root,
+    );
+
+    assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details"]);
+    assert.equal(leaflet.records.polylines.length, roadTypes.length);
+    assert.deepEqual(
+      leaflet.records.polylines.map((polyline) => polyline.options.worldRoadType),
+      roadTypes,
+    );
+    const principalRoadStyles = leaflet.records.polylines
+      .slice(0, 6)
+      .map((polyline) => JSON.stringify({
+        color: polyline.options.color,
+        dashArray: polyline.options.dashArray,
+        opacity: polyline.options.opacity,
+        weight: polyline.options.weight,
+      }));
+    assert.equal(new Set(principalRoadStyles).size, 6);
+    assert.equal(leaflet.records.polylines[6]?.options.color, "#6d5bd0");
+    assert.equal(leaflet.records.polylines[7]?.options.color, "#65717b");
+    assert.equal(leaflet.records.markers.length, graphNodes.length + 1);
+    assert.deepEqual(
+      leaflet.records.markers.map((marker) => marker.options.worldNodeKind).filter(Boolean),
+      ["hub", "junction", "portal", "region-center", "switch"],
+    );
+    assert.equal(leaflet.records.markers[2]?.options.fillColor, "#2c6e91");
+    assert.equal(leaflet.records.markers[5]?.options.worldLayer, "destination-marker");
+    assert.notEqual(leaflet.records.markers[2]?.options.radius, leaflet.records.markers[5]?.options.radius);
+    assert.deepEqual(
+      leaflet.records.layerEvents.map((event) => event.type),
+      [
+        "unknown",
+        "unknown",
+        "baseline-road",
+        "baseline-road",
+        "baseline-road",
+        "baseline-road",
+        "baseline-road",
+        "baseline-road",
+        "baseline-road",
+        "baseline-road",
+        "graph-node",
+        "graph-node",
+        "graph-node",
+        "graph-node",
+        "graph-node",
+        "destination-marker",
+      ],
+    );
+
+    if (typeof cleanup === "function") {
+      cleanup();
+    }
+  } finally {
+    runtimeGlobals.L = previousLeaflet;
+    restore();
+  }
+});
+
 test("map world view plans cross-map itineraries, renders polyline and handoff links, and preserves marker click-through", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -982,10 +1169,38 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
       url: "/assets/world-map/atlas-placeholder.svg",
     });
     assert.equal(leaflet.records.polygons.length, 2);
-    assert.equal(leaflet.records.markers.length, 2);
-    assert.equal(leaflet.records.polylines.length, 0);
-    assert.deepEqual(leaflet.records.markers[0]?.latlng, [240, 180]);
-    assert.deepEqual(leaflet.records.markers[1]?.latlng, [430, 620]);
+    assert.equal(leaflet.records.polylines.length, 2);
+    assert.deepEqual(
+      leaflet.records.polylines.map((polyline) => polyline.options.worldRoadType),
+      ["road", "bridge"],
+    );
+    assert.notDeepEqual(leaflet.records.polylines[0]?.options, leaflet.records.polylines[1]?.options);
+    assert.equal(leaflet.records.markers.length, 5);
+    assert.deepEqual(
+      leaflet.records.markers.map((marker) => marker.options.worldNodeKind).filter(Boolean),
+      ["portal", "hub", "portal"],
+    );
+    assert.deepEqual(
+      leaflet.records.markers.map((marker) => marker.options.worldLayer).slice(0, 5),
+      ["graph-node", "graph-node", "graph-node", "destination-marker", "destination-marker"],
+    );
+    assert.deepEqual(leaflet.records.markers[3]?.latlng, [240, 180]);
+    assert.deepEqual(leaflet.records.markers[4]?.latlng, [430, 620]);
+    assert.deepEqual(
+      leaflet.records.layerEvents.map((event) => event.type),
+      [
+        "unknown",
+        "unknown",
+        "unknown",
+        "baseline-road",
+        "baseline-road",
+        "graph-node",
+        "graph-node",
+        "graph-node",
+        "destination-marker",
+        "destination-marker",
+      ],
+    );
 
     const scopeSelect = requireElement(root, "#world-route-scope");
     scopeSelect.value = "cross-map";
@@ -1003,13 +1218,14 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
         toDestinationId: "dest-2",
       },
     ]);
-    assert.equal(leaflet.records.polylines.length, 1);
-    assert.deepEqual(leaflet.records.polylines[0]?.latlngs, [
+    assert.equal(leaflet.records.polylines.length, 3);
+    assert.deepEqual(leaflet.records.polylines[2]?.latlngs, [
       [240, 180],
       [320, 420],
       [430, 620],
     ]);
-    assert.equal(leaflet.records.polylines[0]?.bringToFrontCallCount, 1);
+    assert.equal(leaflet.records.polylines[2]?.options.worldLayer, "active-route");
+    assert.equal(leaflet.records.polylines[2]?.bringToFrontCallCount, 1);
     const worldRouteResult = requireElement(root, "#world-route-result");
     assert.equal(compactText(worldRouteResult).includes("跨地图路线"), true);
     assert.equal(compactText(worldRouteResult).includes("路线已可使用。"), true);
@@ -1050,7 +1266,7 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
       "/map?destinationId=dest-2&from=dest-2-node-a&to=dest-2-node-b&strategy=distance&mode=walk&actor=user-2",
     );
 
-    leaflet.records.markers[1]?.events.click?.();
+    leaflet.records.markers[4]?.events.click?.();
     assert.deepEqual(fixture.navigateCalls, [
       {
         href: "/map?actor=user-2&destinationId=dest-2",
@@ -1382,8 +1598,9 @@ test("map world view explains unreachable cross-map prefix itineraries without r
     dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
     await settleAsync();
 
-    assert.equal(leaflet.records.polylines.length, 1);
-    assert.deepEqual(leaflet.records.polylines[0]?.latlngs, [
+    const activeRoute = leaflet.records.polylines.find((polyline) => polyline.options.worldLayer === "active-route");
+    assert.equal(leaflet.records.polylines.length, 2);
+    assert.deepEqual(activeRoute?.latlngs, [
       [240, 180],
       [320, 420],
     ]);
@@ -1990,15 +2207,16 @@ test("map world view renders route failure state and clears active world polylin
 
     dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
     await settleAsync();
-    assert.equal(leaflet.records.polylines.length, 1);
-    assert.equal(leaflet.records.polylines[0]?.removeCallCount, 0);
+    const activeRoute = leaflet.records.polylines.find((polyline) => polyline.options.worldLayer === "active-route");
+    assert.equal(leaflet.records.polylines.length, 2);
+    assert.equal(activeRoute?.removeCallCount, 0);
 
     dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
     await settleAsync();
     assert.equal(routePlanCallCount, 2);
     assert.equal(compactText(requireElement(root, "#world-route-result")).includes("路线规划失败"), true);
     assert.equal(leaflet.records.maps[0]?.removeLayerCalls.length, 1);
-    assert.equal(leaflet.records.polylines[0]?.removeCallCount, 1);
+    assert.equal(activeRoute?.removeCallCount, 1);
     const latestStatus = fixture.statuses[fixture.statuses.length - 1];
     assert.equal(latestStatus?.tone, "error");
     assert.equal(latestStatus?.message, "世界路线规划失败。");

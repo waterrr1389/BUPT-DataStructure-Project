@@ -164,6 +164,7 @@ function buildHref(pathname: string, params: Record<string, string | undefined> 
 
 function createLeafletStub() {
   const imageOverlays: Array<{ bounds: unknown; options: Record<string, unknown>; url: string }> = [];
+  const layerEvents: Array<{ layer: unknown; type: string }> = [];
   const maps: Array<{
     boundsCalls: Array<{ bounds: unknown; options?: Record<string, unknown> }>;
     container: unknown;
@@ -201,6 +202,10 @@ function createLeafletStub() {
     };
     attached.addTo = (map) => {
       map.layers.push(attached);
+      layerEvents.push({
+        layer: attached,
+        type: String((attached as { options?: Record<string, unknown> }).options?.worldLayer ?? "unknown"),
+      });
       return attached;
     };
     attached.bindTooltip = (label) => {
@@ -297,6 +302,7 @@ function createLeafletStub() {
     } as unknown,
     records: {
       imageOverlays,
+      layerEvents,
       maps,
       markers,
       polygons,

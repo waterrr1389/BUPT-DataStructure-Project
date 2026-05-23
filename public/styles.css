@@ -1712,6 +1712,67 @@ body {
   box-shadow: 0 10px 24px rgba(17, 32, 49, 0.1);
 }
 
+.world-map-legend {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 500;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.world-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid rgba(17, 32, 49, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 253, 246, 0.9);
+  color: rgba(17, 32, 49, 0.82);
+  font-size: 0.78rem;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(17, 32, 49, 0.08);
+}
+
+.world-map-legend-road {
+  width: 28px;
+  height: 0;
+  border-top: 3px solid #8b6f47;
+  border-radius: 999px;
+}
+
+.world-map-legend-road-rail {
+  border-color: #49505a;
+  border-top-style: dashed;
+}
+
+.world-map-legend-road-trail {
+  border-color: #4f7a46;
+  border-top-style: dotted;
+}
+
+.world-map-legend-node {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(17, 32, 49, 0.34);
+}
+
+.world-map-legend-node-hub {
+  background: #112031;
+}
+
+.world-map-legend-node-portal {
+  background: #2c6e91;
+}
+
 .notice-block {
   padding: 14px 16px;
   border-radius: 16px;
