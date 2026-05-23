@@ -117,6 +117,10 @@ function expectedWorldPortalMainGateLabel(destinationName: string): string {
   return `${destinationName} Main Gate`;
 }
 
+function hasCatalogDestinationNamePrefix(label: string, destinationName: string): boolean {
+  return label === destinationName || label.startsWith(`${destinationName} `);
+}
+
 function ensureUniqueIds<T extends { id: string }>(
   entries: readonly T[],
   label: string,
@@ -364,6 +368,13 @@ function validateWorldPortal(
     if (portal.portalType === "main-gate" && portal.label !== expectedLabel) {
       issues.push(
         `world portal "${portal.id}" label "${portal.label}" must match catalog label "${expectedLabel}"`,
+      );
+    } else if (
+      portal.portalType !== "main-gate" &&
+      !hasCatalogDestinationNamePrefix(portal.label, destination.name)
+    ) {
+      issues.push(
+        `world portal "${portal.id}" label "${portal.label}" must begin with catalog destination name "${destination.name}"`,
       );
     }
   }

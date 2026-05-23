@@ -238,6 +238,15 @@ test("validateSeedData rejects invalid world references and portal semantics", (
       },
       expectedIssue: /world portal "portal-dest-001-main" label "Stale Portal Label" must match catalog label "Amber Bay Main Gate"/,
     },
+    {
+      name: "non-main world portal label must begin with the catalog name",
+      mutate: (candidate) => {
+        const portal = candidate.world!.portals[0];
+        portal.portalType = "connector";
+        portal.label = "Wrong Destination Connector";
+      },
+      expectedIssue: /world portal "portal-dest-001-main" label "Wrong Destination Connector" must begin with catalog destination name "Amber Bay"/,
+    },
   ];
 
   for (const testCase of cases) {
