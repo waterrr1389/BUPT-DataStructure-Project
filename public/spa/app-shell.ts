@@ -680,7 +680,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   }
 
   /**
-   * Creates a comment and reports whether the comment endpoint is available.
+   * Uploads a local image and returns the server media metadata.
    */
   async function uploadImage(file) {
     const formData = new FormData();

@@ -1876,13 +1876,10 @@ body {
 }
 
 .comment-media-frame {
-  width: min(100%, 520px);
-  margin: 0;
-}
-
-.comment-media-frame {
   display: grid;
   position: relative;
+  width: min(100%, 520px);
+  margin: 0;
 }
 
 .comment-media-image {

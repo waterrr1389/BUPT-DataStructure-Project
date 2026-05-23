@@ -146,10 +146,10 @@ async function readTextFile(file): Promise<string> {
 function isCompressedJournalJsonFile(file): boolean {
   const name = text(file?.name).toLowerCase();
   const mimeType = text(file?.type).toLowerCase();
-  if (name && !name.endsWith(".json")) {
-    return false;
+  if (name) {
+    return name.endsWith(".json");
   }
-  return name.endsWith(".json") || mimeType === "application/json" || mimeType.endsWith("+json");
+  return mimeType === "application/json" || mimeType.endsWith("+json");
 }
 
 function validateCompressedJournalFile(payload) {

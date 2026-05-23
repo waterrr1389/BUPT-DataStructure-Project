@@ -361,8 +361,9 @@ async function parseImageUpload(request: IncomingMessage, runtimeDir: string): P
   if (!imageBytesMatchMimeType(mimeTypeValue, content)) {
     throw new UploadRequestError(400, "upload_invalid_image_bytes", "Image bytes do not match the declared MIME type.");
   }
-  await fs.mkdir(uploadImagesDir(runtimeDir), { recursive: true });
-  await fs.writeFile(path.join(uploadImagesDir(runtimeDir), fileName), content);
+  const imageDir = uploadImagesDir(runtimeDir);
+  await fs.mkdir(imageDir, { recursive: true });
+  await fs.writeFile(path.join(imageDir, fileName), content);
 
   return {
     fileName,
