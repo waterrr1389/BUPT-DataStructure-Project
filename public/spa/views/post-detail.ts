@@ -2,10 +2,9 @@
 
 import { appCopy } from "../copy.js";
 import {
-  createRouteContextHref,
+  createUrl,
   emptyStateMarkup,
   escapeHtml,
-  fillSelect,
   formatDate,
   noticeMarkup,
   resultMetaMarkup,
@@ -224,7 +223,7 @@ function commentMarkup(app: SpaApp, item) {
 }
 
 /**
- * Renders journal detail, actor-aware actions, optional map context, and comments.
+ * Renders journal detail, authenticated actions, optional map context, and comments.
  */
 export async function render(
   app: SpaApp,
@@ -235,17 +234,16 @@ export async function render(
   app.setDocumentTitle(copy.documentTitle);
 
   await app.loadBootstrap();
-  const users = safeArray(app.getBootstrap()?.users);
-  const actorDefault = users.some((user) => user.id === route.params.actor)
-    ? route.params.actor
-    : app.state.currentUser?.id || users[0]?.id || "";
-  const feedHref = createRouteContextHref("/feed", {}, actorDefault);
-  const composeHref = createRouteContextHref("/compose", {}, actorDefault);
+  const currentUser = app.getCurrentUser();
+  const currentUserId = String(currentUser?.id ?? "");
+  const currentUserName = currentUserId ? app.getUserName(currentUserId) : "";
+  const feedHref = "/feed";
+  const composeHref = "/compose";
 
   let journal;
   try {
     journal = await app.fetchJournalDetail(route.journalId, {
-      viewerUserId: actorDefault,
+      viewerUserId: currentUserId,
     });
   } catch (error) {
     root.innerHTML = `
@@ -267,6 +265,7 @@ export async function render(
   const articleParagraphs = splitLines(journal.body);
   const destinationName = app.getDestinationName(journal.destinationId);
   const authorName = app.getUserName(journal.userId);
+  const canDelete = currentUserId && currentUserId === journal.userId;
 
   root.innerHTML = `
     <section class="route-hero route-hero-feed">
@@ -328,17 +327,15 @@ export async function render(
         <article class="surface-card">
           <p class="section-tag">${escapeHtml(copy.actions.tag)}</p>
           <h2>${escapeHtml(copy.actions.heading)}</h2>
-          <form class="control-grid" id="post-action-form">
-            <label>
-              ${escapeHtml(copy.actions.labels.actor)}
-              <select id="post-actor"></select>
-            </label>
-          </form>
+          <div class="identity-summary" id="post-identity-summary">
+            <p><span>${escapeHtml(copy.actions.labels.author)}</span><strong>${escapeHtml(authorName)}</strong></p>
+            <p><span>${escapeHtml(copy.actions.labels.currentUser)}</span><strong>${escapeHtml(currentUserName || copy.actions.labels.guest)}</strong></p>
+          </div>
           <div class="button-row">
             <button type="button" id="post-view">${escapeHtml(copy.actions.buttons.view)}</button>
             <button type="button" id="post-rate" class="ghost">${escapeHtml(copy.actions.buttons.rate)}</button>
             <button type="button" id="post-like" class="ghost">${escapeHtml(copy.actions.buttons.like)}</button>
-            <button type="button" id="post-delete" class="ghost">${escapeHtml(copy.actions.buttons.delete)}</button>
+            ${canDelete ? `<button type="button" id="post-delete" class="ghost">${escapeHtml(copy.actions.buttons.delete)}</button>` : ""}
           </div>
           ${resultMetaMarkup([
             copy.metrics.createdAt(formatDate(journal.createdAt)),
@@ -347,14 +344,14 @@ export async function render(
           <div class="story-card-actions">
             <a
               class="inline-link"
-              href="${escapeHtml(buildMapHref(actorDefault, journal.destinationId))}"
+              href="${escapeHtml(buildMapHref(journal.destinationId))}"
               data-nav="true"
               data-map-href="true"
               data-map-destination="${escapeHtml(journal.destinationId)}"
             >${escapeHtml(copy.actions.links.openMap)}</a>
             <a
               class="inline-link"
-              href="${escapeHtml(buildComposeHref(actorDefault, journal.destinationId))}"
+              href="${escapeHtml(buildComposeHref(journal.destinationId))}"
               data-nav="true"
               data-compose-href="true"
               data-compose-destination="${escapeHtml(journal.destinationId)}"
@@ -434,10 +431,6 @@ export async function render(
     </section>
   `;
 
-  fillSelect(root.querySelector("#post-actor"), users, {
-    selectedValue: actorDefault,
-  });
-
   const commentNotice = root.querySelector("#post-comment-notice");
   const commentsContainer = root.querySelector("#post-comments");
   const commentsFooter = root.querySelector("#post-comments-footer");
@@ -448,7 +441,6 @@ export async function render(
   const compressionNotice = root.querySelector("#post-compression-notice");
   const compressionPreview = root.querySelector("#post-compression-preview");
   const compressionImportInput = root.querySelector("#post-import-compressed");
-  const actorSelect = root.querySelector("#post-actor");
   const likeButton = root.querySelector("#post-like");
   const heroMeta = root.querySelector("#post-hero-meta");
   let currentLikeAction = "like";
@@ -462,33 +454,33 @@ export async function render(
   let journalRequestToken = 0;
   let disposed = false;
 
-  function buildFeedHref(actorId) {
-    return createRouteContextHref("/feed", {}, actorId);
+  function buildFeedHref() {
+    return "/feed";
   }
 
-  function buildMapHref(actorId, destinationId) {
-    return createRouteContextHref("/map", { destinationId }, actorId);
+  function buildMapHref(destinationId) {
+    return app.buildMapHref({ destinationId });
   }
 
-  function buildComposeHref(actorId, destinationId) {
-    return createRouteContextHref("/compose", { destinationId }, actorId);
+  function buildComposeHref(destinationId) {
+    return createUrl("/compose", { destinationId });
   }
 
-  function syncFeedLinks(actorId) {
+  function syncFeedLinks() {
     root.querySelectorAll("[data-feed-href]").forEach((link) => {
-      link.setAttribute("href", buildFeedHref(actorId));
+      link.setAttribute("href", buildFeedHref());
     });
   }
 
-  function syncMapLinks(actorId) {
+  function syncMapLinks() {
     root.querySelectorAll("[data-map-href]").forEach((link) => {
-      link.setAttribute("href", buildMapHref(actorId, link.getAttribute("data-map-destination") || ""));
+      link.setAttribute("href", buildMapHref(link.getAttribute("data-map-destination") || ""));
     });
   }
 
-  function syncComposeLinks(actorId) {
+  function syncComposeLinks() {
     root.querySelectorAll("[data-compose-href]").forEach((link) => {
-      link.setAttribute("href", buildComposeHref(actorId, link.getAttribute("data-compose-destination") || ""));
+      link.setAttribute("href", buildComposeHref(link.getAttribute("data-compose-destination") || ""));
     });
   }
 
@@ -508,9 +500,9 @@ export async function render(
     currentLikeAction = journal.viewerHasLiked ? "unlike" : "like";
     likeButton.textContent =
       currentLikeAction === "like" ? copy.actions.buttons.like : copy.actions.buttons.unlike;
-    syncFeedLinks(actorSelect.value);
-    syncMapLinks(actorSelect.value);
-    syncComposeLinks(actorSelect.value);
+    syncFeedLinks();
+    syncMapLinks();
+    syncComposeLinks();
   }
 
   function renderComments() {
@@ -640,7 +632,7 @@ export async function render(
     const token = journalRequestToken + 1;
     journalRequestToken = token;
     const detail = await app.fetchJournalDetail(route.journalId, {
-      viewerUserId: actorSelect.value,
+      viewerUserId: currentUserId,
     });
     if (disposed || token !== journalRequestToken) {
       return;
@@ -692,7 +684,7 @@ export async function render(
 
   root.querySelector("#post-view").addEventListener("click", async () => {
     try {
-      await app.sendJournalAction("view", route.journalId, actorSelect.value);
+      await app.sendJournalAction("view", route.journalId);
       await refreshJournalDetail();
       app.setStatus(copy.status.viewRecorded, "success");
     } catch (error) {
@@ -702,7 +694,7 @@ export async function render(
 
   root.querySelector("#post-rate").addEventListener("click", async () => {
     try {
-      await app.sendJournalAction("rate", route.journalId, actorSelect.value);
+      await app.sendJournalAction("rate", route.journalId);
       await refreshJournalDetail();
       app.setStatus(copy.status.ratingRecorded, "success");
     } catch (error) {
@@ -710,10 +702,10 @@ export async function render(
     }
   });
 
-  root.querySelector("#post-delete").addEventListener("click", async () => {
+  root.querySelector("#post-delete")?.addEventListener("click", async () => {
     try {
-      await app.sendJournalAction("delete", route.journalId, actorSelect.value);
-      app.navigate(buildFeedHref(actorSelect.value));
+      await app.sendJournalAction("delete", route.journalId);
+      app.navigate(buildFeedHref());
     } catch (error) {
       app.setStatus(copy.status.deleteFailed, "error");
     }
@@ -721,7 +713,7 @@ export async function render(
 
   likeButton.addEventListener("click", async () => {
     try {
-      const result = await app.sendJournalAction(currentLikeAction, route.journalId, actorSelect.value);
+      const result = await app.sendJournalAction(currentLikeAction, route.journalId);
       if (result.notice) {
         app.setStatus(result.notice, "note");
         return;
@@ -730,22 +722,6 @@ export async function render(
       app.setStatus(copy.status.likeUpdated, "success");
     } catch (error) {
       app.setStatus(copy.status.likeFailed, "error");
-    }
-  });
-
-  actorSelect.addEventListener("change", async () => {
-    app.navigate(app.buildPostHref(route.journalId, actorSelect.value ? { actor: actorSelect.value } : {}), {
-      replace: true,
-      preserveScroll: true,
-      render: false,
-    });
-    try {
-      await refreshJournalDetail();
-    } catch (error) {
-      app.setStatus(
-        copy.status.refreshFailed,
-        "error",
-      );
     }
   });
 
@@ -788,7 +764,7 @@ export async function render(
         ];
       }
       submitStage = "comment";
-      const response = await app.createComment(route.journalId, actorSelect.value, body, media);
+      const response = await app.createComment(route.journalId, body, media);
       if (!response.available) {
         await deleteUploadedCommentImage(uploadedImageUrl);
         app.setStatus(response.notice, "note");

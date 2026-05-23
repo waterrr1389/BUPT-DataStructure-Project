@@ -97,7 +97,6 @@ type JournalConsumersModule = {
   resolveJournalActionRequest(
     action: string,
     journalId: string,
-    selectedUserId?: string,
   ): {
     options: {
       body?: string;
@@ -331,11 +330,11 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
     },
   );
   const readableJournalId = readJournalId(readableMarkup);
-  const viewRequest = resolveJournalActionRequest("view", readableJournalId, "user-03");
-  const rateRequest = resolveJournalActionRequest("rate", readableJournalId, "user-03");
-  const likeRequest = resolveJournalActionRequest("like", readableJournalId, "user-03");
-  const unlikeRequest = resolveJournalActionRequest("unlike", readableJournalId, "user-03");
-  const deleteRequest = resolveJournalActionRequest("delete", readableJournalId, "user-03");
+  const viewRequest = resolveJournalActionRequest("view", readableJournalId);
+  const rateRequest = resolveJournalActionRequest("rate", readableJournalId);
+  const likeRequest = resolveJournalActionRequest("like", readableJournalId);
+  const unlikeRequest = resolveJournalActionRequest("unlike", readableJournalId);
+  const deleteRequest = resolveJournalActionRequest("delete", readableJournalId);
 
   assert.equal(readableJournalId, "journal-12");
   assert.ok(/目的地：Summit Polytechnic · 用户：Rory Pike/.test(readableMarkup), readableMarkup);
@@ -364,21 +363,21 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
     path: "/api/journals/journal-12/rate",
     options: {
       method: "POST",
-      body: JSON.stringify({ userId: "user-03", score: 5 }),
+      body: JSON.stringify({ score: 5 }),
     },
   });
   assert.deepEqual(likeRequest, {
     path: "/api/journals/journal-12/likes",
     options: {
       method: "POST",
-      body: JSON.stringify({ userId: "user-03" }),
+      body: "{}",
     },
   });
   assert.deepEqual(unlikeRequest, {
     path: "/api/journals/journal-12/likes",
     options: {
       method: "DELETE",
-      body: JSON.stringify({ userId: "user-03" }),
+      body: "{}",
     },
   });
   assert.deepEqual(deleteRequest, {
@@ -405,7 +404,7 @@ test("journal cards keep data-journal-id and journal actions stay anchored to th
     },
   );
   const fallbackJournalId = readJournalId(fallbackMarkup);
-  const fallbackViewRequest = resolveJournalActionRequest("view", fallbackJournalId, "user-88");
+  const fallbackViewRequest = resolveJournalActionRequest("view", fallbackJournalId);
 
   assert.equal(fallbackJournalId, "journal-12");
   assert.ok(/目的地：dest-034 · 用户：user-12/.test(fallbackMarkup), fallbackMarkup);

@@ -17,7 +17,7 @@ import {
   type HomeModule,
 } from "../spa-regressions.test";
 
-test("compose respects the actor route param and preserves it on publish", async () => {
+test("compose uses the current user and omits userId on publish", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
   try {
@@ -37,7 +37,9 @@ test("compose respects the actor route param and preserves it on publish", async
       root,
     );
 
-    assert.equal(requireElement(root, "#compose-user").value, "user-2");
+    assert.equal(root.querySelector("#compose-user"), null);
+    assert.ok(requireElement(root, "#compose-current-user"));
+    assert.equal(root.innerHTML.includes("Avery Vale"), true);
     assert.equal(requireElement(root, "#compose-destination").value, "dest-2");
 
     requireElement(root, "#compose-title").value = "Harbor dusk";
@@ -54,11 +56,10 @@ test("compose respects the actor route param and preserves it on publish", async
           media: [],
           tags: [],
           title: "Harbor dusk",
-          userId: "user-2",
         },
       },
     ]);
-    assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9?actor=user-2"]);
+    assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9"]);
   } finally {
     restore();
   }
@@ -106,10 +107,11 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
     );
 
     assert.equal(fixture.fetchFeedCalls.length, 1);
-    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-2");
+    assert.equal(root.querySelector("#feed-actor"), null);
+    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose");
     assert.equal(
       requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
-      "/posts/journal-feed-1?actor=user-2",
+      "/posts/journal-feed-1",
     );
 
     requireElement(root, "#feed-exchange-query").value = "indoor";
@@ -118,28 +120,11 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
 
     assert.equal(
       requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
-      "/posts/journal-exchange-1?actor=user-2",
+      "/posts/journal-exchange-1",
     );
     assert.equal(root.querySelector("#feed-exchange-results button[data-action='like']"), null);
     assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 likes"), false);
     assert.equal(requireElement(root, "#feed-exchange-results").textContent?.includes("0 comments"), false);
-
-    const actorSelect = requireElement(root, "#feed-actor");
-    actorSelect.value = "user-1";
-    dispatchDomEvent(actorSelect, "change");
-    await settleAsync();
-
-    assert.equal(fixture.fetchFeedCalls.length, 2);
-    assert.equal(fixture.fetchFeedCalls[1]?.viewerUserId, "user-1");
-    assert.equal(requireElement(root, ".feed-stream-card a[data-compose-href='true']").getAttribute("href"), "/compose?actor=user-1");
-    assert.equal(
-      requireElement(root, "#feed-results [data-journal-id='journal-feed-1'] a").getAttribute("href"),
-      "/posts/journal-feed-1?actor=user-1",
-    );
-    assert.equal(
-      requireElement(root, "#feed-exchange-results [data-journal-id='journal-exchange-1'] a").getAttribute("href"),
-      "/posts/journal-exchange-1?actor=user-1",
-    );
 
     dispatchDomEvent(requireElement(root, "#feed-load-recommended"), "click");
     await settleAsync();
@@ -155,10 +140,10 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
 
     assert.deepEqual(fixture.requestJsonCalls, ["/api/journal-exchange/search?query=indoor"]);
     assert.deepEqual(fixture.sendJournalActionCalls, [
-      { action: "view", journalId: "journal-exchange-1", userId: "user-1" },
+      { action: "view", journalId: "journal-exchange-1" },
     ]);
     assert.equal(fixture.fetchRecommendedCalls.length, 2);
-    assert.equal(fixture.fetchFeedCalls.length, 2);
+    assert.equal(fixture.fetchFeedCalls.length, 1);
     assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
     assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
     assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);

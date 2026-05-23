@@ -387,3 +387,175 @@ test("journal create falls back to cookie when body userId omitted", async () =>
     assert.equal((create.body as Record<string, any>).item.userId, (user.body as Record<string, any>).item.id);
   });
 });
+
+test("journal write endpoints require authenticated session", async () => {
+  await withAuthServer("journal-write-auth-required", async ({ requestJson }) => {
+    const cases = [
+      {
+        path: "/api/journals",
+        method: "POST",
+        body: {
+          userId: "user-forged",
+          destinationId: "dest-001",
+          title: "Forged create",
+          body: "Should not be accepted.",
+        },
+      },
+      {
+        path: "/api/journals/journal-404",
+        method: "PATCH",
+        body: { userId: "user-forged", title: "Forged update" },
+      },
+      {
+        path: "/api/journals/journal-404",
+        method: "DELETE",
+        body: { userId: "user-forged" },
+      },
+      {
+        path: "/api/journals/journal-404/comments",
+        method: "POST",
+        body: { userId: "user-forged", body: "Forged comment" },
+      },
+      {
+        path: "/api/journals/journal-404/likes",
+        method: "POST",
+        body: { userId: "user-forged" },
+      },
+      {
+        path: "/api/journals/journal-404/likes?userId=user-forged",
+        method: "DELETE",
+        body: { userId: "user-forged" },
+      },
+      {
+        path: "/api/journals/journal-404/rate",
+        method: "POST",
+        body: { userId: "user-forged", score: 5 },
+      },
+      {
+        path: "/api/comments/comment-404?userId=user-forged",
+        method: "DELETE",
+        body: { userId: "user-forged" },
+      },
+    ];
+
+    for (const item of cases) {
+      const response = await requestJson<Record<string, any>>(item.path, {
+        method: item.method,
+        body: item.body,
+      });
+      assert.equal(response.status, 401, item.path);
+      assert.deepEqual(response.body, {
+        error: "Not authenticated.",
+        code: "auth_unauthenticated",
+      });
+    }
+  });
+});
+
+test("authenticated journal writes ignore forged body and query userId", async () => {
+  await withAuthServer("journal-write-session-overrides-forgery", async ({ requestJson }) => {
+    const owner = await requestJson<Record<string, any>>("/api/auth/register", {
+      method: "POST",
+      body: { name: "SessionOwner", password: "pass" },
+    });
+    const ownerCookie = (owner.headers["set-cookie"] as string).split(";")[0];
+    const ownerId = owner.body.item.id;
+
+    const forged = await requestJson<Record<string, any>>("/api/auth/register", {
+      method: "POST",
+      body: { name: "ForgedUser", password: "pass" },
+    });
+    const forgedId = forged.body.item.id;
+
+    const bootstrap = await requestJson<Record<string, any>>("/api/bootstrap", { cookie: ownerCookie });
+    const destId = bootstrap.body.destinations[0].id;
+
+    const create = await requestJson<Record<string, any>>("/api/journals?userId=" + encodeURIComponent(forgedId), {
+      method: "POST",
+      cookie: ownerCookie,
+      body: {
+        userId: forgedId,
+        destinationId: destId,
+        title: "Session owned",
+        body: "Created with a forged body user id.",
+      },
+    });
+    assert.equal(create.status, 201);
+    assert.equal(create.body.item.userId, ownerId);
+    const journalId = create.body.item.id;
+
+    const comment = await requestJson<Record<string, any>>(`/api/journals/${journalId}/comments`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: { userId: forgedId, body: "Session-owned comment" },
+    });
+    assert.equal(comment.status, 201);
+    assert.equal(comment.body.item.userId, ownerId);
+    const commentId = comment.body.item.id;
+
+    const like = await requestJson<Record<string, any>>(`/api/journals/${journalId}/likes`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: { userId: forgedId },
+    });
+    assert.equal(like.status, 200);
+    assert.equal(like.body.item.viewerHasLiked, true);
+    assert.equal(like.body.item.likeCount, 1);
+
+    const forgedViewer = await requestJson<Record<string, any>>(`/api/journals/${journalId}?viewerUserId=${encodeURIComponent(forgedId)}`);
+    assert.equal(forgedViewer.body.item.viewerHasLiked, false);
+
+    const unlike = await requestJson<Record<string, any>>(`/api/journals/${journalId}/likes?userId=${encodeURIComponent(forgedId)}`, {
+      method: "DELETE",
+      cookie: ownerCookie,
+      body: { userId: forgedId },
+    });
+    assert.equal(unlike.status, 200);
+    assert.equal(unlike.body.item.viewerHasLiked, false);
+    assert.equal(unlike.body.item.likeCount, 0);
+
+    const rate = await requestJson<Record<string, any>>(`/api/journals/${journalId}/rate`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: { userId: forgedId, score: 5 },
+    });
+    assert.equal(rate.status, 200);
+    assert.deepEqual(rate.body.item.ratings, [{ userId: ownerId, score: 5 }]);
+
+    const update = await requestJson<Record<string, any>>(`/api/journals/${journalId}`, {
+      method: "PATCH",
+      cookie: ownerCookie,
+      body: { userId: forgedId, title: "Updated by session" },
+    });
+    assert.equal(update.status, 200);
+    assert.equal(update.body.item.title, "Updated by session");
+    assert.equal(update.body.item.userId, ownerId);
+
+    const deleteComment = await requestJson<Record<string, any>>(`/api/comments/${commentId}?userId=${encodeURIComponent(forgedId)}`, {
+      method: "DELETE",
+      cookie: ownerCookie,
+      body: { userId: forgedId },
+    });
+    assert.equal(deleteComment.status, 200);
+    assert.equal(deleteComment.body.deleted, true);
+
+    const deleteCreate = await requestJson<Record<string, any>>("/api/journals", {
+      method: "POST",
+      cookie: ownerCookie,
+      body: {
+        userId: forgedId,
+        destinationId: destId,
+        title: "Delete target",
+        body: "Delete should use the session owner.",
+      },
+    });
+    const deleteJournalId = deleteCreate.body.item.id;
+    const deleteJournal = await requestJson<Record<string, any>>(`/api/journals/${deleteJournalId}?userId=${encodeURIComponent(forgedId)}`, {
+      method: "DELETE",
+      cookie: ownerCookie,
+      body: { userId: forgedId },
+    });
+    assert.equal(deleteJournal.status, 200);
+    assert.equal(deleteJournal.body.deleted, true);
+  });
+});

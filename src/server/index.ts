@@ -575,10 +575,9 @@ function clearCookie(response: ServerResponse, name: string): void {
   setCookie(response, name, "", { httpOnly: true, path: "/", sameSite: "Lax" });
 }
 
-function resolveCurrentUserId(
+function resolveSessionUserId(
   request: IncomingMessage,
   services: AppServices,
-  bodyUserId?: string,
 ): string | undefined {
   const token = readCookie(request, "trail_atlas_session");
   if (token) {
@@ -587,7 +586,20 @@ function resolveCurrentUserId(
       return user.id;
     }
   }
-  return bodyUserId ?? undefined;
+  return undefined;
+}
+
+function requireSessionUserId(
+  request: IncomingMessage,
+  response: ServerResponse,
+  services: AppServices,
+): string | null {
+  const userId = resolveSessionUserId(request, services);
+  if (userId) {
+    return userId;
+  }
+  json(response, 401, { error: "Not authenticated.", code: "auth_unauthenticated" });
+  return null;
 }
 
 async function handleApi(
@@ -872,11 +884,14 @@ async function handleApi(
   }
 
   if (request.method === "POST" && url.pathname === "/api/journals") {
+    const currentUserId = requireSessionUserId(request, response, services);
+    if (!currentUserId) {
+      return true;
+    }
     const body = asObject(await readBody(request));
-    const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
     json(response, 201, {
       item: await services.journals.create({
-        userId: currentUserId ?? String(body.userId ?? ""),
+        userId: currentUserId,
         destinationId: String(body.destinationId ?? ""),
         title: String(body.title ?? ""),
         body: String(body.body ?? ""),
@@ -906,8 +921,11 @@ async function handleApi(
       return true;
     }
     if (request.method === "PATCH" && parts.length === 3) {
+      const currentUserId = requireSessionUserId(request, response, services);
+      if (!currentUserId) {
+        return true;
+      }
       const body = asObject(await readBody(request));
-      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
       json(response, 200, {
         item: await services.journals.update(
           journalId,
@@ -925,7 +943,7 @@ async function handleApi(
               : undefined,
             recommendedFor: Array.isArray(body.recommendedFor) ? body.recommendedFor.map(String) : undefined,
           },
-          currentUserId ? { currentUserId } : undefined,
+          { currentUserId },
         ),
       });
       return true;
@@ -943,14 +961,17 @@ async function handleApi(
       return true;
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "comments") {
+      const currentUserId = requireSessionUserId(request, response, services);
+      if (!currentUserId) {
+        return true;
+      }
       const body = asObject(await readBody(request));
-      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
       const uploadedMediaFileNames = uploadedImageFileNamesFromCommentMedia(body.media);
       try {
         const media = parseCommentMedia(body);
         json(response, 201, {
           item: await services.journals.createComment(journalId, {
-            userId: currentUserId ?? String(body.userId ?? ""),
+            userId: currentUserId,
             body: String(body.body ?? ""),
             media,
           }),
@@ -966,32 +987,34 @@ async function handleApi(
       return true;
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "likes") {
-      const body = asObject(await readBody(request));
-      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
+      const currentUserId = requireSessionUserId(request, response, services);
+      if (!currentUserId) {
+        return true;
+      }
+      await readBody(request);
       json(response, 200, {
-        item: await services.journals.like(journalId, currentUserId ?? String(body.userId ?? "")),
+        item: await services.journals.like(journalId, currentUserId),
       });
       return true;
     }
     if (request.method === "DELETE" && parts.length === 4 && parts[3] === "likes") {
-      const body = asObject(await readBody(request));
-      const currentUserId = resolveCurrentUserId(
-        request,
-        services,
-        body.userId ? String(body.userId) : url.searchParams.get("userId") ?? undefined,
-      );
+      const currentUserId = requireSessionUserId(request, response, services);
+      if (!currentUserId) {
+        return true;
+      }
+      await readBody(request);
       json(response, 200, {
-        item: await services.journals.unlike(
-          journalId,
-          currentUserId ?? String(body.userId ?? url.searchParams.get("userId") ?? ""),
-        ),
+        item: await services.journals.unlike(journalId, currentUserId),
       });
       return true;
     }
     if (request.method === "DELETE" && parts.length === 3) {
-      const body = asObject(await readBody(request));
-      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
-      json(response, 200, await services.journals.delete(journalId, currentUserId ? { currentUserId } : undefined));
+      const currentUserId = requireSessionUserId(request, response, services);
+      if (!currentUserId) {
+        return true;
+      }
+      await readBody(request);
+      json(response, 200, await services.journals.delete(journalId, { currentUserId }));
       return true;
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "view") {
@@ -999,26 +1022,28 @@ async function handleApi(
       return true;
     }
     if (request.method === "POST" && parts.length === 4 && parts[3] === "rate") {
+      const currentUserId = requireSessionUserId(request, response, services);
+      if (!currentUserId) {
+        return true;
+      }
       const body = asObject(await readBody(request));
-      const currentUserId = resolveCurrentUserId(request, services, body.userId ? String(body.userId) : undefined);
       json(response, 200, {
-        item: await services.journals.rate(journalId, currentUserId ?? String(body.userId ?? ""), Number(body.score)),
+        item: await services.journals.rate(journalId, currentUserId, Number(body.score)),
       });
       return true;
     }
   }
 
   if (request.method === "DELETE" && parts[1] === "comments" && parts.length === 3) {
-    const body = asObject(await readBody(request));
-    const currentUserId = resolveCurrentUserId(
-      request,
-      services,
-      body.userId ? String(body.userId) : url.searchParams.get("userId") ?? undefined,
-    );
+    const currentUserId = requireSessionUserId(request, response, services);
+    if (!currentUserId) {
+      return true;
+    }
+    await readBody(request);
     json(
       response,
       200,
-      await services.journals.deleteComment(parts[2], currentUserId ?? String(body.userId ?? url.searchParams.get("userId") ?? "")),
+      await services.journals.deleteComment(parts[2], currentUserId),
     );
     return true;
   }

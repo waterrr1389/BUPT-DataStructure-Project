@@ -125,7 +125,6 @@ type JournalConsumersApi = {
   resolveJournalActionRequest(
     action: string,
     journalId: string,
-    selectedUserId?: string,
   ): JournalActionRequest;
 };
 
@@ -349,7 +348,6 @@ type JournalConsumersRoot = typeof globalThis & {
     function resolveJournalActionRequest(
       action: string,
       journalId: string,
-      selectedUserId?: string,
     ): JournalActionRequest {
       if (!journalId) {
         return null;
@@ -367,7 +365,7 @@ type JournalConsumersRoot = typeof globalThis & {
           path: `/api/journals/${journalId}/rate`,
           options: {
             method: "POST",
-            body: JSON.stringify({ userId: selectedUserId, score: 5 }),
+            body: JSON.stringify({ score: 5 }),
           },
         };
       }
@@ -384,7 +382,7 @@ type JournalConsumersRoot = typeof globalThis & {
           path: `/api/journals/${journalId}/likes`,
           options: {
             method: "POST",
-            body: JSON.stringify({ userId: selectedUserId }),
+            body: "{}",
           },
         };
       }
@@ -394,7 +392,7 @@ type JournalConsumersRoot = typeof globalThis & {
           path: `/api/journals/${journalId}/likes`,
           options: {
             method: "DELETE",
-            body: JSON.stringify({ userId: selectedUserId }),
+            body: "{}",
           },
         };
       }

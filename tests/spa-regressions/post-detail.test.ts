@@ -95,7 +95,7 @@ test("posting a comment resets post detail comments back to the first page", asy
     await settleAsync();
 
     assert.deepEqual(fixture.createCommentCalls, [
-      { body: "A fresh detail note", journalId: "journal-1", userId: "user-2" },
+      { body: "A fresh detail note", journalId: "journal-1" },
     ]);
     assert.deepEqual(fixture.commentCalls, [
       { cursor: "", journalId: "journal-1", limit: 5 },
@@ -150,7 +150,6 @@ test("post detail refreshes visible state after view and rate actions", async ()
     assert.deepEqual(fixture.actionCalls[0], {
       action: "view",
       journalId: "journal-1",
-      userId: "user-2",
     });
     assert.equal(fixture.detailCalls.length, 2);
     assert.ok(heroMeta.innerHTML.includes("浏览 15"), heroMeta.innerHTML);
@@ -161,7 +160,6 @@ test("post detail refreshes visible state after view and rate actions", async ()
     assert.deepEqual(fixture.actionCalls[1], {
       action: "rate",
       journalId: "journal-1",
-      userId: "user-2",
     });
     assert.equal(fixture.detailCalls.length, 3);
     assert.ok(heroMeta.innerHTML.includes("评分 4.5"), heroMeta.innerHTML);
@@ -175,7 +173,7 @@ test("post detail refreshes visible state after view and rate actions", async ()
   }
 });
 
-test("post detail preserves the current actor on compose links", async () => {
+test("post detail shows identity and keeps compose links free of actor params", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
   try {
@@ -196,22 +194,12 @@ test("post detail preserves the current actor on compose links", async () => {
 
     const composeLink = root.querySelector("[data-compose-href='true']");
     assert.ok(composeLink);
-    assert.equal(composeLink?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-2");
-
-    const actorSelect = requireElement(root, "#post-actor");
-    actorSelect.value = "user-1";
-    dispatchDomEvent(actorSelect, "change");
-    await settleAsync();
-
-    assert.equal(composeLink?.getAttribute("href"), "/compose?destinationId=dest-1&actor=user-1");
-    assert.deepEqual(fixture.navigateCalls[0], {
-      href: "/posts/journal-1?actor=user-1",
-      options: {
-        preserveScroll: true,
-        render: false,
-        replace: true,
-      },
-    });
+    assert.equal(root.querySelector("#post-actor"), null);
+    assert.ok(requireElement(root, "#post-identity-summary"));
+    assert.equal(root.innerHTML.includes("Avery Vale"), true);
+    assert.equal(root.innerHTML.includes("Mina Hart"), true);
+    assert.equal(composeLink?.getAttribute("href"), "/compose?destinationId=dest-1");
+    assert.deepEqual(fixture.navigateCalls, []);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -221,13 +209,16 @@ test("post detail preserves the current actor on compose links", async () => {
   }
 });
 
-test("post detail preserves actor-aware map and feed hand-offs, including delete return", async () => {
+test("post detail keeps clean map and feed hand-offs and only allows author delete", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
   try {
     const root = env.createRoot();
     const module = await importSpaModule<PostDetailModule>("views/post-detail.js");
-    const fixture = createPostDetailFixture();
+    const fixture = createPostDetailFixture({
+      currentUserId: "user-1",
+      journalUserId: "user-1",
+    });
 
     const cleanup = await module.render(
       fixture.app,
@@ -242,16 +233,8 @@ test("post detail preserves actor-aware map and feed hand-offs, including delete
 
     const feedLink = requireElement(root, "[data-feed-href='true']");
     const mapLink = requireElement(root, "[data-map-href='true']");
-    assert.equal(feedLink.getAttribute("href"), "/feed?actor=user-2");
-    assert.equal(mapLink.getAttribute("href"), "/map?destinationId=dest-1&actor=user-2");
-
-    const actorSelect = requireElement(root, "#post-actor");
-    actorSelect.value = "user-1";
-    dispatchDomEvent(actorSelect, "change");
-    await settleAsync();
-
-    assert.equal(feedLink.getAttribute("href"), "/feed?actor=user-1");
-    assert.equal(mapLink.getAttribute("href"), "/map?destinationId=dest-1&actor=user-1");
+    assert.equal(feedLink.getAttribute("href"), "/feed");
+    assert.equal(mapLink.getAttribute("href"), "/map?destinationId=dest-1");
 
     dispatchDomEvent(requireElement(root, "#post-delete"), "click");
     await settleAsync();
@@ -259,19 +242,10 @@ test("post detail preserves actor-aware map and feed hand-offs, including delete
     assert.deepEqual(fixture.actionCalls[fixture.actionCalls.length - 1], {
       action: "delete",
       journalId: "journal-1",
-      userId: "user-1",
     });
     assert.deepEqual(fixture.navigateCalls, [
       {
-        href: "/posts/journal-1?actor=user-1",
-        options: {
-          preserveScroll: true,
-          render: false,
-          replace: true,
-        },
-      },
-      {
-        href: "/feed?actor=user-1",
+        href: "/feed",
         options: undefined,
       },
     ]);

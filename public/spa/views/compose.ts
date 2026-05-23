@@ -1,10 +1,8 @@
 import { appCopy } from "../copy.js";
 import {
   escapeHtml,
-  fillSelect,
   noticeMarkup,
   parseListInput,
-  safeArray,
 } from "../lib.js";
 import type { JsonRecord, SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
@@ -34,7 +32,7 @@ function previewMarkup(state: ComposePreviewState): string {
 }
 
 /**
- * Renders the compose view and preserves destination and actor handoff on publish.
+ * Renders the compose view and publishes with the authenticated browser user.
  */
 export async function render(
   app: SpaApp,
@@ -44,13 +42,11 @@ export async function render(
   const copy = appCopy.compose;
   app.setDocumentTitle(copy.documentTitle);
 
-  const bootstrap = await app.loadBootstrap();
+  await app.loadBootstrap();
   const journalBindings = app.getJournalBindings();
-  const users = safeArray(bootstrap?.users);
+  const currentUser = app.getCurrentUser();
   const defaultDestinationId = route.params.destinationId || app.getDestinationOptions()[0]?.id || "";
-  const defaultUserId = users.some((user) => user.id === route.params.actor)
-    ? route.params.actor
-    : app.state.currentUser?.id || users[0]?.id || "";
+  const currentUserName = currentUser?.id ? app.getUserName(String(currentUser.id)) : "";
 
   root.innerHTML = `
     <section class="route-hero route-hero-compose">
@@ -79,10 +75,10 @@ export async function render(
           <a class="inline-link" href="/feed" data-nav="true">${escapeHtml(copy.form.returnToFeed)}</a>
         </div>
         <form class="control-grid" id="compose-form">
-          <label>
-            ${escapeHtml(copy.form.labels.author)}
-            <select id="compose-user"></select>
-          </label>
+          <div class="readonly-field" id="compose-current-user">
+            <span>${escapeHtml(copy.form.labels.author)}</span>
+            <strong>${escapeHtml(currentUserName || copy.preview.authorFallback)}</strong>
+          </div>
           <label>
             ${escapeHtml(copy.form.labels.destination)}
             <select id="compose-destination"></select>
@@ -138,13 +134,11 @@ export async function render(
     </section>
   `;
 
-  fillSelect(root.querySelector("#compose-user"), users, { selectedValue: defaultUserId });
   app.applySelectorBindings(root, journalBindings?.selectorBindings);
   root.querySelector("#compose-destination").value = defaultDestinationId;
 
   const preview = root.querySelector("#compose-preview") as HTMLDivElement;
   const notice = root.querySelector("#compose-notice") as HTMLDivElement;
-  const authorSelect = root.querySelector("#compose-user") as HTMLSelectElement;
   const destinationSelect = root.querySelector("#compose-destination") as HTMLSelectElement;
   const titleInput = root.querySelector("#compose-title") as HTMLInputElement;
   const bodyInput = root.querySelector("#compose-body") as HTMLTextAreaElement;
@@ -152,7 +146,7 @@ export async function render(
 
   function renderPreview(): void {
     preview.innerHTML = previewMarkup({
-      authorLabel: app.getUserName(authorSelect.value),
+      authorLabel: currentUserName,
       destinationLabel: app.getDestinationName(destinationSelect.value),
       title: titleInput.value.trim(),
       body: bodyInput.value.trim().slice(0, 260),
@@ -160,7 +154,7 @@ export async function render(
     });
   }
 
-  [authorSelect, destinationSelect, titleInput, bodyInput, tagsInput].forEach((element) => {
+  [destinationSelect, titleInput, bodyInput, tagsInput].forEach((element) => {
     element.addEventListener("input", renderPreview);
     element.addEventListener("change", renderPreview);
   });
@@ -176,7 +170,6 @@ export async function render(
       const payload = await app.requestJson<{ item?: JsonRecord }>("/api/journals", {
         method: "POST",
         body: JSON.stringify({
-          userId: authorSelect.value,
           destinationId: destinationSelect.value,
           title: titleInput.value,
           body: bodyInput.value,
@@ -202,7 +195,7 @@ export async function render(
       );
       const createdId = payload.item?.id;
       if (createdId) {
-        app.navigate(app.buildPostHref(createdId, authorSelect.value ? { actor: authorSelect.value } : {}));
+        app.navigate(app.buildPostHref(createdId));
       } else {
         app.navigate("/feed");
       }

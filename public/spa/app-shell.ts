@@ -251,6 +251,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
         state.cuisines = safeArray(bootstrap.cuisines);
         if (bootstrap?.currentUser) {
           state.currentUser = bootstrap.currentUser;
+          state.userById.set(bootstrap.currentUser.id, bootstrap.currentUser);
         }
 
         setStatus(
@@ -375,14 +376,10 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
       destinationById: state.destinationById,
       userById: state.userById,
     });
-    const postParams = {};
-    if (options.actorId) {
-      postParams.actor = options.actorId;
-    }
 
     return journalConsumers.journalCard(item, metadata, tagsMarkup, {
-      mapHref: buildMapHref(options.actorId ? { destinationId: item.destinationId, actor: options.actorId } : { destinationId: item.destinationId }),
-      postHref: buildPostHref(item.id, postParams),
+      mapHref: buildMapHref({ destinationId: item.destinationId }),
+      postHref: buildPostHref(item.id),
       summarizeBody: journalPresentation.summarizeText,
       summaryLength: options.summaryLength || 220,
       hideDelete: options.hideDelete === true,
@@ -717,9 +714,8 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   /**
    * Creates a comment and reports whether the comment endpoint is available.
    */
-  async function createComment(journalId, userId, body, media = []) {
+  async function createComment(journalId, body, media = []) {
     const requestBody = {
-      userId,
       body,
     };
     if (Array.isArray(media) && media.length) {
@@ -755,8 +751,8 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   /**
    * Sends a supported journal action and reports endpoint availability when relevant.
    */
-  async function sendJournalAction(action, journalId, selectedUserId) {
-    const request = journalConsumers.resolveJournalActionRequest(action, journalId, selectedUserId);
+  async function sendJournalAction(action, journalId) {
+    const request = journalConsumers.resolveJournalActionRequest(action, journalId);
     if (!request) {
       throw new Error(appCopy.journal.unsupportedAction);
     }

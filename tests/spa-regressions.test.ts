@@ -319,12 +319,13 @@ function createPostDetailFixture(overrides: {
   commentPages?: CommentResponse[];
   createCommentImpl?: (
     journalId: string,
-    userId: string,
     body: string,
     media?: Array<Record<string, unknown>>,
   ) => Promise<Record<string, unknown>>;
+  currentUserId?: string;
   journalBody?: string;
   journalMedia?: Array<Record<string, unknown>>;
+  journalUserId?: string;
   requestJsonImpl?: (endpoint: string, options?: { body?: string; method?: string }) => Promise<Record<string, unknown>>;
   uploadImageImpl?: (file: Record<string, unknown>) => Promise<Record<string, unknown>>;
 } = {}) {
@@ -334,6 +335,8 @@ function createPostDetailFixture(overrides: {
       { id: "user-2", name: "Mina Hart" },
     ],
   };
+  const currentUserId = overrides.currentUserId ?? "user-2";
+  const journalUserId = overrides.journalUserId ?? "user-1";
   const detailCalls: Array<{ journalId: string; viewerUserId: string }> = [];
   const commentCalls: Array<{ cursor: string; journalId: string; limit: number }> = [];
   const commentPages = overrides.commentPages ?? [
@@ -346,9 +349,8 @@ function createPostDetailFixture(overrides: {
     body: string;
     journalId: string;
     media?: Array<Record<string, unknown>>;
-    userId: string;
   }> = [];
-  const actionCalls: Array<{ action: string; journalId: string; userId: string }> = [];
+  const actionCalls: Array<{ action: string; journalId: string }> = [];
   const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
   const requestJsonCalls: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
@@ -367,22 +369,21 @@ function createPostDetailFixture(overrides: {
     },
     async createComment(
       journalId: string,
-      userId: string,
       body: string,
       media?: Array<Record<string, unknown>>,
     ) {
-      const call = media && media.length ? { body, journalId, media, userId } : { body, journalId, userId };
+      const call = media && media.length ? { body, journalId, media } : { body, journalId };
       createCommentCalls.push(call);
       if (overrides.createCommentImpl) {
-        return overrides.createCommentImpl(journalId, userId, body, media);
+        return overrides.createCommentImpl(journalId, body, media);
       }
       return { available: true, item: { id: "comment-new" }, notice: "" };
     },
     buildMapHref(params: Record<string, string>) {
       return buildHref("/map", params);
     },
-    buildPostHref(journalId: string, params: { actor?: string }) {
-      return buildHref(`/posts/${journalId}`, params);
+    buildPostHref(journalId: string) {
+      return `/posts/${journalId}`;
     },
     async ensureDestinationDetails() {
       return {
@@ -422,7 +423,7 @@ function createPostDetailFixture(overrides: {
         tags: ["bridge", "tea"],
         title: "Bridge Notes",
         updatedAt: "2026-03-02T11:00:00.000Z",
-        userId: "user-1",
+        userId: journalUserId,
         viewerHasLiked: false,
         views,
       };
@@ -435,6 +436,9 @@ function createPostDetailFixture(overrides: {
     },
     getDestinationName(destinationId: string) {
       return destinationId === "dest-1" ? "Harbor Reach" : destinationId;
+    },
+    getCurrentUser() {
+      return bootstrap.users.find((user) => user.id === currentUserId) ?? null;
     },
     getUserName(userId: string) {
       return bootstrap.users.find((user) => user.id === userId)?.name ?? userId;
@@ -455,13 +459,13 @@ function createPostDetailFixture(overrides: {
       }
       throw new Error(`Unexpected request: ${endpoint}`);
     },
-    async sendJournalAction(action: string, journalId: string, userId: string) {
-      actionCalls.push({ action, journalId, userId });
+    async sendJournalAction(action: string, journalId: string) {
+      actionCalls.push({ action, journalId });
       if (action === "view") {
         views += 1;
       }
       if (action === "rate") {
-        ratings = ratings.concat({ userId, score: 5 });
+        ratings = ratings.concat({ userId: currentUserId, score: 5 });
       }
       return { available: true, notice: "", payload: null };
     },
@@ -533,8 +537,8 @@ function createComposeFixture() {
           .join("");
       });
     },
-    buildPostHref(journalId: string, params: { actor?: string }) {
-      return params.actor ? `/posts/${journalId}?actor=${params.actor}` : `/posts/${journalId}`;
+    buildPostHref(journalId: string) {
+      return `/posts/${journalId}`;
     },
     getDestinationName(destinationId: string) {
       return destinationOptions.find((destination) => destination.id === destinationId)?.label ?? destinationId;
@@ -552,6 +556,9 @@ function createComposeFixture() {
           },
         ],
       };
+    },
+    getCurrentUser() {
+      return bootstrap.users[0];
     },
     getUserName(userId: string) {
       return bootstrap.users.find((user) => user.id === userId)?.name ?? userId;
@@ -912,21 +919,19 @@ function createFeedFixture() {
   const fetchFeedCalls: Array<Record<string, unknown>> = [];
   const fetchRecommendedCalls: Array<Record<string, unknown>> = [];
   const requestJsonCalls: string[] = [];
-  const sendJournalActionCalls: Array<{ action: string; journalId: string; userId: string }> = [];
+  const sendJournalActionCalls: Array<{ action: string; journalId: string }> = [];
   const navigateCalls: Array<{ href: string; options?: Record<string, unknown> }> = [];
   const statuses: Array<{ message: string; tone: string }> = [];
 
   function cardMarkup(
     item: { id: string; title: string },
-    actorId = "",
     options: { hideSocialAction?: boolean; hideSocialMeta?: boolean } = {},
   ) {
-    const postHref = actorId ? `/posts/${item.id}?actor=${actorId}` : `/posts/${item.id}`;
     return `
       <article class="result-card" data-journal-id="${item.id}">
         <h3>${item.title}</h3>
         ${options.hideSocialMeta ? "" : `<div class="result-meta"><span>0 likes</span><span>0 comments</span></div>`}
-        <a class="inline-link" href="${postHref}" data-nav="true">Open post</a>
+        <a class="inline-link" href="/posts/${item.id}" data-nav="true">Open post</a>
         <div class="actions">
           <button type="button" data-action="view">Add view</button>
           <button type="button" data-action="rate">Rate 5</button>
@@ -952,14 +957,14 @@ function createFeedFixture() {
           .join("");
       });
     },
-    buildPostHref(journalId: string, params: { actor?: string }) {
-      return params.actor ? `/posts/${journalId}?actor=${params.actor}` : `/posts/${journalId}`;
+    buildPostHref(journalId: string) {
+      return `/posts/${journalId}`;
     },
     createJournalCard(
       item: { id: string; title: string },
       options?: { actorId?: string; hideSocialAction?: boolean; hideSocialMeta?: boolean },
     ) {
-      return cardMarkup(item, options?.actorId ?? "", options);
+      return cardMarkup(item, options);
     },
     async fetchFeed(options: Record<string, unknown>) {
       fetchFeedCalls.push(options);
@@ -994,6 +999,9 @@ function createFeedFixture() {
     getDestinationOptions() {
       return destinationOptions;
     },
+    getCurrentUser() {
+      return bootstrap.users[1];
+    },
     async loadBootstrap() {
       return bootstrap;
     },
@@ -1024,8 +1032,8 @@ function createFeedFixture() {
       }
       throw new Error(`Unexpected request: ${endpoint}`);
     },
-    async sendJournalAction(action: string, journalId: string, userId: string) {
-      sendJournalActionCalls.push({ action, journalId, userId });
+    async sendJournalAction(action: string, journalId: string) {
+      sendJournalActionCalls.push({ action, journalId });
       return { notice: "" };
     },
     setDocumentTitle() {},
@@ -1141,7 +1149,6 @@ test("post detail submits no media after a selected comment image is removed", a
       {
         body: "Plain after removal",
         journalId: "journal-1",
-        userId: "user-2",
       },
     ]);
 
@@ -1335,7 +1342,6 @@ test("post detail uploads a selected image before creating a media comment and r
             note: "image/jpeg · 2 KB",
           },
         ],
-        userId: "user-2",
       },
     ]);
     assert.deepEqual(fixture.deleteUploadedImageCalls, []);

@@ -40,9 +40,7 @@ export async function render(
   const destinationBindings = app.getDestinationBindings();
   const users = safeArray(bootstrap?.users);
   const destinationOptions = app.getDestinationOptions();
-  const actorDefault = users.some((user) => user.id === route.params.actor)
-    ? route.params.actor
-    : app.state.currentUser?.id || users[0]?.id || "";
+  const currentUserId = String(app.getCurrentUser()?.id ?? "");
 
   root.innerHTML = `
     <section class="route-hero route-hero-feed">
@@ -70,16 +68,12 @@ export async function render(
           </div>
           <a
             class="inline-link"
-            href="${escapeHtml(createUrl("/compose", actorDefault ? { actor: actorDefault } : {}))}"
+            href="/compose"
             data-nav="true"
             data-compose-href="true"
           >${escapeHtml(copy.stream.composeLink)}</a>
         </div>
         <form class="control-grid" id="feed-filter-form">
-          <label>
-            ${escapeHtml(copy.stream.labels.actor)}
-            <select id="feed-actor"></select>
-          </label>
           <label>
             ${escapeHtml(copy.stream.labels.destination)}
             <select id="feed-destination-filter"></select>
@@ -156,7 +150,6 @@ export async function render(
     </section>
   `;
 
-  fillSelect(root.querySelector("#feed-actor"), users);
   fillSelect(root.querySelector("#feed-author-filter"), users, {
     includeBlank: true,
     blankLabel: copy.stream.blankLabels.author,
@@ -165,62 +158,24 @@ export async function render(
   root.querySelector("#feed-exchange-destination").value = destinationOptions[0]?.id || "";
   root.querySelector("#feed-destination-filter").value = route.params.destinationId || "";
   root.querySelector("#feed-author-filter").value = route.params.author || "";
-  root.querySelector("#feed-actor").value = actorDefault;
 
   const feedResults = root.querySelector("#feed-results");
   const feedNotice = root.querySelector("#feed-notice");
   const exchangeResults = root.querySelector("#feed-exchange-results");
-  const actorSelect = root.querySelector("#feed-actor");
   const authorFilter = root.querySelector("#feed-author-filter");
   const destinationFilter = root.querySelector("#feed-destination-filter");
 
   let disposed = false;
   let currentFeedMode = "latest";
 
-  function buildComposeHref(actorId) {
-    return createUrl("/compose", actorId ? { actor: actorId } : {});
-  }
-
-  function syncComposeLinks(actorId) {
-    root.querySelectorAll(".feed-stream-card a").forEach((link) => {
-      const href = link.getAttribute("href") || "";
-      if (link.hasAttribute("data-compose-href") || href.startsWith("/compose")) {
-        link.setAttribute("href", buildComposeHref(actorId));
-      }
-    });
-  }
-
-  function syncPostLinks(actorId) {
-    root.querySelectorAll("[data-journal-id]").forEach((card) => {
-      const journalId = card.getAttribute("data-journal-id") || "";
-      if (!journalId) {
-        return;
-      }
-      card.querySelectorAll("a").forEach((link) => {
-        const href = link.getAttribute("href") || "";
-        if (href.startsWith("/posts/")) {
-          link.setAttribute("href", app.buildPostHref(journalId, actorId ? { actor: actorId } : {}));
-        }
-      });
-    });
-  }
-
-  function syncActorContext() {
-    const actorId = actorSelect.value;
-    syncComposeLinks(actorId);
-    syncPostLinks(actorId);
-  }
-
   function renderJournalCard(item, options = {}) {
     return app.createJournalCard(item, {
       ...options,
-      actorId: actorSelect.value,
     });
   }
 
   async function loadFeed(mode = "latest") {
     currentFeedMode = mode;
-    const actorId = actorSelect.value;
     const destinationId = destinationFilter.value;
     const authorId = authorFilter.value;
     const limit = root.querySelector("#feed-limit").value;
@@ -228,7 +183,6 @@ export async function render(
     app.navigate(
       createUrl("/feed", {
         destinationId,
-        actor: actorId,
         author: authorId,
       }),
       { replace: true, preserveScroll: true, render: false },
@@ -240,11 +194,11 @@ export async function render(
             items: safeArray(
               await app.fetchRecommendedJournals({
                 destinationId,
-                userId: actorId,
+                userId: currentUserId,
                 limit,
               }),
             ).filter((item) => !authorId || item.userId === authorId),
-            notice: actorId
+            notice: currentUserId
               ? authorId
                 ? copy.stream.notices.recommendedFiltered
                 : copy.stream.notices.recommended
@@ -253,7 +207,7 @@ export async function render(
         : await app.fetchFeed({
             destinationId,
             userId: authorId,
-            viewerUserId: actorId,
+            viewerUserId: currentUserId,
             limit,
           });
 
@@ -273,10 +227,9 @@ export async function render(
       : emptyStateMarkup({
           title: copy.stream.empty.title,
           body: copy.stream.empty.body,
-          actionHref: buildComposeHref(actorId),
+          actionHref: "/compose",
           actionLabel: copy.stream.empty.actionLabel,
         });
-    syncActorContext();
   }
 
   async function refreshExchangeResults(blocks) {
@@ -296,10 +249,9 @@ export async function render(
 
     const card = button.closest("[data-journal-id]");
     const journalId = card?.dataset.journalId;
-    const actorId = actorSelect.value;
 
     try {
-      const result = await app.sendJournalAction(button.dataset.action, journalId, actorId);
+      const result = await app.sendJournalAction(button.dataset.action, journalId);
       if (result.notice) {
         app.setStatus(result.notice, "note");
       }
@@ -323,15 +275,6 @@ export async function render(
       await loadFeed("recommended");
     } catch (error) {
       app.setStatus(copy.status.recommendationFailed, "error");
-    }
-  });
-
-  actorSelect.addEventListener("change", async () => {
-    syncActorContext();
-    try {
-      await loadFeed(currentFeedMode);
-    } catch (error) {
-      app.setStatus(copy.status.loadingFailed, "error");
     }
   });
 
@@ -482,7 +425,6 @@ export async function render(
     }
   });
 
-  syncActorContext();
   await loadFeed("latest");
   await refreshExchangeResults([]);
 

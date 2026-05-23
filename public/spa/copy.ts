@@ -694,7 +694,9 @@ export const appCopy = {
       tag: "笔记操作",
       heading: "轻量控制",
       labels: {
-        actor: "当前身份",
+        author: "作者",
+        currentUser: "当前用户",
+        guest: "未登录",
       },
       buttons: {
         view: "增加浏览",

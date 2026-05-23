@@ -582,7 +582,7 @@ test("shell nav links preserve actor context after non-rendering navigation", as
       (link.getAttribute("href") || "").startsWith("/map?"),
     );
     assert.equal((mapLink?.getAttribute("href") || "").includes("destinationId=dest-1"), true);
-    assert.equal((mapLink?.getAttribute("href") || "").includes("actor=user-1"), true);
+    assert.equal((mapLink?.getAttribute("href") || "").includes("actor=user-1"), false);
     app.navigate("/feed?actor=user-2", { replace: true, render: false });
     await settleAsync();
 

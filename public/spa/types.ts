@@ -176,7 +176,6 @@ export interface SpaApp {
   /** Attempts to create a journal comment and reports comment endpoint availability. */
   createComment(
     journalId: string,
-    userId: string,
     body: string,
     media?: CommentMediaInput[],
   ): Promise<CommentCreationResult>;
@@ -184,7 +183,6 @@ export interface SpaApp {
   sendJournalAction(
     action: string,
     journalId: string,
-    selectedUserId: string,
   ): Promise<JournalActionResult>;
   /** Loads and caches destination detail data for the requested destination id. */
   ensureDestinationDetails(destinationId: string): Promise<JsonRecord | null>;

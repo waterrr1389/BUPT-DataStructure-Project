@@ -73,8 +73,11 @@ function createMockResponse(): {
   headers: Record<string, string>;
   statusCode: number;
   end(chunk?: Buffer | string): void;
+  getHeader(name: string): string | string[] | undefined;
+  setHeader(name: string, value: string | string[]): void;
   writeHead(statusCode: number, headers: Record<string, unknown>): void;
 } {
+  const internalHeaders: Record<string, string | string[]> = {};
   return {
     body: [],
     headers: {},
@@ -84,11 +87,22 @@ function createMockResponse(): {
         this.body.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       }
     },
+    getHeader(name: string): string | string[] | undefined {
+      return internalHeaders[name.toLowerCase()];
+    },
+    setHeader(name: string, value: string | string[]) {
+      internalHeaders[name.toLowerCase()] = value;
+    },
     writeHead(statusCode: number, headers: Record<string, unknown>) {
       this.statusCode = statusCode;
-      this.headers = Object.fromEntries(
-        Object.entries(headers).map(([key, value]) => [key.toLowerCase(), String(value)]),
-      );
+      const merged: Record<string, string> = {};
+      for (const [key, value] of Object.entries(internalHeaders)) {
+        merged[key.toLowerCase()] = Array.isArray(value) ? value.join(", ") : String(value);
+      }
+      for (const [key, value] of Object.entries(headers)) {
+        merged[key.toLowerCase()] = String(value);
+      }
+      this.headers = merged;
     },
   };
 }
@@ -217,6 +231,25 @@ function createMultiFileMultipartBody(files: Array<{ content: Buffer; fileName: 
     body: Buffer.concat([...parts, Buffer.from(`--${boundary}--\r\n`)]),
     contentType: `multipart/form-data; boundary=${boundary}`,
   };
+}
+
+async function loginSeedUser(
+  requestJson: <TResponse>(requestPath: string, options?: RequestOptions) => Promise<JsonResponse<TResponse>>,
+  userId: string,
+): Promise<string> {
+  const bootstrap = await requestJson<{ users: Array<{ id: string; name: string }> }>("/api/bootstrap");
+  const user = bootstrap.body.users.find((entry) => entry.id === userId);
+  if (!user) {
+    throw new Error(`Unknown seed user: ${userId}`);
+  }
+  const response = await requestJson<{ item: { id: string; name: string } }>("/api/auth/login", {
+    method: "POST",
+    body: { name: user.name, password: "trail-atlas" },
+  });
+  if (response.status !== 200) {
+    throw new Error(`Seed login failed for ${userId}: ${response.text}`);
+  }
+  return (response.headers["set-cookie"] as string).split(";")[0];
 }
 
 function disableWorld(services: AppServices): void {
@@ -425,14 +458,16 @@ test("server uploads an image file and serves it from runtime storage", async ()
 
 test("server deletes only unreferenced uploaded images", async () => {
   await withServer("image-upload-delete-policy", async ({ requestJson, requestText }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    let commenterCookie = await loginSeedUser(requestJson, "user-5");
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute uploaded image cleanup",
         body: "A route note for validating uploaded image cleanup.",
         tags: ["indoor", "cleanup"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const multipart = createMultipartBody({
@@ -461,10 +496,10 @@ test("server deletes only unreferenced uploaded images", async () => {
       `/api/journals/${created.body.item.id}/comments`,
       {
         body: {
-          userId: "user-5",
           body: "This uploaded image should be protected while referenced.",
           media,
         },
+        headers: { cookie: commenterCookie },
         method: "POST",
       },
     );
@@ -476,6 +511,7 @@ test("server deletes only unreferenced uploaded images", async () => {
     );
     const servedAfterReferencedDelete = await requestText(upload.body.item.url);
     const deletedComment = await requestJson<{ deleted: boolean }>(`/api/comments/${comment.body.item.id}?userId=user-5`, {
+      headers: { cookie: commenterCookie },
       method: "DELETE",
     });
     const unreferencedDelete = await requestJson<{ deleted: boolean }>(
@@ -606,14 +642,16 @@ test("server rejects invalid image uploads and unsafe uploaded image paths", asy
 
 test("server rejects malformed comment media over HTTP", async () => {
   await withServer("comment-media-http-rejections", async ({ requestJson }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    let commenterCookie = await loginSeedUser(requestJson, "user-5");
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute comment media validation",
         body: "A short route note for validating comment media.",
         tags: ["indoor", "media"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const commentPath = `/api/journals/${created.body.item.id}/comments`;
@@ -621,7 +659,6 @@ test("server rejects malformed comment media over HTTP", async () => {
     const cases = [
       {
         body: {
-          userId: "user-5",
           body: "Unsupported media type should fail.",
           media: [{ type: "video", title: "Archive clip", source: validUploadSource }],
         },
@@ -629,7 +666,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "Missing media type should fail.",
           media: [{ title: "Archive", source: validUploadSource }],
         },
@@ -637,7 +673,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "Missing media title should fail.",
           media: [{ type: "image", source: validUploadSource }],
         },
@@ -645,7 +680,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "Missing media source should fail.",
           media: [{ type: "image", title: "Archive" }],
         },
@@ -653,7 +687,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "Too many images should fail.",
           media: [
             { type: "image", title: "Archive entrance", source: validUploadSource },
@@ -668,7 +701,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "Non-array media should fail.",
           media: { type: "image", title: "Archive", source: validUploadSource },
         },
@@ -676,7 +708,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "External URLs should fail.",
           media: [{ type: "image", title: "External archive", source: "https://example.com/archive.png" }],
         },
@@ -684,7 +715,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "Unrelated local paths should fail.",
           media: [{ type: "image", title: "Local archive", source: "/assets/archive.png" }],
         },
@@ -692,7 +722,6 @@ test("server rejects malformed comment media over HTTP", async () => {
       },
       {
         body: {
-          userId: "user-5",
           body: "Forged generated upload paths should fail.",
           media: [{ type: "image", title: "Forged archive", source: validUploadSource }],
         },
@@ -703,6 +732,7 @@ test("server rejects malformed comment media over HTTP", async () => {
     for (const entry of cases) {
       const response = await requestJson<{ error: string }>(commentPath, {
         body: entry.body,
+        headers: { cookie: commenterCookie },
         method: "POST",
       });
       assert.equal(response.status, 400, response.text);
@@ -713,14 +743,16 @@ test("server rejects malformed comment media over HTTP", async () => {
 
 test("server rejects uploaded comment media for unknown journal or user", async () => {
   await withServer("comment-media-http-known-entities", async ({ requestJson, requestText }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    let commenterCookie = await loginSeedUser(requestJson, "user-5");
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute known entity validation",
         body: "A route note for upload-backed comment media entity validation.",
         tags: ["indoor", "media"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const unknownJournalMultipart = createMultipartBody({
@@ -742,10 +774,10 @@ test("server rejects uploaded comment media for unknown journal or user", async 
     ];
     const unknownJournal = await requestJson<{ error: string }>("/api/journals/journal-missing/comments", {
       body: {
-        userId: "user-5",
         body: "Unknown journals should still fail with media.",
         media: unknownJournalMedia,
       },
+      headers: { cookie: commenterCookie },
       method: "POST",
     });
     const servedAfterUnknownJournal = await requestText(unknownJournalUpload.body.item.url);
@@ -766,7 +798,7 @@ test("server rejects uploaded comment media for unknown journal or user", async 
         source: unknownUserUpload.body.item.url,
       },
     ];
-    const unknownUser = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments`, {
+    const unauthenticatedUser = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments`, {
       body: {
         userId: "user-missing",
         body: "Unknown users should still fail with media.",
@@ -781,22 +813,24 @@ test("server rejects uploaded comment media for unknown journal or user", async 
     expectMatches(unknownJournal.body.error, /Unknown journal: journal-missing/);
     assert.equal(servedAfterUnknownJournal.status, 404, servedAfterUnknownJournal.text);
     assert.equal(unknownUserUpload.status, 201, unknownUserUpload.text);
-    assert.equal(unknownUser.status, 400, unknownUser.text);
-    expectMatches(unknownUser.body.error, /Unknown user: user-missing/);
-    assert.equal(servedAfterUnknownUser.status, 404, servedAfterUnknownUser.text);
+    assert.equal(unauthenticatedUser.status, 401, unauthenticatedUser.text);
+    assert.equal(unauthenticatedUser.body.error, "Not authenticated.");
+    assert.equal(servedAfterUnknownUser.status, 200, servedAfterUnknownUser.text);
   });
 });
 
 test("server persists uploaded comment media after reload and removes it after deletion", async () => {
   await withServer("comment-media-http-lifecycle", async ({ reloadServices, requestJson }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    let commenterCookie = await loginSeedUser(requestJson, "user-5");
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute media lifecycle",
         body: "A route note for upload-backed comment media persistence.",
         tags: ["indoor", "media"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const multipart = createMultipartBody({
@@ -821,10 +855,10 @@ test("server persists uploaded comment media after reload and removes it after d
       `/api/journals/${created.body.item.id}/comments`,
       {
         body: {
-          userId: "user-5",
           body: "The uploaded route snapshot should persist.",
           media,
         },
+        headers: { cookie: commenterCookie },
         method: "POST",
       },
     );
@@ -836,6 +870,7 @@ test("server persists uploaded comment media after reload and removes it after d
     assert.deepEqual(comment.body.item.media, media, comment.text);
 
     await reloadServices();
+    commenterCookie = await loginSeedUser(requestJson, "user-5");
     const reloadedPage = await requestJson<{ items: Array<{ id: string; media: unknown[] }>; totalCount: number }>(
       `/api/journals/${created.body.item.id}/comments?limit=10`,
     );
@@ -845,6 +880,7 @@ test("server persists uploaded comment media after reload and removes it after d
     assert.deepEqual(reloadedPage.body.items[0]?.media, media, reloadedPage.text);
 
     const deleted = await requestJson<{ deleted: boolean }>(`/api/comments/${comment.body.item.id}?userId=user-5`, {
+      headers: { cookie: commenterCookie },
       method: "DELETE",
     });
     const afterDeletePage = await requestJson<{ items: Array<{ id: string; media: unknown[] }>; totalCount: number }>(
@@ -860,14 +896,17 @@ test("server persists uploaded comment media after reload and removes it after d
 
 test("server hides parent journal comments after deleting a journal with media comments", async () => {
   await withServer("journal-comment-parent-delete-http", async ({ requestJson }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    const firstCommenterCookie = await loginSeedUser(requestJson, "user-5");
+    const secondCommenterCookie = await loginSeedUser(requestJson, "user-6");
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute comment cleanup route",
         body: "A route note with plain and image comments that should disappear with the parent journal.",
         tags: ["indoor", "cleanup"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const multipart = createMultipartBody({
@@ -891,9 +930,9 @@ test("server hides parent journal comments after deleting a journal with media c
       `/api/journals/${created.body.item.id}/comments`,
       {
         body: {
-          userId: "user-5",
           body: "Plain comment should not survive as a visible stale record.",
         },
+        headers: { cookie: firstCommenterCookie },
         method: "POST",
       },
     );
@@ -901,10 +940,10 @@ test("server hides parent journal comments after deleting a journal with media c
       `/api/journals/${created.body.item.id}/comments`,
       {
         body: {
-          userId: "user-6",
           body: "Image comment should not survive as a visible stale record.",
           media,
         },
+        headers: { cookie: secondCommenterCookie },
         method: "POST",
       },
     );
@@ -913,6 +952,7 @@ test("server hides parent journal comments after deleting a journal with media c
       totalCount: number;
     }>(`/api/journals/${created.body.item.id}/comments?limit=10`);
     const deleted = await requestJson<{ deleted: boolean }>(`/api/journals/${created.body.item.id}`, {
+      headers: { cookie: authorCookie },
       method: "DELETE",
     });
     const afterDelete = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments?limit=10`);
@@ -944,22 +984,24 @@ test("server hides parent journal comments after deleting a journal with media c
 
 test("server rejects blank comment bodies with empty media over HTTP", async () => {
   await withServer("comment-blank-body-empty-media-http", async ({ requestJson }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    const commenterCookie = await loginSeedUser(requestJson, "user-5");
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute blank comment validation",
         body: "A route note for validating empty image comment payloads.",
         tags: ["indoor", "validation"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const blankComment = await requestJson<{ error: string }>(`/api/journals/${created.body.item.id}/comments`, {
       body: {
-        userId: "user-5",
         body: "   ",
         media: [],
       },
+      headers: { cookie: commenterCookie },
       method: "POST",
     });
     const commentPage = await requestJson<{
@@ -1019,6 +1061,7 @@ test("server normalizes legacy comments without media over HTTP", async () => {
 
 test("server preserves legacy journal media and exposes compact feed media counts", async () => {
   await withServer("journal-legacy-media-http", async ({ requestJson }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
     const legacyMedia = [
       {
         type: "image",
@@ -1034,22 +1077,22 @@ test("server preserves legacy journal media and exposes compact feed media count
     ];
     const created = await requestJson<{ item: { id: string; media: unknown[] } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute legacy media route",
         body: "A route note carrying legacy generated journal media.",
         tags: ["indoor", "legacy"],
         media: legacyMedia,
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const detail = await requestJson<{ item: { media: unknown[] } }>(`/api/journals/${created.body.item.id}`);
     const patched = await requestJson<{ item: { media: unknown[]; title: string } }>(`/api/journals/${created.body.item.id}`, {
       body: {
-        userId: "user-2",
         title: "North Institute legacy media route update",
         body: "Updated route text should not clear legacy media.",
       },
+      headers: { cookie: authorCookie },
       method: "PATCH",
     });
     const feed = await requestJson<{
@@ -1549,18 +1592,22 @@ test("server returns world_unavailable for world route planning and keeps bootst
 
 test("server exposes compact social journal APIs with SPA fallback and targeted cache headers", async () => {
   await withServer("social-http", async ({ requestJson, requestText }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    const likerCookie = await loginSeedUser(requestJson, "user-4");
+    const firstCommenterCookie = await loginSeedUser(requestJson, "user-5");
+    const secondCommenterCookie = await loginSeedUser(requestJson, "user-6");
     const health = await requestJson<{ ok: boolean }>("/api/health");
     const bootstrap = await requestJson<{ users: Array<Record<string, unknown>>; destinations: Array<Record<string, unknown>> }>(
       "/api/bootstrap",
     );
     const created = await requestJson<{ item: { id: string; title: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute social memo",
         body: "Started in the lobby, cut through the archive, and ended with tea by the indoor studio.",
         tags: ["indoor", "memo"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const createdId = created.body.item.id;
@@ -1594,22 +1641,24 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     const liked = await requestJson<{ item: { likeCount: number; viewerHasLiked: boolean } }>(
       `/api/journals/${createdId}/likes`,
       {
-        body: { userId: "user-4" },
+        body: {},
+        headers: { cookie: likerCookie },
         method: "POST",
       },
     );
     const duplicateLike = await requestJson<{ error: string }>(`/api/journals/${createdId}/likes`, {
-      body: { userId: "user-4" },
+      body: {},
+      headers: { cookie: likerCookie },
       method: "POST",
     });
     const firstComment = await requestJson<{ item: { id: string; userLabel: string } }>(
       `/api/journals/${createdId}/comments`,
       {
         body: {
-          userId: "user-5",
           body: "Archive shortcut worked better than the outdoor loop.",
           media: commentMedia,
         },
+        headers: { cookie: firstCommenterCookie },
         method: "POST",
       },
     );
@@ -1617,9 +1666,9 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
       `/api/journals/${createdId}/comments`,
       {
         body: {
-          userId: "user-6",
           body: "Tea stop at the end makes sense.",
         },
+        headers: { cookie: secondCommenterCookie },
         method: "POST",
       },
     );
@@ -1636,12 +1685,14 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     const wrongDelete = await requestJson<{ error: string }>(
       `/api/comments/${firstComment.body.item.id}?userId=user-6`,
       {
+        headers: { cookie: secondCommenterCookie },
         method: "DELETE",
       },
     );
     const deletedComment = await requestJson<{ deleted: boolean }>(
       `/api/comments/${firstComment.body.item.id}?userId=user-5`,
       {
+        headers: { cookie: firstCommenterCookie },
         method: "DELETE",
       },
     );
@@ -1665,6 +1716,7 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
     const unliked = await requestJson<{ item: { likeCount: number; viewerHasLiked: boolean } }>(
       `/api/journals/${createdId}/likes?userId=user-4`,
       {
+        headers: { cookie: likerCookie },
         method: "DELETE",
       },
     );
@@ -1801,14 +1853,17 @@ test("server exposes compact social journal APIs with SPA fallback and targeted 
 
 test("server keeps feed cursors valid across journal edits, ratings, and social activity", async () => {
   await withServer("social-route-regressions", async ({ requestJson }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
+    const actorCookie = await loginSeedUser(requestJson, "user-4");
+    const commenterCookie = await loginSeedUser(requestJson, "user-5");
     const created = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "North Institute route suffix regression",
         body: "Archive pass-through with a quiet indoor finish.",
         tags: ["indoor", "archive"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const createdId = created.body.item.id;
@@ -1843,30 +1898,34 @@ test("server keeps feed cursors valid across journal edits, ratings, and social 
         body: "Archive pass-through with a quiet indoor finish and updated return guidance.",
         tags: ["indoor", "archive", "return"],
       },
+      headers: { cookie: authorCookie },
       method: "PATCH",
     });
     const rated = await requestJson<{ item: { averageRating: number; updatedAt: string } }>(
       `/api/journals/${createdId}/rate`,
       {
-        body: { userId: "user-4", score: 5 },
+        body: { score: 5 },
+        headers: { cookie: actorCookie },
         method: "POST",
       },
     );
     await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/likes`, {
-      body: { userId: "user-4" },
+      body: {},
+      headers: { cookie: actorCookie },
       method: "POST",
     });
     await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/comments`, {
       body: {
-        userId: "user-5",
         body: "Archive finish still looks right.",
       },
+      headers: { cookie: commenterCookie },
       method: "POST",
     });
     await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/view`, {
       method: "POST",
     });
     await requestJson<{ item: Record<string, unknown> }>(`/api/journals/${createdId}/likes?userId=user-4`, {
+      headers: { cookie: actorCookie },
       method: "DELETE",
     });
 
@@ -1898,24 +1957,25 @@ test("server keeps feed cursors valid across journal edits, ratings, and social 
 
 test("server keeps feed and comment cursors valid when the anchor item is deleted", async () => {
   await withServer("social-deleted-anchor-cursors", async ({ requestJson }) => {
+    const authorCookie = await loginSeedUser(requestJson, "user-2");
     const first = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "Deleted anchor first",
         body: "Newest tie case entry.",
         tags: ["tie"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const second = await requestJson<{ item: { id: string } }>("/api/journals", {
       body: {
-        userId: "user-2",
         destinationId: "dest-002",
         title: "Deleted anchor second",
         body: "Second tie case entry.",
         tags: ["tie"],
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
 
@@ -1929,6 +1989,7 @@ test("server keeps feed and comment cursors valid when the anchor item is delete
     assert.equal(feedPage.body.nextCursor !== null, true, feedPage.text);
 
     const deletedFeedAnchor = await requestJson<{ deleted: boolean }>(`/api/journals/${second.body.item.id}`, {
+      headers: { cookie: authorCookie },
       method: "DELETE",
     });
     const nextFeedPage = await requestJson<{
@@ -1943,16 +2004,16 @@ test("server keeps feed and comment cursors valid when the anchor item is delete
 
     const firstComment = await requestJson<{ item: { id: string } }>(`/api/journals/${first.body.item.id}/comments`, {
       body: {
-        userId: "user-2",
         body: "First comment anchor.",
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const secondComment = await requestJson<{ item: { id: string } }>(`/api/journals/${first.body.item.id}/comments`, {
       body: {
-        userId: "user-2",
         body: "Second comment anchor.",
       },
+      headers: { cookie: authorCookie },
       method: "POST",
     });
     const commentPage = await requestJson<{
@@ -1967,6 +2028,7 @@ test("server keeps feed and comment cursors valid when the anchor item is delete
     const deletedCommentAnchor = await requestJson<{ deleted: boolean }>(
       `/api/comments/${secondComment.body.item.id}?userId=user-2`,
       {
+        headers: { cookie: authorCookie },
         method: "DELETE",
       },
     );
