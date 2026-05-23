@@ -20,6 +20,18 @@ function requireWorld(): NonNullable<typeof seedData.world> {
   return world;
 }
 
+function expectedDestinationId(index: number): string {
+  return `dest-${String(index + 1).padStart(3, "0")}`;
+}
+
+function hasAdjacentRepeatedWords(value: string): boolean {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  return words.some((word, index) => {
+    const nextWord = words[index + 1];
+    return typeof nextWord === "string" && word.toLowerCase() === nextWord.toLowerCase();
+  });
+}
+
 test("seedData exports a validation-ready dataset with matching lookups", () => {
   const result = validateSeedData(seedData);
 
@@ -45,6 +57,26 @@ test("seedData exports a validation-ready dataset with matching lookups", () => 
   assert.equal(lookups.world, worldData);
 });
 
+test("seed destination ids stay stable while names remain unique and credible", () => {
+  assert.deepEqual(seedData.destinations.map((destination) => destination.id), [
+    ...Array.from({ length: seedData.destinations.length }, (_, index) => expectedDestinationId(index)),
+  ]);
+
+  const names = seedData.destinations.map((destination) => destination.name);
+  assert.equal(new Set(names).size, names.length);
+  assert.deepEqual(
+    seedData.destinations
+      .filter((destination) => hasAdjacentRepeatedWords(destination.name))
+      .map((destination) => ({ id: destination.id, name: destination.name })),
+    [],
+  );
+
+  assert.equal(destinationById.get("dest-001")?.name, "Amber Bay");
+  assert.equal(destinationById.get("dest-002")?.name, "North Institute");
+  assert.equal(destinationById.get("dest-003")?.name, "Juniper Reserve");
+  assert.equal(destinationById.get("dest-005")?.name, "Harbor Haven");
+});
+
 test("validateSeedData keeps world optional for local-only seed data", () => {
   const localOnlySeed = structuredClone(seedData);
   delete localOnlySeed.world;
@@ -52,6 +84,27 @@ test("validateSeedData keeps world optional for local-only seed data", () => {
   const result = validateSeedData(localOnlySeed);
 
   assert.equal(result.ok, true, result.issues.join("\n"));
+});
+
+test("validateSeedData rejects duplicate destination names and adjacent repeated words", () => {
+  const duplicateName = structuredClone(seedData);
+  duplicateName.destinations[2].name = duplicateName.destinations[0].name;
+
+  const duplicateResult = validateSeedData(duplicateName);
+
+  assert.equal(duplicateResult.ok, false);
+  assert.match(duplicateResult.issues.join("\n"), /destination name "Amber Bay" is duplicated/);
+
+  const repeatedWords = structuredClone(seedData);
+  repeatedWords.destinations[2].name = "Harbor Harbor";
+
+  const repeatedResult = validateSeedData(repeatedWords);
+
+  assert.equal(repeatedResult.ok, false);
+  assert.match(
+    repeatedResult.issues.join("\n"),
+    /destination "dest-003" name "Harbor Harbor" has adjacent repeated words/,
+  );
 });
 
 test("validateSeedData rejects invalid world references and portal semantics", () => {
@@ -158,6 +211,33 @@ test("validateSeedData rejects invalid world references and portal semantics", (
       },
       expectedIssue: /exceeds transferCost max/,
     },
+    {
+      name: "world placement label must follow the catalog name",
+      mutate: (candidate) => {
+        candidate.world!.destinations[0].label = "Stale Placement Label";
+      },
+      expectedIssue: /world destination placement "dest-001" label "Stale Placement Label" must match catalog label "Amber Bay · North Belt"/,
+    },
+    {
+      name: "world portal node label must follow the catalog name",
+      mutate: (candidate) => {
+        const portalNode = candidate.world!.graph.nodes.find(
+          (node) => node.id === "world-node-dest-001-main",
+        );
+        if (!portalNode) {
+          throw new Error("Expected world-node-dest-001-main to exist");
+        }
+        portalNode.label = "Stale Node Label";
+      },
+      expectedIssue: /world node "world-node-dest-001-main" label "Stale Node Label" must match catalog label "Amber Bay Gate"/,
+    },
+    {
+      name: "world portal label must follow the catalog name",
+      mutate: (candidate) => {
+        candidate.world!.portals[0].label = "Stale Portal Label";
+      },
+      expectedIssue: /world portal "portal-dest-001-main" label "Stale Portal Label" must match catalog label "Amber Bay Main Gate"/,
+    },
   ];
 
   for (const testCase of cases) {
@@ -168,6 +248,34 @@ test("validateSeedData rejects invalid world references and portal semantics", (
 
     assert.equal(result.ok, false, `${testCase.name} unexpectedly passed validation`);
     assert.equal(testCase.expectedIssue.test(result.issues.join("\n")), true, testCase.name);
+  }
+});
+
+test("world visible destination labels align with the catalog names", () => {
+  const world = requireWorld();
+  const regionById = new Map(world.regions.map((region) => [region.id, region]));
+  const portalNodeByDestinationId = new Map(
+    world.graph.nodes
+      .filter((node) => node.kind === "portal" && node.destinationId)
+      .map((node) => [node.destinationId!, node]),
+  );
+
+  for (const placement of world.destinations) {
+    const destination = destinationById.get(placement.destinationId);
+    const region = regionById.get(placement.regionId);
+    if (!destination || !region) {
+      throw new Error(`Expected placement ${placement.destinationId} to resolve`);
+    }
+
+    assert.equal(placement.label, `${destination.name} · ${region.name}`);
+
+    const portalNode = portalNodeByDestinationId.get(placement.destinationId);
+    assert.equal(portalNode?.label, `${destination.name} Gate`);
+
+    for (const portalId of placement.portalIds) {
+      const portal = world.portals.find((candidate) => candidate.id === portalId);
+      assert.equal(portal?.label, `${destination.name} Main Gate`);
+    }
   }
 });
 

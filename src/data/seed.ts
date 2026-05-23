@@ -69,6 +69,30 @@ export const facilityCategories: FacilityCategoryDefinition[] = [
   },
 ];
 
+const fallbackDestinationNameById = new Map(
+  fallbackSeedData.destinations.map((destination) => [destination.id, destination.name]),
+);
+
+function catalogDestinationName(destinationId: string): string {
+  const name = fallbackDestinationNameById.get(destinationId);
+  if (!name) {
+    throw new Error(`Missing fallback destination "${destinationId}".`);
+  }
+  return name;
+}
+
+function worldPlacementLabel(destinationId: string, regionName: string): string {
+  return `${catalogDestinationName(destinationId)} · ${regionName}`;
+}
+
+function worldNodeGateLabel(destinationId: string): string {
+  return `${catalogDestinationName(destinationId)} Gate`;
+}
+
+function worldPortalMainGateLabel(destinationId: string): string {
+  return `${catalogDestinationName(destinationId)} Main Gate`;
+}
+
 export const worldData: WorldMapRecord = {
   id: "world-boston-inspired",
   name: "Trail Atlas Overworld - Boston Inspired",
@@ -149,7 +173,7 @@ export const worldData: WorldMapRecord = {
   destinations: [
     {
       destinationId: "dest-001",
-      label: "Amber Bay · North Belt",
+      label: worldPlacementLabel("dest-001", "North Belt"),
       x: 1816,
       y: 394,
       radius: 20,
@@ -159,7 +183,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-007",
-      label: "Silver Lookout · North Belt",
+      label: worldPlacementLabel("dest-007", "North Belt"),
       x: 2392,
       y: 568,
       radius: 20,
@@ -169,7 +193,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-002",
-      label: "River Polytechnic · River Arc",
+      label: worldPlacementLabel("dest-002", "River Arc"),
       x: 1068,
       y: 786,
       radius: 20,
@@ -179,7 +203,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-008",
-      label: "Lotus Learning Hub · River Arc",
+      label: worldPlacementLabel("dest-008", "River Arc"),
       x: 1594,
       y: 1076,
       radius: 20,
@@ -189,7 +213,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-004",
-      label: "Summit Learning Hub · West Ridge",
+      label: worldPlacementLabel("dest-004", "West Ridge"),
       x: 618,
       y: 1458,
       radius: 20,
@@ -199,7 +223,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-010",
-      label: "Vertex Polytechnic · West Ridge",
+      label: worldPlacementLabel("dest-010", "West Ridge"),
       x: 964,
       y: 1846,
       radius: 20,
@@ -209,7 +233,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-006",
-      label: "Pioneer Polytechnic · Central Axis",
+      label: worldPlacementLabel("dest-006", "Central Axis"),
       x: 1828,
       y: 1904,
       radius: 20,
@@ -219,7 +243,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-012",
-      label: "River Learning Hub · Central Axis",
+      label: worldPlacementLabel("dest-012", "Central Axis"),
       x: 2226,
       y: 2028,
       radius: 20,
@@ -229,7 +253,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-003",
-      label: "Harbor Harbor · Harbor Line",
+      label: worldPlacementLabel("dest-003", "Harbor Line"),
       x: 3046,
       y: 894,
       radius: 20,
@@ -239,7 +263,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-009",
-      label: "Maple Promenade · Harbor Line",
+      label: worldPlacementLabel("dest-009", "Harbor Line"),
       x: 3474,
       y: 1276,
       radius: 20,
@@ -249,7 +273,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-005",
-      label: "Velvet Terrace · East Loop",
+      label: worldPlacementLabel("dest-005", "East Loop"),
       x: 2896,
       y: 2174,
       radius: 20,
@@ -259,7 +283,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-011",
-      label: "Amber Bay · East Loop",
+      label: worldPlacementLabel("dest-011", "East Loop"),
       x: 3356,
       y: 2392,
       radius: 20,
@@ -356,7 +380,7 @@ export const worldData: WorldMapRecord = {
         y: 420,
         kind: "portal",
         destinationId: "dest-001",
-        label: "Amber Bay Gate",
+        label: worldNodeGateLabel("dest-001"),
         tags: ["portal", "scenic"],
       },
       {
@@ -365,7 +389,7 @@ export const worldData: WorldMapRecord = {
         y: 600,
         kind: "portal",
         destinationId: "dest-007",
-        label: "Silver Lookout Gate",
+        label: worldNodeGateLabel("dest-007"),
         tags: ["portal", "scenic"],
       },
       {
@@ -374,7 +398,7 @@ export const worldData: WorldMapRecord = {
         y: 820,
         kind: "portal",
         destinationId: "dest-002",
-        label: "River Polytechnic Gate",
+        label: worldNodeGateLabel("dest-002"),
         tags: ["portal", "campus"],
       },
       {
@@ -383,7 +407,7 @@ export const worldData: WorldMapRecord = {
         y: 1110,
         kind: "portal",
         destinationId: "dest-008",
-        label: "Lotus Learning Hub Gate",
+        label: worldNodeGateLabel("dest-008"),
         tags: ["portal", "campus"],
       },
       {
@@ -392,7 +416,7 @@ export const worldData: WorldMapRecord = {
         y: 1490,
         kind: "portal",
         destinationId: "dest-004",
-        label: "Summit Learning Hub Gate",
+        label: worldNodeGateLabel("dest-004"),
         tags: ["portal", "campus"],
       },
       {
@@ -401,7 +425,7 @@ export const worldData: WorldMapRecord = {
         y: 1880,
         kind: "portal",
         destinationId: "dest-010",
-        label: "Vertex Polytechnic Gate",
+        label: worldNodeGateLabel("dest-010"),
         tags: ["portal", "campus"],
       },
       {
@@ -410,7 +434,7 @@ export const worldData: WorldMapRecord = {
         y: 1870,
         kind: "portal",
         destinationId: "dest-006",
-        label: "Pioneer Polytechnic Gate",
+        label: worldNodeGateLabel("dest-006"),
         tags: ["portal", "campus"],
       },
       {
@@ -419,7 +443,7 @@ export const worldData: WorldMapRecord = {
         y: 2060,
         kind: "portal",
         destinationId: "dest-012",
-        label: "River Learning Hub Gate",
+        label: worldNodeGateLabel("dest-012"),
         tags: ["portal", "campus"],
       },
       {
@@ -428,7 +452,7 @@ export const worldData: WorldMapRecord = {
         y: 930,
         kind: "portal",
         destinationId: "dest-003",
-        label: "Harbor Harbor Gate",
+        label: worldNodeGateLabel("dest-003"),
         tags: ["portal", "scenic"],
       },
       {
@@ -437,7 +461,7 @@ export const worldData: WorldMapRecord = {
         y: 1310,
         kind: "portal",
         destinationId: "dest-009",
-        label: "Maple Promenade Gate",
+        label: worldNodeGateLabel("dest-009"),
         tags: ["portal", "scenic"],
       },
       {
@@ -446,7 +470,7 @@ export const worldData: WorldMapRecord = {
         y: 2140,
         kind: "portal",
         destinationId: "dest-005",
-        label: "Velvet Terrace Gate",
+        label: worldNodeGateLabel("dest-005"),
         tags: ["portal", "scenic"],
       },
       {
@@ -455,7 +479,7 @@ export const worldData: WorldMapRecord = {
         y: 2360,
         kind: "portal",
         destinationId: "dest-011",
-        label: "Amber Bay Gate",
+        label: worldNodeGateLabel("dest-011"),
         tags: ["portal", "scenic"],
       },
     ],
@@ -719,7 +743,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-001-main",
       localNodeId: "dest-001-gate",
       portalType: "main-gate",
-      label: "Amber Bay Main Gate",
+      label: worldPortalMainGateLabel("dest-001"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -732,7 +756,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-007-main",
       localNodeId: "dest-007-gate",
       portalType: "main-gate",
-      label: "Silver Lookout Main Gate",
+      label: worldPortalMainGateLabel("dest-007"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -745,7 +769,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-002-main",
       localNodeId: "dest-002-gate",
       portalType: "main-gate",
-      label: "River Polytechnic Main Gate",
+      label: worldPortalMainGateLabel("dest-002"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -758,7 +782,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-008-main",
       localNodeId: "dest-008-gate",
       portalType: "main-gate",
-      label: "Lotus Learning Hub Main Gate",
+      label: worldPortalMainGateLabel("dest-008"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -771,7 +795,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-004-main",
       localNodeId: "dest-004-gate",
       portalType: "main-gate",
-      label: "Summit Learning Hub Main Gate",
+      label: worldPortalMainGateLabel("dest-004"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -784,7 +808,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-010-main",
       localNodeId: "dest-010-gate",
       portalType: "main-gate",
-      label: "Vertex Polytechnic Main Gate",
+      label: worldPortalMainGateLabel("dest-010"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -797,7 +821,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-006-main",
       localNodeId: "dest-006-gate",
       portalType: "main-gate",
-      label: "Pioneer Polytechnic Main Gate",
+      label: worldPortalMainGateLabel("dest-006"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -810,7 +834,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-012-main",
       localNodeId: "dest-012-gate",
       portalType: "main-gate",
-      label: "River Learning Hub Main Gate",
+      label: worldPortalMainGateLabel("dest-012"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -823,7 +847,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-003-main",
       localNodeId: "dest-003-gate",
       portalType: "main-gate",
-      label: "Harbor Harbor Main Gate",
+      label: worldPortalMainGateLabel("dest-003"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -836,7 +860,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-009-main",
       localNodeId: "dest-009-gate",
       portalType: "main-gate",
-      label: "Maple Promenade Main Gate",
+      label: worldPortalMainGateLabel("dest-009"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -849,7 +873,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-005-main",
       localNodeId: "dest-005-gate",
       portalType: "main-gate",
-      label: "Velvet Terrace Main Gate",
+      label: worldPortalMainGateLabel("dest-005"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",
@@ -862,7 +886,7 @@ export const worldData: WorldMapRecord = {
       worldNodeId: "world-node-dest-011-main",
       localNodeId: "dest-011-gate",
       portalType: "main-gate",
-      label: "Amber Bay Main Gate",
+      label: worldPortalMainGateLabel("dest-011"),
       priority: 100,
       allowedModes: ["walk", "bike", "shuttle", "mixed"],
       direction: "bidirectional",

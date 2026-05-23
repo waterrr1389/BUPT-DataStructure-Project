@@ -82,6 +82,32 @@ const SCENIC_NOUNS = [
   "Valley",
 ];
 
+const SCENIC_QUALIFIERS = [
+  "River",
+  "Crown",
+  "Meadow",
+  "Aurora",
+  "Summit",
+  "Pine",
+  "Stone",
+  "Lagoon",
+  "Horizon",
+  "Willow",
+];
+
+const SCENIC_NOUN_ALTERNATES = [
+  "Cove",
+  "Grove",
+  "Terrace",
+  "Reserve",
+  "Promenade",
+  "Cliff",
+  "Haven",
+  "Museum Park",
+  "Lookout",
+  "Valley",
+];
+
 const CAMPUS_PREFIXES = [
   "North",
   "River",
@@ -356,8 +382,18 @@ function createDestinationName(index: number, type: DestinationType): string {
   const subIndex = Math.floor(index / 2);
   if (type === "scenic") {
     const adjective = SCENIC_ADJECTIVES[subIndex % SCENIC_ADJECTIVES.length];
-    const noun = SCENIC_NOUNS[(subIndex * 3) % SCENIC_NOUNS.length];
-    return `${adjective} ${noun}`;
+    const nounIndex = (subIndex * 3) % SCENIC_NOUNS.length;
+    const baseNoun = SCENIC_NOUNS[nounIndex];
+    const noun =
+      adjective.toLowerCase() === baseNoun.split(/\s+/)[0].toLowerCase()
+        ? SCENIC_NOUN_ALTERNATES[nounIndex]
+        : baseNoun;
+    const cycleIndex = Math.floor(subIndex / SCENIC_ADJECTIVES.length);
+    if (cycleIndex === 0) {
+      return `${adjective} ${noun}`;
+    }
+    const qualifier = SCENIC_QUALIFIERS[(cycleIndex - 1) % SCENIC_QUALIFIERS.length];
+    return `${adjective} ${qualifier} ${noun}`;
   }
   const prefix = CAMPUS_PREFIXES[subIndex % CAMPUS_PREFIXES.length];
   const suffix = CAMPUS_SUFFIXES[(subIndex * 3) % CAMPUS_SUFFIXES.length];

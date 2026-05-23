@@ -213,6 +213,14 @@ test("all destination selectors consume one authoritative bootstrap catalog with
   assert.equal(prepared.destinationOptions.length, bootstrap.destinations?.length);
   assert.equal(prepared.featuredDestinations.some((destination) => destination.id === "dest-013"), false);
   assert.equal(prepared.destinationById.get("dest-034")?.id, "dest-034");
+  assert.deepEqual(
+    prepared.destinationOptions.map((option) => option.id),
+    bootstrap.destinations?.map((destination) => destination.id),
+  );
+  assert.equal(
+    new Set(prepared.destinationOptions.map((option) => option.label)).size,
+    prepared.destinationOptions.length,
+  );
 
   for (const binding of prepared.selectorBindings) {
     assert.deepEqual(binding.items, prepared.destinationOptions);

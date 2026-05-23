@@ -90,6 +90,33 @@ function hasUniqueStrings(values: string[]): boolean {
   return new Set(values).size === values.length;
 }
 
+function words(value: string): string[] {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function hasAdjacentRepeatedWords(value: string): boolean {
+  const parts = words(value);
+  return parts.some((part, index) => {
+    const nextPart = parts[index + 1];
+    return typeof nextPart === "string" && part.toLowerCase() === nextPart.toLowerCase();
+  });
+}
+
+function expectedWorldPlacementLabel(destinationName: string, regionName: string): string {
+  return `${destinationName} · ${regionName}`;
+}
+
+function expectedWorldNodeGateLabel(destinationName: string): string {
+  return `${destinationName} Gate`;
+}
+
+function expectedWorldPortalMainGateLabel(destinationName: string): string {
+  return `${destinationName} Main Gate`;
+}
+
 function ensureUniqueIds<T extends { id: string }>(
   entries: readonly T[],
   label: string,
@@ -195,17 +222,28 @@ function validateWorldRegion(
 function validateWorldPlacement(
   placement: WorldDestinationPlacement,
   world: WorldMapRecord,
-  destinationIds: Set<string>,
+  destinationById: Map<string, Destination>,
   regionIds: Set<string>,
+  regionById: Map<string, WorldRegionRecord>,
   issues: string[],
 ): void {
-  if (!destinationIds.has(placement.destinationId)) {
+  const destination = destinationById.get(placement.destinationId);
+  if (!destination) {
     issues.push(
       `world destination placement "${placement.destinationId}" references unknown destination "${placement.destinationId}"`,
     );
   }
   if (!isNonEmptyString(placement.label)) {
     issues.push(`world destination placement "${placement.destinationId}" is missing a label`);
+  }
+  const region = regionById.get(placement.regionId);
+  if (destination && region) {
+    const expectedLabel = expectedWorldPlacementLabel(destination.name, region.name);
+    if (placement.label !== expectedLabel) {
+      issues.push(
+        `world destination placement "${placement.destinationId}" label "${placement.label}" must match catalog label "${expectedLabel}"`,
+      );
+    }
   }
   validateWorldCoordinates(
     placement.x,
@@ -238,7 +276,7 @@ function validateWorldPlacement(
 function validateWorldNode(
   node: WorldNodeRecord,
   world: WorldMapRecord,
-  destinationIds: Set<string>,
+  destinationById: Map<string, Destination>,
   issues: string[],
 ): void {
   if (!isNonEmptyString(node.label)) {
@@ -249,11 +287,20 @@ function validateWorldNode(
   }
   validateWorldCoordinates(node.x, node.y, world.width, world.height, `world node "${node.id}"`, issues);
   validateStringArray(node.tags, `world node "${node.id}" tags`, issues, true);
-  if (node.destinationId && !destinationIds.has(node.destinationId)) {
+  const destination = node.destinationId ? destinationById.get(node.destinationId) : undefined;
+  if (node.destinationId && !destination) {
     issues.push(`world node "${node.id}" references unknown destination "${node.destinationId}"`);
   }
   if (node.kind === "portal" && !isNonEmptyString(node.destinationId)) {
     issues.push(`world node "${node.id}" with kind "portal" must include a destinationId`);
+  }
+  if (node.kind === "portal" && destination) {
+    const expectedLabel = expectedWorldNodeGateLabel(destination.name);
+    if (node.label !== expectedLabel) {
+      issues.push(
+        `world node "${node.id}" label "${node.label}" must match catalog label "${expectedLabel}"`,
+      );
+    }
   }
 }
 
@@ -291,12 +338,13 @@ function validateWorldEdge(
 
 function validateWorldPortal(
   portal: DestinationPortalRecord,
-  destinationIds: Set<string>,
+  destinationById: Map<string, Destination>,
   destinationNodeIds: Map<string, Set<string>>,
   worldNodeById: Map<string, WorldNodeRecord>,
   issues: string[],
 ): void {
-  if (!destinationIds.has(portal.destinationId)) {
+  const destination = destinationById.get(portal.destinationId);
+  if (!destination) {
     issues.push(`world portal "${portal.id}" references unknown destination "${portal.destinationId}"`);
   }
   if (!isNonEmptyString(portal.worldNodeId)) {
@@ -310,6 +358,14 @@ function validateWorldPortal(
   }
   if (!isNonEmptyString(portal.label)) {
     issues.push(`world portal "${portal.id}" is missing a label`);
+  }
+  if (destination) {
+    const expectedLabel = expectedWorldPortalMainGateLabel(destination.name);
+    if (portal.portalType === "main-gate" && portal.label !== expectedLabel) {
+      issues.push(
+        `world portal "${portal.id}" label "${portal.label}" must match catalog label "${expectedLabel}"`,
+      );
+    }
   }
   if (!Number.isInteger(portal.priority) || portal.priority < 0) {
     issues.push(`world portal "${portal.id}" must use a non-negative integer priority`);
@@ -361,7 +417,7 @@ function validateWorldPortal(
 
 function validateWorld(
   world: WorldMapRecord,
-  destinationIds: Set<string>,
+  destinationById: Map<string, Destination>,
   destinationNodeIds: Map<string, Set<string>>,
 ): string[] {
   const issues: string[] = [];
@@ -415,6 +471,7 @@ function validateWorld(
   }
 
   const regionIds = new Set(world.regions.map((region) => region.id));
+  const regionById = new Map(world.regions.map((region) => [region.id, region]));
   const worldNodeIds = new Set(world.graph.nodes.map((node) => node.id));
   const worldNodeById = new Map(world.graph.nodes.map((node) => [node.id, node]));
   const portalById = new Map(world.portals.map((portal) => [portal.id, portal]));
@@ -427,11 +484,11 @@ function validateWorld(
   }
 
   for (const placement of world.destinations) {
-    validateWorldPlacement(placement, world, destinationIds, regionIds, issues);
+    validateWorldPlacement(placement, world, destinationById, regionIds, regionById, issues);
   }
 
   for (const node of world.graph.nodes) {
-    validateWorldNode(node, world, destinationIds, issues);
+    validateWorldNode(node, world, destinationById, issues);
   }
 
   for (const edge of world.graph.edges) {
@@ -439,7 +496,7 @@ function validateWorld(
   }
 
   for (const portal of world.portals) {
-    validateWorldPortal(portal, destinationIds, destinationNodeIds, worldNodeById, issues);
+    validateWorldPortal(portal, destinationById, destinationNodeIds, worldNodeById, issues);
   }
 
   for (const placement of world.destinations) {
@@ -904,6 +961,20 @@ export function collectSeedDataIssues(seedData: SeedData): string[] {
   ensureUniqueIds(seedData.users, "user", issues);
   ensureUniqueIds(seedData.journals, "journal", issues);
 
+  const destinationNames = new Set<string>();
+  for (const destination of seedData.destinations) {
+    if (!isNonEmptyString(destination.name)) {
+      continue;
+    }
+    if (destinationNames.has(destination.name)) {
+      issues.push(`destination name "${destination.name}" is duplicated`);
+    }
+    destinationNames.add(destination.name);
+    if (hasAdjacentRepeatedWords(destination.name)) {
+      issues.push(`destination "${destination.id}" name "${destination.name}" has adjacent repeated words`);
+    }
+  }
+
   if (metrics.destinations < MINIMUM_COUNTS.destinations) {
     issues.push(
       `seedData has ${metrics.destinations} destinations; expected at least ${MINIMUM_COUNTS.destinations}`,
@@ -945,7 +1016,8 @@ export function collectSeedDataIssues(seedData: SeedData): string[] {
     }
   }
 
-  const destinationIds = new Set(seedData.destinations.map((destination) => destination.id));
+  const destinationById = new Map(seedData.destinations.map((destination) => [destination.id, destination]));
+  const destinationIds = new Set(destinationById.keys());
   const categoryIds = new Set(seedData.facilityCategories.map((category) => category.id));
   const destinationNodeIds = new Map(
     seedData.destinations.map((destination) => [
@@ -980,7 +1052,7 @@ export function collectSeedDataIssues(seedData: SeedData): string[] {
   }
 
   if (seedData.world !== undefined) {
-    issues.push(...validateWorld(seedData.world, destinationIds, destinationNodeIds));
+    issues.push(...validateWorld(seedData.world, destinationById, destinationNodeIds));
   }
 
   return issues;
