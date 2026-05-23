@@ -39,6 +39,12 @@ function selectOptions(select: {
   }));
 }
 
+function requireWorldDestinationMarker(leaflet: ReturnType<typeof createLeafletStub>, destinationId: string) {
+  const marker = leaflet.records.markers.find((candidate) => candidate.options.worldDestinationId === destinationId);
+  assert.ok(marker, `Expected world destination marker ${destinationId}`);
+  return marker;
+}
+
 test("explore facility result map links stay clean without actor context", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -46,7 +52,7 @@ test("explore facility result map links stay clean without actor context", async
     const root = env.createRoot();
     const module = await importSpaModule<ExploreModule>("views/explore.js");
     const fixture = createExploreFixture({
-      requestJsonImpl: async (endpoint: string) => {
+      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
         if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
           return { items: [] };
         }
@@ -541,7 +547,7 @@ test("map world route destination selectors use stable catalog ids and labels", 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
     const fixture = createMapFixture({
-      requestJsonImpl: async (endpoint: string) => {
+      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
         if (endpoint === "/api/world") {
           return {
             capabilities: {
@@ -609,13 +615,22 @@ test("map world route destination selectors use stable catalog ids and labels", 
     const expectedValues = expectedOptions.map((option) => option.value);
     const expectedLabels = expectedOptions.map((option) => option.label);
 
-    assert.deepEqual(selectOptions(requireElement(root, "#world-route-from-destination")), expectedOptions);
-    assert.deepEqual(selectOptions(requireElement(root, "#world-route-to-destination")), expectedOptions);
+    assert.deepEqual(selectOptions(requireElement(root, "#world-route-from-destination")), [
+      { label: "未选择起点", value: "" },
+      ...expectedOptions,
+    ]);
+    assert.deepEqual(selectOptions(requireElement(root, "#world-route-to-destination")), [
+      { label: "未选择终点", value: "" },
+      ...expectedOptions,
+    ]);
     assert.deepEqual(expectedValues, worldData.destinations.map((placement) => placement.destinationId));
     assert.equal(expectedValues.every((value) => /^dest-\d{3}$/.test(value)), true);
     assert.equal(new Set(expectedLabels).size, expectedLabels.length);
     assert.equal(requireElement(root, "#world-route-from-destination").getAttribute("disabled"), null);
     assert.equal(requireElement(root, "#world-route-to-destination").getAttribute("disabled"), null);
+    assert.equal(requireElement(root, "#world-route-advanced").tagName, "details");
+    assert.equal(requireElement(root, "#world-route-from-local-node").closest("details")?.getAttribute("id"), "world-route-advanced");
+    assert.equal(requireElement(root, "#world-route-to-local-node").closest("details")?.getAttribute("id"), "world-route-advanced");
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -647,7 +662,7 @@ test("map world view renders baseline road and graph node layers before route pl
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
     const fixture = createMapFixture({
-      requestJsonImpl: async (endpoint: string) => {
+      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
         if (endpoint === "/api/world") {
           return {
             capabilities: {
@@ -813,7 +828,7 @@ test("map world view renders baseline road and graph node layers before route pl
   }
 });
 
-test("map world view plans cross-map itineraries, renders polyline and handoff links, and preserves marker click-through", async () => {
+test("map world view plans cross-map itineraries from marker and detail-panel selection", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
   const runtimeGlobals = globalThis as Record<string, unknown>;
@@ -1186,6 +1201,8 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
     );
     assert.deepEqual(leaflet.records.markers[3]?.latlng, [240, 180]);
     assert.deepEqual(leaflet.records.markers[4]?.latlng, [430, 620]);
+    const harborMarker = requireWorldDestinationMarker(leaflet, "dest-1");
+    const lanternMarker = requireWorldDestinationMarker(leaflet, "dest-2");
     assert.deepEqual(
       leaflet.records.layerEvents.map((event) => event.type),
       [
@@ -1203,6 +1220,31 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
     );
 
     const scopeSelect = requireElement(root, "#world-route-scope");
+    harborMarker.events.click?.();
+    assert.equal(requireElement(root, "#world-route-from-destination").value, "dest-1");
+    assert.equal(requireElement(root, "#world-destination-panel-host").innerHTML.includes("Harbor Gate Lift"), true);
+    assert.equal(String(harborMarker.options.worldRouteEndpoint).includes("is-route-origin"), true);
+
+    lanternMarker.events.click?.();
+    assert.equal(requireElement(root, "#world-route-to-destination").value, "dest-2");
+    assert.equal(requireElement(root, "#world-destination-panel-host").innerHTML.includes("Lantern Lift"), true);
+    assert.equal(String(lanternMarker.options.worldRouteEndpoint).includes("is-route-destination"), true);
+    assert.equal(compactText(requireElement(root, "#world-route-endpoints")).includes("Harbor Reach"), true);
+    assert.equal(compactText(requireElement(root, "#world-route-endpoints")).includes("Lantern Point"), true);
+    assert.equal(
+      requireElement(root, "[data-world-open-local='dest-2']").getAttribute("href"),
+      "/map?destinationId=dest-2&actor=user-2",
+    );
+    dispatchDomEvent(requireElement(root, "[data-world-route-set-origin='dest-2']"), "click");
+    assert.equal(requireElement(root, "#world-route-from-destination").value, "dest-2");
+    assert.equal(requireElement(root, "#world-route-to-destination").value, "");
+    dispatchDomEvent(requireElement(root, "[data-world-route-set-destination='dest-2']"), "click");
+    assert.equal(requireElement(root, "#world-route-to-destination").value, "dest-2");
+    dispatchDomEvent(requireElement(root, "[data-world-route-set-origin='dest-2']"), "click");
+    assert.equal(requireElement(root, "#world-route-from-destination").value, "dest-2");
+    harborMarker.events.click?.();
+    assert.equal(requireElement(root, "#world-route-to-destination").value, "dest-1");
+
     scopeSelect.value = "cross-map";
     dispatchDomEvent(scopeSelect, "change");
     dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
@@ -1211,13 +1253,15 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
     assert.deepEqual(fixture.requestJsonCalls, ["/api/world", "/api/world/details", "/api/world/routes/plan"]);
     assert.deepEqual(worldRoutePlanPayloads, [
       {
-        fromDestinationId: "dest-1",
+        fromDestinationId: "dest-2",
         mode: "walk",
         scope: "cross-map",
         strategy: "distance",
-        toDestinationId: "dest-2",
+        toDestinationId: "dest-1",
       },
     ]);
+    assert.equal("fromLocalNodeId" in worldRoutePlanPayloads[0], false);
+    assert.equal("toLocalNodeId" in worldRoutePlanPayloads[0], false);
     assert.equal(leaflet.records.polylines.length, 3);
     assert.deepEqual(leaflet.records.polylines[2]?.latlngs, [
       [240, 180],
@@ -1238,18 +1282,19 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
       explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
       ["1", "2", "3", "4"],
     );
-    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 Harbor Gate Lift"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), false);
     assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate → Axis Hub"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 道路"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 桥梁"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 road"), false);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 bridge"), false);
-    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-2"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("world-node-3"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 Lantern Lift"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("Lantern Bridge"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-2-node-a"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 世界地图到本地地图"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 world-to-local"), false);
@@ -1266,13 +1311,7 @@ test("map world view plans cross-map itineraries, renders polyline and handoff l
       "/map?destinationId=dest-2&from=dest-2-node-a&to=dest-2-node-b&strategy=distance&mode=walk&actor=user-2",
     );
 
-    leaflet.records.markers[4]?.events.click?.();
-    assert.deepEqual(fixture.navigateCalls, [
-      {
-        href: "/map?actor=user-2&destinationId=dest-2",
-        options: undefined,
-      },
-    ]);
+    assert.deepEqual(fixture.navigateCalls, []);
 
     if (typeof cleanup === "function") {
       cleanup();
@@ -1617,12 +1656,13 @@ test("map world view explains unreachable cross-map prefix itineraries without r
       explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
       ["1", "2"],
     );
-    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 portal-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 Harbor Gate Lift"), true);
     assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("world-node-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), false);
     assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
+    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate → Axis Hub"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 隧道"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 tunnel"), false);
     assert.equal(
@@ -1661,7 +1701,7 @@ test("map world view accepts zero-distance world edges in world details payload"
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
     const fixture = createMapFixture({
-      requestJsonImpl: async (endpoint: string) => {
+      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
         if (endpoint === "/api/world") {
           return {
             capabilities: {
@@ -1979,11 +2019,12 @@ test("map world view renders route failure state and clears active world polylin
     const leaflet = createLeafletStub();
     runtimeGlobals.L = leaflet.L;
     let routePlanCallCount = 0;
+    const worldRoutePlanPayloads: Array<Record<string, unknown>> = [];
 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
     const fixture = createMapFixture({
-      requestJsonImpl: async (endpoint: string) => {
+      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
         if (endpoint === "/api/world") {
           return {
             capabilities: {
@@ -2145,6 +2186,9 @@ test("map world view renders route failure state and clears active world polylin
 
         if (endpoint === "/api/world/routes/plan") {
           routePlanCallCount += 1;
+          worldRoutePlanPayloads.push(
+            JSON.parse(String((options as { body?: string } | undefined)?.body ?? "{}")) as Record<string, unknown>,
+          );
           if (routePlanCallCount === 1) {
             return {
               item: {
@@ -2205,12 +2249,32 @@ test("map world view renders route failure state and clears active world polylin
       root,
     );
 
+    const harborMarker = requireWorldDestinationMarker(leaflet, "dest-1");
+    const lanternMarker = requireWorldDestinationMarker(leaflet, "dest-2");
+    harborMarker.events.click?.();
+    lanternMarker.events.click?.();
     dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
     await settleAsync();
+    assert.deepEqual(worldRoutePlanPayloads[0], {
+      fromWorldNodeId: "world-node-1",
+      mode: "walk",
+      scope: "world-only",
+      strategy: "distance",
+      toWorldNodeId: "world-node-2",
+    });
     const activeRoute = leaflet.records.polylines.find((polyline) => polyline.options.worldLayer === "active-route");
     assert.equal(leaflet.records.polylines.length, 2);
     assert.equal(activeRoute?.removeCallCount, 0);
 
+    dispatchDomEvent(requireElement(root, "#world-route-reset"), "click");
+    assert.equal(compactText(requireElement(root, "#world-route-endpoints")).includes("未选择起点"), true);
+    assert.equal(compactText(requireElement(root, "#world-route-endpoints")).includes("未选择终点"), true);
+    assert.equal(requireElement(root, "#world-destination-panel-host").innerHTML.includes("选择一个目的地"), true);
+    assert.equal(leaflet.records.maps[0]?.removeLayerCalls.length, 1);
+    assert.equal(activeRoute?.removeCallCount, 1);
+
+    harborMarker.events.click?.();
+    lanternMarker.events.click?.();
     dispatchDomEvent(requireElement(root, "#world-route-form"), "submit");
     await settleAsync();
     assert.equal(routePlanCallCount, 2);

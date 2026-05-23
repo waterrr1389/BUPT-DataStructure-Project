@@ -3,6 +3,7 @@
 import {
   appCopy,
   displayLabel,
+  displayDestinationTagLabel,
   displayWorldRegionLabel,
   modeLabels,
   portalTransferSummary,
@@ -56,6 +57,10 @@ const WORLD_NODE_STYLES = {
 const WORLD_NODE_FALLBACK_STYLE = { color: "#ffffff", fillColor: "#65717b", fillOpacity: 0.88, radius: 5, weight: 1.5 };
 const WORLD_ROUTE_STRATEGIES = ["distance", "time", "mixed"];
 const WORLD_ROUTE_MODES = ["walk", "bike", "shuttle", "mixed"];
+const PORTAL_DIRECTION_BY_ENDPOINT = {
+  from: new Set(["bidirectional", "local-to-world", "exit"]),
+  to: new Set(["bidirectional", "world-to-local", "entry"]),
+};
 
 let leafletPromise = null;
 
@@ -214,6 +219,197 @@ function markerRadiusFor(destination) {
     return 10;
   }
   return Math.max(8, Math.min(radius, 18));
+}
+
+/**
+ * Resolves a catalog-first destination label with the world placement label as fallback.
+ */
+function destinationDisplayLabel(app, destination) {
+  const destinationId = text(destination?.destinationId);
+  const catalogLabel = destinationId && typeof app?.getDestinationName === "function"
+    ? text(app.getDestinationName(destinationId))
+    : "";
+  return text(catalogLabel && catalogLabel !== destinationId ? catalogLabel : destination?.label, destinationId);
+}
+
+/**
+ * Resolves a compact region label for world destination detail and selectors.
+ */
+function worldDestinationRegionLabel(world, destination) {
+  const regionId = text(destination?.regionId);
+  const region = safeArray(world?.regions).find((candidate) => text(candidate?.id) === regionId);
+  const regionName = text(region?.name, regionId);
+  const idLabel = regionId ? displayWorldRegionLabel(regionId, "") : "";
+  return idLabel && idLabel !== regionId ? idLabel : displayWorldRegionLabel(regionName);
+}
+
+/**
+ * Creates the label shown in destination selectors and endpoint summaries.
+ */
+function destinationRouteLabel(app, world, destination) {
+  const label = destinationDisplayLabel(app, destination);
+  const region = worldDestinationRegionLabel(world, destination);
+  const regionId = text(destination?.regionId);
+  const regionRecord = safeArray(world?.regions).find((candidate) => text(candidate?.id) === regionId);
+  const regionName = text(regionRecord?.name);
+  if (!region || label.includes(`· ${region}`) || (regionName && label.includes(`· ${regionName}`))) {
+    return label;
+  }
+  return region ? `${label} · ${region}` : label;
+}
+
+/**
+ * Returns the destination placement for a stable destination id.
+ */
+function findWorldDestination(world, destinationId) {
+  const id = text(destinationId);
+  return safeArray(world?.destinations).find((destination) => text(destination?.destinationId) === id) || null;
+}
+
+/**
+ * Returns a portal by id from world details.
+ */
+function findWorldPortal(world, portalId) {
+  const id = text(portalId);
+  return safeArray(world?.portals).find((portal) => text(portal?.id) === id) || null;
+}
+
+/**
+ * Returns a world graph node by id.
+ */
+function findWorldNode(world, nodeId) {
+  const id = text(nodeId);
+  return safeArray(world?.graph?.nodes).find((node) => text(node?.id) === id) || null;
+}
+
+/**
+ * Selects the default portal for a destination endpoint.
+ */
+function defaultPortalForDestination(world, destinationId, mode, endpoint = "from") {
+  const destination = findWorldDestination(world, destinationId);
+  if (!destination) {
+    return null;
+  }
+
+  const allowedDirections = PORTAL_DIRECTION_BY_ENDPOINT[endpoint] || PORTAL_DIRECTION_BY_ENDPOINT.from;
+  const portalIds = safeArray(destination?.portalIds).map((portalId) => text(portalId)).filter(Boolean);
+  const portals = portalIds
+    .map((portalId) => findWorldPortal(world, portalId))
+    .filter(Boolean)
+    .filter((portal) => text(portal?.destinationId) === text(destinationId));
+  const modeFiltered = portals.filter((portal) => {
+    const allowedModes = safeArray(portal?.allowedModes).map((value) => text(value)).filter(Boolean);
+    return !mode || allowedModes.includes(mode) || allowedModes.includes("mixed");
+  });
+  const directionFiltered = modeFiltered.filter((portal) => {
+    const direction = text(portal?.direction, "bidirectional");
+    return allowedDirections.has(direction);
+  });
+  const candidates = directionFiltered.length ? directionFiltered : modeFiltered.length ? modeFiltered : portals;
+
+  return candidates
+    .slice()
+    .sort((left, right) => {
+      const priorityDifference = (toFiniteNumber(right?.priority) ?? 0) - (toFiniteNumber(left?.priority) ?? 0);
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+      return text(left?.id).localeCompare(text(right?.id));
+    })[0] || null;
+}
+
+/**
+ * Resolves the portal world node id selected by the destination-driven world-only flow.
+ */
+function defaultPortalWorldNodeId(world, destinationId, mode, endpoint) {
+  return text(defaultPortalForDestination(world, destinationId, mode, endpoint)?.worldNodeId);
+}
+
+/**
+ * Builds a compact detail panel action URL for opening a destination map.
+ */
+function createDestinationHandoffHref(destinationId, route) {
+  return createRouteContextHref("/map", { destinationId: text(destinationId) }, route);
+}
+
+/**
+ * Renders the selected endpoint summary inside the route planner.
+ */
+function routeEndpointSummaryMarkup(app, world, endpointSelection) {
+  const copy = appCopy.worldMap.planner.endpointSummary;
+  const fromDestination = findWorldDestination(world, endpointSelection.fromDestinationId);
+  const toDestination = findWorldDestination(world, endpointSelection.toDestinationId);
+  const fromLabel = fromDestination ? destinationRouteLabel(app, world, fromDestination) : copy.emptyOrigin;
+  const toLabel = toDestination ? destinationRouteLabel(app, world, toDestination) : copy.emptyDestination;
+
+  return `
+    <div class="world-route-endpoint-summary" data-world-route-endpoint-summary="true">
+      <div data-world-route-endpoint="origin">
+        <span class="section-tag">${escapeHtml(copy.origin)}</span>
+        <strong>${escapeHtml(fromLabel)}</strong>
+      </div>
+      <div data-world-route-endpoint="destination">
+        <span class="section-tag">${escapeHtml(copy.destination)}</span>
+        <strong>${escapeHtml(toLabel)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Renders the selected destination detail panel shown beside the world map.
+ */
+function destinationDetailPanelMarkup(app, world, destination, route, mode) {
+  const copy = appCopy.worldMap.detailPanel;
+  if (!destination) {
+    return `
+      <aside class="world-destination-panel is-empty" data-world-destination-panel="empty">
+        <p class="section-tag">${escapeHtml(copy.tag)}</p>
+        <h3>${escapeHtml(copy.emptyTitle)}</h3>
+        <p class="muted">${escapeHtml(copy.emptyBody)}</p>
+      </aside>
+    `;
+  }
+
+  const destinationId = text(destination?.destinationId);
+  const portal = defaultPortalForDestination(world, destinationId, mode, "from");
+  const portalNode = findWorldNode(world, portal?.worldNodeId);
+  const region = worldDestinationRegionLabel(world, destination);
+  const regionRecord = safeArray(world?.regions).find((candidate) => text(candidate?.id) === text(destination?.regionId));
+  const tags = safeArray(destination?.tags).concat(safeArray(regionRecord?.tags)).map(displayDestinationTagLabel).filter(Boolean);
+  const uniqueTags = Array.from(new Set(tags)).slice(0, 6);
+  const portalLabel = portal
+    ? `${text(portal?.label, text(portal?.id))}${portalNode ? ` · ${text(portalNode?.label, text(portal?.worldNodeId))}` : ""}`
+    : copy.portalFallback;
+
+  return `
+    <aside class="world-destination-panel" data-world-destination-panel="${escapeHtml(destinationId)}">
+      <p class="section-tag">${escapeHtml(copy.tag)}</p>
+      <h3>${escapeHtml(destinationDisplayLabel(app, destination))}</h3>
+      <dl class="world-destination-facts">
+        <div>
+          <dt>${escapeHtml(copy.labels.region)}</dt>
+          <dd>${escapeHtml(region)}</dd>
+        </div>
+        <div>
+          <dt>${escapeHtml(copy.labels.portal)}</dt>
+          <dd>${escapeHtml(portalLabel)}</dd>
+        </div>
+      </dl>
+      <div class="tag-row">
+        ${
+          uniqueTags.length
+            ? uniqueTags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")
+            : `<span class="tag">${escapeHtml(copy.noTags)}</span>`
+        }
+      </div>
+      <div class="button-row">
+        <button type="button" data-world-route-set-origin="${escapeHtml(destinationId)}">${escapeHtml(copy.buttons.setOrigin)}</button>
+        <button type="button" class="secondary" data-world-route-set-destination="${escapeHtml(destinationId)}">${escapeHtml(copy.buttons.setDestination)}</button>
+        <a class="inline-link" href="${createDestinationHandoffHref(destinationId, route)}" data-nav="true" data-world-open-local="${escapeHtml(destinationId)}">${escapeHtml(copy.buttons.openLocal)}</a>
+      </div>
+    </aside>
+  `;
 }
 
 /**
@@ -523,11 +719,13 @@ function itineraryScopeLabel(scope) {
 /**
  * Summarizes a destination leg using destination and local-node ids.
  */
-function destinationLegLabel(leg) {
+function destinationLegLabel(app, world, leg) {
   const destinationId = text(leg?.destinationId, "destination");
+  const destination = findWorldDestination(world, destinationId);
+  const destinationLabel = destination ? destinationDisplayLabel(app, destination) : destinationId;
   const localNodeIds = safeArray(leg?.localNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
   return appCopy.worldMap.labels.destinationLeg(
-    destinationId,
+    destinationLabel,
     localNodeIds[0],
     localNodeIds[localNodeIds.length - 1],
   );
@@ -536,9 +734,14 @@ function destinationLegLabel(leg) {
 /**
  * Summarizes the world leg using the first and last world-node ids.
  */
-function worldLegLabel(leg) {
+function worldLegLabel(world, leg) {
   const worldNodeIds = safeArray(leg?.worldNodeIds).map((nodeId) => text(nodeId)).filter(Boolean);
-  return appCopy.worldMap.labels.worldLeg(worldNodeIds[0], worldNodeIds[worldNodeIds.length - 1]);
+  const fromNode = findWorldNode(world, worldNodeIds[0]);
+  const toNode = findWorldNode(world, worldNodeIds[worldNodeIds.length - 1]);
+  return appCopy.worldMap.labels.worldLeg(
+    text(fromNode?.label, worldNodeIds[0]),
+    text(toNode?.label, worldNodeIds[worldNodeIds.length - 1]),
+  );
 }
 
 /**
@@ -576,7 +779,7 @@ function formatMetricValue(value) {
 /**
  * Flattens itinerary steps into ordered explanation strings for the UI.
  */
-function worldRouteExplanationSegments(itinerary) {
+function worldRouteExplanationSegments(app, world, itinerary) {
   const segments = [];
   safeArray(itinerary?.legs).forEach((leg, legIndex) => {
     safeArray(leg?.steps).forEach((step, stepIndex) => {
@@ -584,6 +787,8 @@ function worldRouteExplanationSegments(itinerary) {
       const order = segments.length + 1;
 
       if (kind === "world-edge") {
+        const fromNode = findWorldNode(world, step?.fromWorldNodeId);
+        const toNode = findWorldNode(world, step?.toWorldNodeId);
         segments.push({
           kind,
           order,
@@ -591,12 +796,17 @@ function worldRouteExplanationSegments(itinerary) {
             ...step,
             order,
             edgeId: step?.edgeId ?? `world-edge-${legIndex}-${stepIndex}`,
+            fromWorldNodeLabel: fromNode?.label,
+            toWorldNodeLabel: toNode?.label,
           }),
         });
         return;
       }
 
       if (kind === "portal-transfer") {
+        const portal = findWorldPortal(world, step?.portalId);
+        const destination = findWorldDestination(world, step?.destinationId);
+        const worldNode = findWorldNode(world, step?.worldNodeId);
         segments.push({
           kind,
           order,
@@ -604,6 +814,9 @@ function worldRouteExplanationSegments(itinerary) {
             ...step,
             order,
             portalId: step?.portalId ?? `portal-transfer-${legIndex}-${stepIndex}`,
+            portalLabel: portal?.label,
+            destinationLabel: destination ? destinationDisplayLabel(app, destination) : "",
+            worldNodeLabel: worldNode?.label,
           }),
         });
       }
@@ -615,8 +828,8 @@ function worldRouteExplanationSegments(itinerary) {
 /**
  * Renders the ordered route-explanation list or an empty-state fallback.
  */
-function worldRouteExplanationMarkup(itinerary) {
-  const segments = worldRouteExplanationSegments(itinerary);
+function worldRouteExplanationMarkup(app, world, itinerary) {
+  const segments = worldRouteExplanationSegments(app, world, itinerary);
   if (!segments.length) {
     return `
       <p class="muted" data-route-world-explanation-empty="true">
@@ -705,7 +918,7 @@ function worldRouteFailureMarkup(message) {
 /**
  * Renders the completed world-route summary and local/world handoff links.
  */
-function worldRouteResultMarkup(itinerary, route) {
+function worldRouteResultMarkup(app, world, itinerary, route) {
   const legs = safeArray(itinerary?.legs);
   const worldViewHref = createRouteContextHref("/map", { view: "world" }, route);
   const destinationLegs = legs.filter((leg) => text(leg?.scope) === "destination");
@@ -720,10 +933,10 @@ function worldRouteResultMarkup(itinerary, route) {
   const legTags = legs
     .map((leg) => {
       if (text(leg?.scope) === "destination") {
-        return destinationLegLabel(leg);
+        return destinationLegLabel(app, world, leg);
       }
       if (text(leg?.scope) === "world") {
-        return worldLegLabel(leg);
+        return worldLegLabel(world, leg);
       }
       return "";
     })
@@ -781,7 +994,7 @@ function worldRouteResultMarkup(itinerary, route) {
       <div class="world-route-explanation-shell">
         <p class="section-tag">${escapeHtml(copy.explanationTag)}</p>
         <h4>${escapeHtml(copy.explanationTitle)}</h4>
-        ${worldRouteExplanationMarkup(itinerary)}
+        ${worldRouteExplanationMarkup(app, world, itinerary)}
       </div>
     </article>
   `;
@@ -872,6 +1085,7 @@ async function mountWorldMap(container, world, options = {}) {
     }
   });
 
+  const destinationMarkerLayers = new Map();
   safeArray(world?.destinations).forEach((destination) => {
     if (typeof L.circleMarker !== "function") {
       return;
@@ -884,14 +1098,19 @@ async function mountWorldMap(container, world, options = {}) {
     }
 
     const destinationId = text(destination?.destinationId);
-    const layer = L.circleMarker([y, x], {
+    const markerBaseStyle = {
       color: "#112031",
       fillColor: markerColorFor(destination),
       fillOpacity: 0.96,
       interactive: true,
       radius: markerRadiusFor(destination),
       weight: 2,
+      worldDestinationId: destinationId,
       worldLayer: "destination-marker",
+    };
+    const layer = L.circleMarker([y, x], {
+      ...markerBaseStyle,
+      className: "world-destination-marker",
     }).addTo(map);
 
     if (typeof layer.bindTooltip === "function") {
@@ -903,9 +1122,51 @@ async function mountWorldMap(container, world, options = {}) {
         options.onDestinationSelect?.(destinationId);
       });
     }
+
+    if (destinationId) {
+      destinationMarkerLayers.set(destinationId, { baseStyle: markerBaseStyle, layer });
+    }
   });
 
   let activeRouteLayer = null;
+  const selectedEndpointState = {
+    fromDestinationId: "",
+    selectedDestinationId: "",
+    toDestinationId: "",
+  };
+
+  function updateDestinationMarkers(selection = {}) {
+    selectedEndpointState.fromDestinationId = text(selection.fromDestinationId);
+    selectedEndpointState.toDestinationId = text(selection.toDestinationId);
+    selectedEndpointState.selectedDestinationId = text(selection.selectedDestinationId);
+    destinationMarkerLayers.forEach(({ baseStyle, layer }, destinationId) => {
+      const endpointClasses = [];
+      if (destinationId === selectedEndpointState.fromDestinationId) {
+        endpointClasses.push("is-route-origin");
+      }
+      if (destinationId === selectedEndpointState.toDestinationId) {
+        endpointClasses.push("is-route-destination");
+      }
+      if (destinationId === selectedEndpointState.selectedDestinationId) {
+        endpointClasses.push("is-selected");
+      }
+      const isEndpoint = endpointClasses.length > 0;
+      const style = {
+        ...baseStyle,
+        className: ["world-destination-marker", ...endpointClasses].join(" "),
+        color: isEndpoint ? "#ffffff" : "#112031",
+        fillOpacity: isEndpoint ? 1 : baseStyle.fillOpacity,
+        radius: isEndpoint ? Number(baseStyle.radius) + 3 : baseStyle.radius,
+        weight: isEndpoint ? 4 : baseStyle.weight,
+        worldRouteEndpoint: endpointClasses.join(" "),
+      };
+      if (typeof layer.setStyle === "function") {
+        layer.setStyle(style);
+      } else {
+        layer.options = { ...(layer.options || {}), ...style };
+      }
+    });
+  }
 
   function clearRouteLayer() {
     if (!activeRouteLayer) {
@@ -957,6 +1218,7 @@ async function mountWorldMap(container, world, options = {}) {
       }
     },
     renderRoute,
+    updateDestinationMarkers,
   };
 }
 
@@ -1012,7 +1274,6 @@ export async function renderWorldMapView(app, route, root) {
   app.setDocumentTitle(copy.documentTitle);
 
   const returnToExploreHref = createRouteContextHref("/explore", {}, route);
-  const routeActor = resolveRouteActor(route);
 
   root.innerHTML = `
     <section class="route-hero route-hero-map world-route-hero">
@@ -1052,6 +1313,9 @@ export async function renderWorldMapView(app, route, root) {
           <p class="section-tag">${escapeHtml(copy.planner.tag)}</p>
           <h3>${escapeHtml(copy.planner.heading)}</h3>
           <form id="world-route-form" class="control-grid world-route-form">
+            <div id="world-route-endpoints" class="span-all">
+              ${routeEndpointSummaryMarkup(app, null, {})}
+            </div>
             <label class="span-all">
               ${escapeHtml(copy.planner.labels.scope)}
               <select id="world-route-scope" data-route-world-scope-select="true">
@@ -1059,17 +1323,7 @@ export async function renderWorldMapView(app, route, root) {
                 <option value="cross-map">${escapeHtml(displayLabel(worldRouteScopeLabels, "cross-map", "cross-map"))}</option>
               </select>
             </label>
-            <div class="control-grid span-all world-route-scope-panel" data-route-world-scope-panel="world-only">
-              <label>
-                ${escapeHtml(copy.planner.labels.fromWorldNode)}
-                <select id="world-route-from-world-node"></select>
-              </label>
-              <label>
-                ${escapeHtml(copy.planner.labels.toWorldNode)}
-                <select id="world-route-to-world-node"></select>
-              </label>
-            </div>
-            <div class="control-grid span-all world-route-scope-panel" data-route-world-scope-panel="cross-map" hidden>
+            <div class="control-grid span-all world-route-destination-panel">
               <label>
                 ${escapeHtml(copy.planner.labels.fromDestination)}
                 <select id="world-route-from-destination"></select>
@@ -1078,15 +1332,30 @@ export async function renderWorldMapView(app, route, root) {
                 ${escapeHtml(copy.planner.labels.toDestination)}
                 <select id="world-route-to-destination"></select>
               </label>
-              <label>
-                ${escapeHtml(copy.planner.labels.fromLocalNode)}
-                <input id="world-route-from-local-node" type="text" placeholder="${escapeHtml(copy.planner.placeholders.localNode)}" />
-              </label>
-              <label>
-                ${escapeHtml(copy.planner.labels.toLocalNode)}
-                <input id="world-route-to-local-node" type="text" placeholder="${escapeHtml(copy.planner.placeholders.localNode)}" />
-              </label>
             </div>
+            <details class="advanced-panel span-all world-route-advanced" id="world-route-advanced">
+              <summary>${escapeHtml(copy.planner.advancedSummary)}</summary>
+              <div class="control-grid world-route-scope-panel" data-route-world-scope-panel="world-only">
+                <label>
+                  ${escapeHtml(copy.planner.labels.fromWorldNode)}
+                  <select id="world-route-from-world-node"></select>
+                </label>
+                <label>
+                  ${escapeHtml(copy.planner.labels.toWorldNode)}
+                  <select id="world-route-to-world-node"></select>
+                </label>
+              </div>
+              <div class="control-grid world-route-scope-panel" data-route-world-scope-panel="cross-map" hidden>
+                <label>
+                  ${escapeHtml(copy.planner.labels.fromLocalNode)}
+                  <input id="world-route-from-local-node" type="text" placeholder="${escapeHtml(copy.planner.placeholders.localNode)}" />
+                </label>
+                <label>
+                  ${escapeHtml(copy.planner.labels.toLocalNode)}
+                  <input id="world-route-to-local-node" type="text" placeholder="${escapeHtml(copy.planner.placeholders.localNode)}" />
+                </label>
+              </div>
+            </details>
             <div class="control-grid span-all">
               <label>
                 ${escapeHtml(copy.planner.labels.strategy)}
@@ -1115,6 +1384,9 @@ export async function renderWorldMapView(app, route, root) {
         <article class="surface-card world-map-shell">
           <div class="world-map-frame">
             <div id="world-map-canvas" class="world-map-canvas" aria-label="${escapeHtml(copy.planner.ariaLabel)}"></div>
+            <div id="world-destination-panel-host" class="world-destination-panel-host">
+              ${destinationDetailPanelMarkup(app, null, null, route, text(route.params?.mode, "walk"))}
+            </div>
             <div class="world-map-legend" aria-label="世界地图图层">
               <span class="world-map-legend-item"><span class="world-map-legend-road world-map-legend-road-main"></span>道路</span>
               <span class="world-map-legend-item"><span class="world-map-legend-road world-map-legend-road-rail"></span>轨道</span>
@@ -1143,11 +1415,19 @@ export async function renderWorldMapView(app, route, root) {
   const strategySelect = root.querySelector("#world-route-strategy");
   const modeSelect = root.querySelector("#world-route-mode");
   const clearRouteButton = root.querySelector("#world-route-reset");
+  const endpointsHost = root.querySelector("#world-route-endpoints");
+  const detailPanelHost = root.querySelector("#world-destination-panel-host");
   const scopePanels = Array.from(root.querySelectorAll("[data-route-world-scope-panel]"));
   let disposed = false;
   let mapController = null;
   let world = null;
   let routeFormEnabled = false;
+  const endpointSelection = {
+    fromDestinationId: "",
+    selectedDestinationId: "",
+    toDestinationId: "",
+  };
+  let nextMarkerEndpoint = "from";
   const initialRenderToken = app.state?.renderToken;
 
   function worldRouteFields() {
@@ -1183,8 +1463,12 @@ export async function renderWorldMapView(app, route, root) {
     });
   }
 
-  function selectOptionsMarkup(options, selectedValue) {
+  function selectOptionsMarkup(options, selectedValue, blankLabel = "") {
     const list = [];
+    if (blankLabel) {
+      const selected = text(selectedValue) ? "" : " selected";
+      list.push(`<option value=""${selected}>${escapeHtml(blankLabel)}</option>`);
+    }
     options.forEach((option) => {
       const optionId = text(option?.id);
       const selected = optionId === text(selectedValue) ? " selected" : "";
@@ -1205,6 +1489,119 @@ export async function renderWorldMapView(app, route, root) {
           field.disabled = !routeFormEnabled || !isActive;
         });
     });
+  }
+
+  function syncEndpointSummary() {
+    if (endpointsHost) {
+      endpointsHost.innerHTML = routeEndpointSummaryMarkup(app, world, endpointSelection);
+    }
+  }
+
+  function syncDestinationDetailPanel() {
+    if (!detailPanelHost) {
+      return;
+    }
+    detailPanelHost.innerHTML = destinationDetailPanelMarkup(
+      app,
+      world,
+      findWorldDestination(world, endpointSelection.selectedDestinationId),
+      route,
+      text(modeSelect?.value, "walk"),
+    );
+  }
+
+  function syncAdvancedWorldNodeControls() {
+    if (!world) {
+      return;
+    }
+    const mode = text(modeSelect?.value, "walk");
+    const fromWorldNodeId = defaultPortalWorldNodeId(world, endpointSelection.fromDestinationId, mode, "from");
+    const toWorldNodeId = defaultPortalWorldNodeId(world, endpointSelection.toDestinationId, mode, "to");
+    if (fromWorldNodeId && fromWorldNodeSelect) {
+      fromWorldNodeSelect.value = fromWorldNodeId;
+    }
+    if (toWorldNodeId && toWorldNodeSelect) {
+      toWorldNodeSelect.value = toWorldNodeId;
+    }
+  }
+
+  function syncSelectValue(select, selectedValue) {
+    if (!select) {
+      return;
+    }
+    const normalizedValue = text(selectedValue);
+    select.value = normalizedValue;
+    Array.from(select.querySelectorAll("option")).forEach((option) => {
+      if (text(option.getAttribute("value")) === normalizedValue) {
+        option.setAttribute("selected", "");
+      } else {
+        option.removeAttribute("selected");
+      }
+    });
+  }
+
+  function syncEndpointControls() {
+    syncSelectValue(fromDestinationSelect, endpointSelection.fromDestinationId);
+    syncSelectValue(toDestinationSelect, endpointSelection.toDestinationId);
+    syncAdvancedWorldNodeControls();
+    syncEndpointSummary();
+    syncDestinationDetailPanel();
+    mapController?.updateDestinationMarkers(endpointSelection);
+  }
+
+  function setRouteEndpoint(endpoint, destinationId) {
+    const id = text(destinationId);
+    if (!id || !findWorldDestination(world, id)) {
+      return;
+    }
+    if (endpoint === "from") {
+      endpointSelection.fromDestinationId = id;
+      if (endpointSelection.toDestinationId === id) {
+        endpointSelection.toDestinationId = "";
+      }
+      nextMarkerEndpoint = "to";
+    } else {
+      endpointSelection.toDestinationId = id;
+      if (endpointSelection.fromDestinationId === id) {
+        endpointSelection.fromDestinationId = "";
+      }
+      nextMarkerEndpoint = "from";
+    }
+    endpointSelection.selectedDestinationId = id;
+    syncEndpointControls();
+  }
+
+  function selectDestinationFromMarker(destinationId) {
+    const id = text(destinationId);
+    if (!id || !findWorldDestination(world, id)) {
+      return;
+    }
+    endpointSelection.selectedDestinationId = id;
+    if (nextMarkerEndpoint === "from" || !endpointSelection.fromDestinationId) {
+      endpointSelection.fromDestinationId = id;
+      if (endpointSelection.toDestinationId === id) {
+        endpointSelection.toDestinationId = "";
+      }
+      nextMarkerEndpoint = "to";
+    } else if (id !== endpointSelection.fromDestinationId) {
+      endpointSelection.toDestinationId = id;
+      nextMarkerEndpoint = "from";
+    }
+    syncEndpointControls();
+  }
+
+  function resetEndpointSelection() {
+    endpointSelection.fromDestinationId = "";
+    endpointSelection.toDestinationId = "";
+    endpointSelection.selectedDestinationId = "";
+    nextMarkerEndpoint = "from";
+    if (fromLocalNodeInput) {
+      fromLocalNodeInput.value = "";
+    }
+    if (toLocalNodeInput) {
+      toLocalNodeInput.value = "";
+    }
+    syncEndpointControls();
   }
 
   function destroyMountedMap() {
@@ -1236,16 +1633,23 @@ export async function renderWorldMapView(app, route, root) {
     mapController?.renderRoute(null);
   }
 
+  function resetWorldRouteState() {
+    clearWorldRoute();
+    resetEndpointSelection();
+  }
+
   function buildWorldRoutePayload() {
     const scope = text(scopeSelect?.value, "world-only") === "cross-map" ? "cross-map" : "world-only";
     const strategy = text(strategySelect?.value, "distance");
     const mode = text(modeSelect?.value, "walk");
+    const fromDestinationId = text(endpointSelection.fromDestinationId);
+    const toDestinationId = text(endpointSelection.toDestinationId);
 
     if (scope === "cross-map") {
       const payload = {
         scope,
-        fromDestinationId: text(fromDestinationSelect?.value),
-        toDestinationId: text(toDestinationSelect?.value),
+        fromDestinationId,
+        toDestinationId,
         strategy,
         mode,
       };
@@ -1260,10 +1664,15 @@ export async function renderWorldMapView(app, route, root) {
       return payload;
     }
 
+    const fromWorldNodeId =
+      defaultPortalWorldNodeId(world, fromDestinationId, mode, "from") || text(fromWorldNodeSelect?.value);
+    const toWorldNodeId =
+      defaultPortalWorldNodeId(world, toDestinationId, mode, "to") || text(toWorldNodeSelect?.value);
+
     return {
       scope,
-      fromWorldNodeId: text(fromWorldNodeSelect?.value),
-      toWorldNodeId: text(toWorldNodeSelect?.value),
+      fromWorldNodeId,
+      toWorldNodeId,
       strategy,
       mode,
     };
@@ -1323,8 +1732,7 @@ export async function renderWorldMapView(app, route, root) {
     }
     mapController = await mountWorldMap(canvas, world, {
       onDestinationSelect(destinationId) {
-        const params = routeActor ? { actor: routeActor, destinationId } : { destinationId };
-        app.navigate(app.buildMapHref(params));
+        selectDestinationFromMarker(destinationId);
       },
     });
     if (!ensureActiveRender()) {
@@ -1337,8 +1745,10 @@ export async function renderWorldMapView(app, route, root) {
     }));
     const destinationOptions = safeArray(world.destinations).map((destination) => ({
       id: text(destination?.destinationId),
-      label: text(destination?.label, text(destination?.destinationId)),
+      label: destinationRouteLabel(app, world, destination),
     }));
+    endpointSelection.fromDestinationId = text(destinationOptions[0]?.id);
+    endpointSelection.toDestinationId = text(destinationOptions[1]?.id || destinationOptions[0]?.id);
 
     if (fromWorldNodeSelect) {
       fromWorldNodeSelect.innerHTML = selectOptionsMarkup(nodeOptions, nodeOptions[0]?.id);
@@ -1349,23 +1759,57 @@ export async function renderWorldMapView(app, route, root) {
       toWorldNodeSelect.value = text(nodeOptions[1]?.id || nodeOptions[0]?.id);
     }
     if (fromDestinationSelect) {
-      fromDestinationSelect.innerHTML = selectOptionsMarkup(destinationOptions, destinationOptions[0]?.id);
+      fromDestinationSelect.innerHTML = selectOptionsMarkup(
+        destinationOptions,
+        destinationOptions[0]?.id,
+        copy.planner.endpointSummary.emptyOrigin,
+      );
       fromDestinationSelect.value = text(destinationOptions[0]?.id);
     }
     if (toDestinationSelect) {
       toDestinationSelect.innerHTML = selectOptionsMarkup(
         destinationOptions,
         destinationOptions[1]?.id || destinationOptions[0]?.id,
+        copy.planner.endpointSummary.emptyDestination,
       );
       toDestinationSelect.value = text(destinationOptions[1]?.id || destinationOptions[0]?.id);
     }
 
     setRouteFormEnabled(true);
     syncScopePanels();
+    syncEndpointControls();
     clearWorldRoute();
 
     scopeSelect?.addEventListener("change", () => {
       syncScopePanels();
+    });
+
+    fromDestinationSelect?.addEventListener("change", () => {
+      setRouteEndpoint("from", fromDestinationSelect.value);
+    });
+
+    toDestinationSelect?.addEventListener("change", () => {
+      setRouteEndpoint("to", toDestinationSelect.value);
+    });
+
+    modeSelect?.addEventListener("change", () => {
+      syncAdvancedWorldNodeControls();
+      syncDestinationDetailPanel();
+    });
+
+    detailPanelHost?.addEventListener("click", (event) => {
+      const originTarget = event.target?.closest?.("[data-world-route-set-origin]");
+      const destinationTarget = event.target?.closest?.("[data-world-route-set-destination]");
+      if (!originTarget && !destinationTarget) {
+        return;
+      }
+      const originDestinationId = text(originTarget?.getAttribute("data-world-route-set-origin"));
+      const targetDestinationId = text(destinationTarget?.getAttribute("data-world-route-set-destination"));
+      if (originDestinationId) {
+        setRouteEndpoint("from", originDestinationId);
+      } else if (targetDestinationId) {
+        setRouteEndpoint("to", targetDestinationId);
+      }
     });
 
     routeForm?.addEventListener("submit", async (event) => {
@@ -1394,7 +1838,7 @@ export async function renderWorldMapView(app, route, root) {
         }
         mapController?.renderRoute(itinerary);
         if (routeResult) {
-          routeResult.innerHTML = worldRouteResultMarkup(itinerary, route);
+          routeResult.innerHTML = worldRouteResultMarkup(app, world, itinerary, route);
         }
         app.setStatus(itinerary.reachable ? copy.status.routeReady : copy.status.routeIncomplete, itinerary.reachable ? "success" : "neutral");
       } catch (error) {
@@ -1414,7 +1858,7 @@ export async function renderWorldMapView(app, route, root) {
     });
 
     clearRouteButton?.addEventListener("click", () => {
-      clearWorldRoute();
+      resetWorldRouteState();
     });
 
     app.setStatus(copy.status.mapReady, "success");

@@ -10,7 +10,9 @@ type WorldEdgeSummaryInput = {
   order?: unknown;
   edgeId?: unknown;
   fromWorldNodeId?: unknown;
+  fromWorldNodeLabel?: unknown;
   toWorldNodeId?: unknown;
+  toWorldNodeLabel?: unknown;
   roadType?: unknown;
   mode?: unknown;
   distance?: unknown;
@@ -20,10 +22,13 @@ type WorldEdgeSummaryInput = {
 type PortalTransferSummaryInput = {
   order?: unknown;
   portalId?: unknown;
+  portalLabel?: unknown;
   destinationId?: unknown;
+  destinationLabel?: unknown;
   transferDirection?: unknown;
   localNodeId?: unknown;
   worldNodeId?: unknown;
+  worldNodeLabel?: unknown;
   mode?: unknown;
   transferDistance?: unknown;
   transferCost?: unknown;
@@ -368,7 +373,7 @@ export const appCopy = {
       panelItems: [
         "背景图、区域和目的地标记会通过地图引擎渲染。",
         "世界路线规划支持仅世界地图和跨地图两种范围。",
-        "选择目的地标记仍会打开对应的本地目的地地图。",
+        "选择目的地标记可直接设置世界路线起终点。",
       ],
     },
     meta: {
@@ -382,11 +387,12 @@ export const appCopy = {
       tag: "地图模式",
       heading: "世界路线规划",
       copy:
-        "点击目的地会保留当前角色上下文并打开本地地图。路线规划会保持世界模式，并生成本地/世界/本地的接续链接。",
+        "点击目的地标记或详情面板按钮设置起终点。路线规划会保持世界模式，并生成本地/世界/本地的接续链接。",
     },
     planner: {
       tag: "世界路线",
       heading: "规划行程",
+      advancedSummary: "高级节点覆盖",
       labels: {
         scope: "范围",
         fromWorldNode: "起点世界节点",
@@ -405,7 +411,29 @@ export const appCopy = {
         plan: "规划世界路线",
         reset: "清除世界路线",
       },
+      endpointSummary: {
+        origin: "起点",
+        destination: "终点",
+        emptyOrigin: "未选择起点",
+        emptyDestination: "未选择终点",
+      },
       ariaLabel: "世界地图",
+    },
+    detailPanel: {
+      tag: "目的地详情",
+      emptyTitle: "选择一个目的地",
+      emptyBody: "点击地图标记后，可在这里设置路线起点或终点，并打开本地地图。",
+      labels: {
+        region: "区域",
+        portal: "默认入口",
+      },
+      buttons: {
+        setOrigin: "设为起点",
+        setDestination: "设为终点",
+        openLocal: "打开本地地图",
+      },
+      noTags: "暂无标签",
+      portalFallback: "暂无默认入口",
     },
     routeResult: {
       tag: "世界路线",
@@ -1143,8 +1171,8 @@ export function worldEdgeSummary(input: WorldEdgeSummaryInput): string {
   const fallback = appCopy.route.fallback;
   const order = copyText(input.order, "0");
   const edgeId = copyText(input.edgeId, fallback.worldEdgeId);
-  const fromWorldNodeId = copyText(input.fromWorldNodeId, fallback.worldNodeId);
-  const toWorldNodeId = copyText(input.toWorldNodeId, fallback.worldNodeId);
+  const fromWorldNodeId = copyText(input.fromWorldNodeLabel, copyText(input.fromWorldNodeId, fallback.worldNodeId));
+  const toWorldNodeId = copyText(input.toWorldNodeLabel, copyText(input.toWorldNodeId, fallback.worldNodeId));
   const roadType = displayWorldRoadTypeLabel(input.roadType);
   const mode = displayLabel(modeLabels, input.mode, copyText(input.mode, "未知方式"));
   const distance = formatMetricDisplay(input.distance);
@@ -1158,11 +1186,11 @@ export function portalTransferSummary(input: PortalTransferSummaryInput): string
   const units = appCopy.route.units;
   const fallback = appCopy.route.fallback;
   const order = copyText(input.order, "0");
-  const portalId = copyText(input.portalId, fallback.portalId);
-  const destinationId = copyText(input.destinationId, fallback.destinationId);
+  const portalId = copyText(input.portalLabel, copyText(input.portalId, fallback.portalId));
+  const destinationId = copyText(input.destinationLabel, copyText(input.destinationId, fallback.destinationId));
   const transferDirection = copyText(input.transferDirection);
   const localNodeId = copyText(input.localNodeId, fallback.localNodeId);
-  const worldNodeId = copyText(input.worldNodeId, fallback.worldNodeId);
+  const worldNodeId = copyText(input.worldNodeLabel, copyText(input.worldNodeId, fallback.worldNodeId));
   const fromEndpoint = transferDirection === "world-to-local" ? worldNodeId : localNodeId;
   const toEndpoint = transferDirection === "world-to-local" ? localNodeId : worldNodeId;
   const direction = displayTransferDirectionLabel(transferDirection);

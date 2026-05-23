@@ -230,6 +230,10 @@ function createLeafletStub() {
             this.events[event] = handler;
             return this;
           },
+          setStyle(style: Record<string, unknown>) {
+            this.options = { ...this.options, ...style };
+            return this;
+          },
         });
         markers.push(marker);
         return marker;
