@@ -777,9 +777,57 @@ function formatMetricValue(value) {
 }
 
 /**
+ * Resolves readable local graph node names for world-route explanation copy.
+ */
+async function createLocalNodeLabelResolver(app, itinerary) {
+  const destinationIds = new Set();
+  safeArray(itinerary?.legs).forEach((leg) => {
+    const legDestinationId = text(leg?.destinationId);
+    if (legDestinationId) {
+      destinationIds.add(legDestinationId);
+    }
+    safeArray(leg?.steps).forEach((step) => {
+      const stepDestinationId = text(step?.destinationId);
+      if (stepDestinationId) {
+        destinationIds.add(stepDestinationId);
+      }
+    });
+  });
+  const labelsByDestination = new Map();
+
+  await Promise.all(Array.from(destinationIds).map(async (destinationId) => {
+    if (typeof app?.ensureDestinationDetails !== "function") {
+      return;
+    }
+    try {
+      const details = await app.ensureDestinationDetails(destinationId);
+      const labelsByNode = new Map();
+      safeArray(details?.graph?.nodes).forEach((node) => {
+        const nodeId = text(node?.id);
+        const label = text(node?.name || node?.label);
+        if (nodeId && label && label !== nodeId) {
+          labelsByNode.set(nodeId, label);
+        }
+      });
+      labelsByDestination.set(destinationId, labelsByNode);
+    } catch {
+      labelsByDestination.set(destinationId, new Map());
+    }
+  }));
+
+  return (destinationId, localNodeId) => {
+    const id = text(localNodeId);
+    if (!id) {
+      return "";
+    }
+    return text(labelsByDestination.get(text(destinationId))?.get(id));
+  };
+}
+
+/**
  * Flattens itinerary steps into ordered explanation strings for the UI.
  */
-function worldRouteExplanationSegments(app, world, itinerary) {
+function worldRouteExplanationSegments(app, world, itinerary, localNodeLabelFor) {
   const segments = [];
   safeArray(itinerary?.legs).forEach((leg, legIndex) => {
     safeArray(leg?.steps).forEach((step, stepIndex) => {
@@ -816,6 +864,7 @@ function worldRouteExplanationSegments(app, world, itinerary) {
             portalId: step?.portalId ?? `portal-transfer-${legIndex}-${stepIndex}`,
             portalLabel: portal?.label,
             destinationLabel: destination ? destinationDisplayLabel(app, destination) : "",
+            localNodeLabel: localNodeLabelFor?.(step?.destinationId, step?.localNodeId),
             worldNodeLabel: worldNode?.label,
           }),
         });
@@ -828,8 +877,8 @@ function worldRouteExplanationSegments(app, world, itinerary) {
 /**
  * Renders the ordered route-explanation list or an empty-state fallback.
  */
-function worldRouteExplanationMarkup(app, world, itinerary) {
-  const segments = worldRouteExplanationSegments(app, world, itinerary);
+function worldRouteExplanationMarkup(app, world, itinerary, localNodeLabelFor) {
+  const segments = worldRouteExplanationSegments(app, world, itinerary, localNodeLabelFor);
   if (!segments.length) {
     return `
       <p class="muted" data-route-world-explanation-empty="true">
@@ -918,7 +967,7 @@ function worldRouteFailureMarkup(message) {
 /**
  * Renders the completed world-route summary and local/world handoff links.
  */
-function worldRouteResultMarkup(app, world, itinerary, route) {
+function worldRouteResultMarkup(app, world, itinerary, route, localNodeLabelFor) {
   const legs = safeArray(itinerary?.legs);
   const worldViewHref = createRouteContextHref("/map", { view: "world" }, route);
   const destinationLegs = legs.filter((leg) => text(leg?.scope) === "destination");
@@ -994,7 +1043,7 @@ function worldRouteResultMarkup(app, world, itinerary, route) {
       <div class="world-route-explanation-shell">
         <p class="section-tag">${escapeHtml(copy.explanationTag)}</p>
         <h4>${escapeHtml(copy.explanationTitle)}</h4>
-        ${worldRouteExplanationMarkup(app, world, itinerary)}
+        ${worldRouteExplanationMarkup(app, world, itinerary, localNodeLabelFor)}
       </div>
     </article>
   `;
@@ -1838,7 +1887,11 @@ export async function renderWorldMapView(app, route, root) {
         }
         mapController?.renderRoute(itinerary);
         if (routeResult) {
-          routeResult.innerHTML = worldRouteResultMarkup(app, world, itinerary, route);
+          const localNodeLabelFor = await createLocalNodeLabelResolver(app, itinerary);
+          if (!isActiveRender() || disposed) {
+            return;
+          }
+          routeResult.innerHTML = worldRouteResultMarkup(app, world, itinerary, route, localNodeLabelFor);
         }
         app.setStatus(itinerary.reachable ? copy.status.routeReady : copy.status.routeIncomplete, itinerary.reachable ? "success" : "neutral");
       } catch (error) {

@@ -27,6 +27,7 @@ type PortalTransferSummaryInput = {
   destinationLabel?: unknown;
   transferDirection?: unknown;
   localNodeId?: unknown;
+  localNodeLabel?: unknown;
   worldNodeId?: unknown;
   worldNodeLabel?: unknown;
   mode?: unknown;
@@ -1171,14 +1172,17 @@ export function worldEdgeSummary(input: WorldEdgeSummaryInput): string {
   const fallback = appCopy.route.fallback;
   const order = copyText(input.order, "0");
   const edgeId = copyText(input.edgeId, fallback.worldEdgeId);
-  const fromWorldNodeId = copyText(input.fromWorldNodeLabel, copyText(input.fromWorldNodeId, fallback.worldNodeId));
-  const toWorldNodeId = copyText(input.toWorldNodeLabel, copyText(input.toWorldNodeId, fallback.worldNodeId));
+  const fromWorldNodeLabel = copyText(input.fromWorldNodeLabel);
+  const toWorldNodeLabel = copyText(input.toWorldNodeLabel);
+  const fromWorldNodeId = copyText(fromWorldNodeLabel, copyText(input.fromWorldNodeId, fallback.worldNodeId));
+  const toWorldNodeId = copyText(toWorldNodeLabel, copyText(input.toWorldNodeId, fallback.worldNodeId));
+  const edgeLabel = fromWorldNodeLabel || toWorldNodeLabel ? labels.worldEdge : `${labels.worldEdge} ${edgeId}`;
   const roadType = displayWorldRoadTypeLabel(input.roadType);
   const mode = displayLabel(modeLabels, input.mode, copyText(input.mode, "未知方式"));
   const distance = formatMetricDisplay(input.distance);
   const cost = formatMetricDisplay(input.cost);
 
-  return `${labels.segmentPrefix(order)} · ${labels.worldEdge} ${edgeId}：${fromWorldNodeId} → ${toWorldNodeId} · ${labels.roadType} ${roadType} · ${labels.mode} ${mode} · ${labels.distance} ${distance} ${units.meter} · ${labels.cost} ${cost}`;
+  return `${labels.segmentPrefix(order)} · ${edgeLabel}：${fromWorldNodeId} → ${toWorldNodeId} · ${labels.roadType} ${roadType} · ${labels.mode} ${mode} · ${labels.distance} ${distance} ${units.meter} · ${labels.cost} ${cost}`;
 }
 
 export function portalTransferSummary(input: PortalTransferSummaryInput): string {
@@ -1189,7 +1193,7 @@ export function portalTransferSummary(input: PortalTransferSummaryInput): string
   const portalId = copyText(input.portalLabel, copyText(input.portalId, fallback.portalId));
   const destinationId = copyText(input.destinationLabel, copyText(input.destinationId, fallback.destinationId));
   const transferDirection = copyText(input.transferDirection);
-  const localNodeId = copyText(input.localNodeId, fallback.localNodeId);
+  const localNodeId = copyText(input.localNodeLabel, copyText(input.localNodeId, fallback.localNodeId));
   const worldNodeId = copyText(input.worldNodeLabel, copyText(input.worldNodeId, fallback.worldNodeId));
   const fromEndpoint = transferDirection === "world-to-local" ? worldNodeId : localNodeId;
   const toEndpoint = transferDirection === "world-to-local" ? localNodeId : worldNodeId;

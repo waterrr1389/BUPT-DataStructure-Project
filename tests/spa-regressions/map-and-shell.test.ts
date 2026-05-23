@@ -1282,20 +1282,26 @@ test("map world view plans cross-map itineraries from marker and detail-panel se
       explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
       ["1", "2", "3", "4"],
     );
-    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 Harbor Gate Lift"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate"), true);
+    const explanationMarkup = worldRouteResult.innerHTML.match(
+      /<ol class="world-route-explanation-list"[^>]*>([\s\S]*?)<\/ol>/,
+    );
+    assert.ok(explanationMarkup, "Expected world route explanation markup.");
+    const explanationText = compactText(explanationMarkup[1] ?? "");
+    assert.equal(explanationText.includes("入口换乘"), true);
+    assert.equal(explanationText.includes("Bridge"), true);
+    assert.equal(explanationText.includes("Harbor Gate"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), false);
-    assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate → Axis Hub"), true);
+    assert.equal(explanationText.includes("世界路段 world-edge-1"), false);
+    assert.equal(explanationText.includes("世界路段：Harbor Gate → Axis Hub"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 道路"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 桥梁"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 road"), false);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 bridge"), false);
-    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 Lantern Lift"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("Lantern Bridge"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("dest-2-node-a"), true);
+    assert.equal(explanationText.includes("Lantern Lift"), true);
+    assert.equal(explanationText.includes("Lantern Bridge → Garden"), true);
+    assert.equal(explanationText.includes("dest-1-node-b"), false);
+    assert.equal(explanationText.includes("dest-2-node-a"), false);
     assert.equal(worldRouteResult.innerHTML.includes("方向 世界地图到本地地图"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 world-to-local"), false);
     assert.equal(
@@ -1656,13 +1662,19 @@ test("map world view explains unreachable cross-map prefix itineraries without r
       explanationSegments.map((segment) => segment.getAttribute("data-route-world-explanation-order")),
       ["1", "2"],
     );
-    assert.equal(worldRouteResult.innerHTML.includes("入口换乘 Harbor Gate Lift"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("dest-1-node-b"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate"), true);
+    const explanationMarkup = worldRouteResult.innerHTML.match(
+      /<ol class="world-route-explanation-list"[^>]*>([\s\S]*?)<\/ol>/,
+    );
+    assert.ok(explanationMarkup, "Expected world route explanation markup.");
+    const explanationText = compactText(explanationMarkup[1] ?? "");
+    assert.equal(explanationText.includes("入口换乘"), true);
+    assert.equal(explanationText.includes("Bridge"), true);
+    assert.equal(explanationText.includes("Harbor Gate"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 本地地图到世界地图"), true);
     assert.equal(worldRouteResult.innerHTML.includes("方向 local-to-world"), false);
-    assert.equal(worldRouteResult.innerHTML.includes("世界路段 world-edge-1"), true);
-    assert.equal(worldRouteResult.innerHTML.includes("Harbor Gate → Axis Hub"), true);
+    assert.equal(explanationText.includes("世界路段 world-edge-1"), false);
+    assert.equal(explanationText.includes("世界路段：Harbor Gate → Axis Hub"), true);
+    assert.equal(explanationText.includes("dest-1-node-b"), false);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 隧道"), true);
     assert.equal(worldRouteResult.innerHTML.includes("道路类型 tunnel"), false);
     assert.equal(
