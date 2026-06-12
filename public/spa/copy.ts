@@ -558,8 +558,7 @@ export const appCopy = {
         latest: "动态模式",
       },
       notices: {
-        recommended: "推荐笔记来自旧版笔记推荐工具。",
-        chooseTraveler: "请选择旅行者后加载推荐。",
+        recommended: "按浏览量和评分排序；选择旅行者后会叠加个人兴趣权重。",
       },
       empty: {
         title: "当前视图没有匹配的笔记",

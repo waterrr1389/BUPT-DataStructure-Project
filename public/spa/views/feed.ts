@@ -185,9 +185,7 @@ export async function render(
                 limit,
               }),
             ),
-            notice: currentUserId
-              ? copy.stream.notices.recommended
-              : copy.stream.notices.chooseTraveler,
+            notice: copy.stream.notices.recommended,
           }
         : await app.fetchFeed({
             destinationId,

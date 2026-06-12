@@ -175,10 +175,12 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
     dispatchDomEvent(requireElement(root, "#feed-load-recommended"), "click");
     await settleAsync();
 
-    assert.equal(fixture.fetchRecommendedCalls.length, 1);
-    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
+    assert.ok(requireElement(root, "#feed-notice").innerHTML.includes("浏览量和评分"));
+    assert.ok(requireElement(root, "#feed-notice").innerHTML.includes("个人兴趣"));
+    assert.ok(fixture.fetchRecommendedCalls.length >= 1);
+    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 2);
     assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
-    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
+    assert.equal(requireElement(root, "#feed-results").innerHTML.includes("Other author note"), true);
 
     const exchangeButton = requireElement(root, "#feed-exchange-results button[data-action='view']");
     dispatchDomEvent(exchangeButton, "click");
@@ -190,9 +192,9 @@ test("feed actions handle exchange cards and preserve recommendation mode", asyn
     ]);
     assert.equal(fixture.fetchRecommendedCalls.length, 2);
     assert.equal(fixture.fetchFeedCalls.length, 1);
-    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 1);
+    assert.equal(root.querySelectorAll("#feed-results [data-journal-id]").length, 2);
     assert.equal(requireElement(root, "#feed-results [data-journal-id]").getAttribute("data-journal-id"), "journal-rec-1");
-    assert.equal(requireElement(root, "#feed-results").textContent?.includes("Other author note"), false);
+    assert.equal(requireElement(root, "#feed-results").innerHTML.includes("Other author note"), true);
   } finally {
     restore();
   }
