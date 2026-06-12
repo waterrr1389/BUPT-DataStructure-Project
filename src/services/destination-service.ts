@@ -1,5 +1,5 @@
 import { ensureLimit, findUser, scoreDestination } from "./service-helpers";
-import { parseDestinationSortBy, type DestinationQuery, type DestinationRecord, type DestinationSortBy } from "./contracts";
+import { parseDestinationSortBy, type DestinationQuery, type DestinationRecord, type DestinationSortBy, type UserRecord } from "./contracts";
 import type { ResolvedRuntime } from "./runtime";
 
 function summarizeDestination(destination: DestinationRecord): Record<string, unknown> {
@@ -64,7 +64,14 @@ function scoreRecommendedDestination(
   return matchScore;
 }
 
-export function createDestinationService(runtime: ResolvedRuntime) {
+export function createDestinationService(
+  runtime: ResolvedRuntime,
+  findUserFn?: (userId: string) => UserRecord | null,
+) {
+  function resolveUser(userId?: string): UserRecord | null {
+    return (userId && findUserFn?.(userId)) || findUser(runtime.seedData.users, userId);
+  }
+
   return {
     listCatalog(limit = 24) {
       return summarizeDestinations(runtime.seedData.destinations.slice(0, ensureLimit(limit, 24, 60)));
@@ -132,7 +139,7 @@ export function createDestinationService(runtime: ResolvedRuntime) {
       const searchQuery = query.query?.trim() ?? "";
       const limit = ensureLimit(query.limit, 10, 30);
       const sortBy = parseDestinationSortBy(query.sortBy) ?? "match";
-      const user = findUser(runtime.seedData.users, query.userId);
+      const user = resolveUser(query.userId);
       const candidates = searchQuery
         ? runtime.algorithms.search
             .rankText(

@@ -39,6 +39,10 @@ export class UserStore {
     return this.users.get(id)?.profile ?? null;
   }
 
+  list(): UserRecord[] {
+    return [...this.users.values()].map((entry) => entry.profile);
+  }
+
   findByName(name: string): UserRecord | null {
     for (const entry of this.users.values()) {
       if (entry.profile.name === name) {

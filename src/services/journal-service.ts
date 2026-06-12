@@ -188,8 +188,12 @@ function destinationLabel(runtime: ResolvedRuntime, destinationId: string): stri
   return runtime.lookups.destinationById.get(destinationId)?.name ?? destinationId;
 }
 
-function userLabel(runtime: ResolvedRuntime, userId: string): string {
-  return runtime.lookups.userById.get(userId)?.name ?? userId;
+function userLabel(
+  runtime: ResolvedRuntime,
+  userId: string,
+  findUserFn?: (userId: string) => UserRecord | null,
+): string {
+  return findUserFn?.(userId)?.name ?? runtime.lookups.userById.get(userId)?.name ?? userId;
 }
 
 function viewerHasLiked(maps: SocialMaps, journalId: string, viewerUserId?: string): boolean {
@@ -204,13 +208,14 @@ function buildJournalDetail(
   journal: JournalRecord,
   maps: SocialMaps,
   viewerUserId?: string,
+  findUserFn?: (userId: string) => UserRecord | null,
 ): JournalDetailRecord {
   return {
     ...journal,
     averageRating: averageRating(journal.ratings),
     summaryBody: summarizeBody(journal.body),
     destinationLabel: destinationLabel(runtime, journal.destinationId),
-    userLabel: userLabel(runtime, journal.userId),
+    userLabel: userLabel(runtime, journal.userId, findUserFn),
     likeCount: maps.likeCountByJournal.get(journal.id) ?? 0,
     commentCount: maps.commentCountByJournal.get(journal.id) ?? 0,
     viewerHasLiked: viewerHasLiked(maps, journal.id, viewerUserId),
@@ -222,11 +227,12 @@ function buildFeedItem(
   journal: JournalRecord,
   maps: SocialMaps,
   viewerUserId?: string,
+  findUserFn?: (userId: string) => UserRecord | null,
 ): JournalFeedItem {
   return {
     id: journal.id,
     userId: journal.userId,
-    userLabel: userLabel(runtime, journal.userId),
+    userLabel: userLabel(runtime, journal.userId, findUserFn),
     destinationId: journal.destinationId,
     destinationLabel: destinationLabel(runtime, journal.destinationId),
     title: journal.title,
@@ -304,11 +310,15 @@ async function requireUploadedCommentMediaFiles(
   }
 }
 
-function buildCommentView(runtime: ResolvedRuntime, comment: JournalCommentRecord): JournalCommentView {
+function buildCommentView(
+  runtime: ResolvedRuntime,
+  comment: JournalCommentRecord,
+  findUserFn?: (userId: string) => UserRecord | null,
+): JournalCommentView {
   return {
     ...comment,
     media: normalizeExistingCommentMedia(comment.media),
-    userLabel: userLabel(runtime, comment.userId),
+    userLabel: userLabel(runtime, comment.userId, findUserFn),
   };
 }
 
@@ -340,6 +350,26 @@ export function createJournalService(
   store: JournalStore,
   findUserFn?: (userId: string) => UserRecord | null,
 ) {
+  function resolveUser(userId?: string): UserRecord | null {
+    return (userId && findUserFn?.(userId)) || findUser(runtime.seedData.users, userId);
+  }
+
+  function buildDetail(
+    journal: JournalRecord,
+    maps: SocialMaps,
+    viewerUserId?: string,
+  ): JournalDetailRecord {
+    return buildJournalDetail(runtime, journal, maps, viewerUserId, findUserFn);
+  }
+
+  function buildFeed(
+    journal: JournalRecord,
+    maps: SocialMaps,
+    viewerUserId?: string,
+  ): JournalFeedItem {
+    return buildFeedItem(runtime, journal, maps, viewerUserId, findUserFn);
+  }
+
   async function loadViewerUserId(viewerUserId?: string): Promise<string | undefined> {
     if (!viewerUserId) {
       return undefined;
@@ -366,7 +396,7 @@ export function createJournalService(
   async function getJournalDetail(journalId: string, viewerUserId?: string): Promise<JournalDetailRecord> {
     const resolvedViewerUserId = await loadViewerUserId(viewerUserId);
     const [journal, maps] = await Promise.all([loadJournal(journalId), loadSocialMaps({ journalId })]);
-    return buildJournalDetail(runtime, journal, maps, resolvedViewerUserId);
+    return buildDetail(journal, maps, resolvedViewerUserId);
   }
 
   return {
@@ -377,7 +407,7 @@ export function createJournalService(
       return filterJournals(journals, options)
         .sort(sortJournalsByUpdatedAt)
         .slice(0, limit)
-        .map((journal) => buildJournalDetail(runtime, journal, maps, resolvedViewerUserId));
+        .map((journal) => buildDetail(journal, maps, resolvedViewerUserId));
     },
 
     async feed(options: JournalFeedQuery = {}): Promise<CursorPage<JournalFeedItem>> {
@@ -388,7 +418,7 @@ export function createJournalService(
       const startIndex = resolveCursorIndex(filtered, options.cursor, FEED_CURSOR_KIND, (journal) => journal.createdAt);
       const items = filtered
         .slice(startIndex, startIndex + limit)
-        .map((journal) => buildFeedItem(runtime, journal, maps, resolvedViewerUserId));
+        .map((journal) => buildFeed(journal, maps, resolvedViewerUserId));
 
       return {
         items,
@@ -424,7 +454,7 @@ export function createJournalService(
         recommendedFor: input.recommendedFor ?? [],
       };
       await store.upsert(journal);
-      return buildJournalDetail(runtime, journal, buildSocialMaps([], []));
+      return buildDetail(journal, buildSocialMaps([], []));
     },
 
     async update(journalId: string, input: JournalUpdateInput, options?: { currentUserId?: string }) {
@@ -442,7 +472,7 @@ export function createJournalService(
         updatedAt: nowIso(),
       };
       await store.upsert(updated);
-      return buildJournalDetail(runtime, updated, maps);
+      return buildDetail(updated, maps);
     },
 
     async delete(journalId: string, options?: { currentUserId?: string }) {
@@ -465,7 +495,7 @@ export function createJournalService(
         views: journal.views + 1,
       };
       await store.upsert(updated);
-      return buildJournalDetail(runtime, updated, maps);
+      return buildDetail(updated, maps);
     },
 
     async rate(journalId: string, userId: string, score: number) {
@@ -483,12 +513,12 @@ export function createJournalService(
         updatedAt: nowIso(),
       };
       await store.upsert(updated);
-      return buildJournalDetail(runtime, updated, maps, user.id);
+      return buildDetail(updated, maps, user.id);
     },
 
     async recommend(options: { userId?: string; destinationId?: string; limit?: number } = {}) {
       const limit = ensureLimit(options.limit, 6, 24);
-      const user = findUser(runtime.seedData.users, options.userId);
+      const user = resolveUser(options.userId);
       const destinationName = options.destinationId
         ? findDestination(runtime.seedData.destinations, options.destinationId).name
         : "";
@@ -499,7 +529,7 @@ export function createJournalService(
           limit,
           (journal) => scoreJournal(journal, user, destinationName),
         )
-        .map((journal) => buildJournalDetail(runtime, journal, maps, user?.id));
+        .map((journal) => buildDetail(journal, maps, user?.id));
     },
 
     async listComments(query: JournalCommentListQuery): Promise<CursorPage<JournalCommentView>> {
@@ -509,7 +539,7 @@ export function createJournalService(
       const startIndex = resolveCursorIndex(comments, query.cursor, COMMENT_CURSOR_KIND, (comment) => comment.createdAt);
       const items = comments
         .slice(startIndex, startIndex + limit)
-        .map((comment) => buildCommentView(runtime, comment));
+        .map((comment) => buildCommentView(runtime, comment, findUserFn));
 
       return {
         items,
@@ -536,7 +566,7 @@ export function createJournalService(
         updatedAt: timestamp,
       };
       await store.upsertComment(comment);
-      return buildCommentView(runtime, comment);
+      return buildCommentView(runtime, comment, findUserFn);
     },
 
     async deleteComment(commentId: string, userId: string) {

@@ -517,7 +517,10 @@ function createPostDetailFixture(overrides: {
   };
 }
 
-function createComposeFixture() {
+function createComposeFixture(overrides: {
+  requestJsonImpl?: (endpoint: string, options?: { body?: string }) => Promise<Record<string, unknown>>;
+  uploadImageImpl?: (file: Record<string, unknown>) => Promise<Record<string, unknown>>;
+} = {}) {
   const bootstrap = {
     users: [
       { id: "user-1", name: "Avery Vale" },
@@ -530,6 +533,8 @@ function createComposeFixture() {
   ];
   const navigateCalls: string[] = [];
   const requestJsonCalls: Array<{ endpoint: string; payload: Record<string, unknown> }> = [];
+  const uploadImageCalls: Array<Record<string, unknown>> = [];
+  const deleteUploadedImageCalls: string[] = [];
 
   const app = {
     applySelectorBindings(
@@ -584,6 +589,9 @@ function createComposeFixture() {
         endpoint,
         payload: JSON.parse(options.body ?? "{}"),
       });
+      if (overrides.requestJsonImpl) {
+        return overrides.requestJsonImpl(endpoint, options);
+      }
       return {
         item: {
           id: "journal-9",
@@ -591,12 +599,29 @@ function createComposeFixture() {
       };
     },
     setDocumentTitle() {},
+    async uploadImage(file: Record<string, unknown>) {
+      uploadImageCalls.push(file);
+      if (overrides.uploadImageImpl) {
+        return overrides.uploadImageImpl(file);
+      }
+      return {
+        mimeType: file.type,
+        originalName: file.name,
+        size: file.size,
+        url: "/uploads/images/image-eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.png",
+      };
+    },
+    async deleteUploadedImage(url: string) {
+      deleteUploadedImageCalls.push(url);
+    },
   };
 
   return {
     app,
+    deleteUploadedImageCalls,
     navigateCalls,
     requestJsonCalls,
+    uploadImageCalls,
   };
 }
 

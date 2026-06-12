@@ -630,12 +630,12 @@ export const appCopy = {
     hero: {
       eyebrow: "写笔记",
       title: "像写明信片一样写现场笔记，而不是填写管理记录。",
-      lede: "标题和目的地保持在上方，正文区域足够宽松，媒体占位只作为轻量辅助。提交成功后会直接回到阅读流程。",
+      lede: "标题和目的地保持在上方，正文区域足够宽松，图片上传只作为轻量辅助。提交成功后会直接回到阅读流程。",
       panelTag: "保留能力",
       panelItems: [
         "笔记创建仍然提交到既有后端契约。",
         "目的地选择继续使用共享的消歧标签。",
-        "可选媒体占位保持零依赖。",
+        "可选图片会进入同一套上传与访问路径。",
       ],
     },
     form: {
@@ -649,7 +649,7 @@ export const appCopy = {
         body: "正文",
         tags: "标签",
         mediaTitle: "媒体标题",
-        mediaSource: "媒体来源",
+        mediaImage: "上传图片",
         mediaNote: "媒体说明",
       },
       placeholders: {
@@ -657,10 +657,15 @@ export const appCopy = {
         body: "写下路线、气氛，以及你想记住的那个瞬间。",
         tags: "历史、湖边、茶歇、安静庭院",
         mediaTitle: "封面定帧",
-        mediaSource: "媒体来源地址",
-        mediaNote: "简单说明这张图片或这段片段。",
+        mediaNote: "简单说明这张图片。",
       },
-      mediaSummary: "可选媒体占位",
+      imageFallbackTitle: "笔记图片",
+      imagePreviewAlt: "已选择的笔记图片预览",
+      removeImage: "移除图片",
+      unknownImageType: "未知图片类型",
+      imageSummary: (mimeType: unknown, size: unknown) =>
+        `${copyText(mimeType, "未知图片类型")} · ${copyText(size, "0 B")}`,
+      mediaSummary: "可选图片",
       submit: "发布笔记",
     },
     preview: {
@@ -685,6 +690,9 @@ export const appCopy = {
       createdBody: "路由界面将从写笔记页进入新的笔记详情视图。",
       failedTitle: "写笔记出错",
       failedBody: "笔记创建失败。",
+      uploadFailedBody: "图片上传失败，笔记内容和已选图片已保留。",
+      invalidImageType: "请选择 PNG、JPEG、WEBP 或 GIF 图片。",
+      imageTooLarge: "图片不能超过 5 MB。",
     },
   },
   postDetail: {

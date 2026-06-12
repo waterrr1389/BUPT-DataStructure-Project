@@ -17,6 +17,21 @@ import {
   type HomeModule,
 } from "../spa-regressions.test";
 
+function createImageFile(overrides: Partial<{ name: string; size: number; type: string }> = {}) {
+  return {
+    name: overrides.name ?? "trail-photo.png",
+    size: overrides.size ?? 2048,
+    type: overrides.type ?? "image/png",
+  };
+}
+
+function setElementFiles(element: unknown, files: unknown[]): void {
+  Object.defineProperty(element, "files", {
+    configurable: true,
+    value: files,
+  });
+}
+
 test("compose uses the current user and omits userId on publish", async () => {
   const env = createSpaDomEnvironment();
   const restore = env.install();
@@ -61,6 +76,170 @@ test("compose uses the current user and omits userId on publish", async () => {
     ]);
     assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9"]);
   } finally {
+    restore();
+  }
+});
+
+test("compose uploads a selected image before publishing journal media", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ComposeModule>("views/compose.js");
+    const uploadedUrl = "/uploads/images/image-eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.png";
+    const fixture = createComposeFixture({
+      uploadImageImpl: async (file) => ({
+        mimeType: file.type,
+        originalName: file.name,
+        size: file.size,
+        url: uploadedUrl,
+      }),
+    });
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:compose-preview";
+      }
+      static override revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    await module.render(
+      fixture.app,
+      {
+        name: "compose",
+        params: {
+          destinationId: "dest-2",
+        },
+      },
+      root,
+    );
+
+    const selectedFile = createImageFile({ name: "harbor-light.webp", type: "image/webp" });
+    setElementFiles(requireElement(root, "#compose-media-image"), [selectedFile]);
+    dispatchDomEvent(requireElement(root, "#compose-media-image"), "change");
+    requireElement(root, "#compose-title").value = "Harbor image";
+    requireElement(root, "#compose-body").value = "A note with one uploaded image.";
+    requireElement(root, "#compose-tags").value = "harbor, light";
+    requireElement(root, "#compose-media-title").value = "Harbor light";
+    dispatchDomEvent(requireElement(root, "#compose-form"), "submit");
+    await settleAsync();
+
+    assert.equal(requireElement(root, "#compose-media-preview").hasAttribute("hidden"), false);
+    assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
+    assert.deepEqual(fixture.requestJsonCalls, [
+      {
+        endpoint: "/api/journals",
+        payload: {
+          body: "A note with one uploaded image.",
+          destinationId: "dest-2",
+          media: [
+            {
+              type: "image",
+              title: "Harbor light",
+              source: uploadedUrl,
+              note: "image/webp · 2 KB",
+            },
+          ],
+          tags: ["harbor", "light"],
+          title: "Harbor image",
+        },
+      },
+    ]);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, []);
+    assert.deepEqual(fixture.navigateCalls, ["/posts/journal-9"]);
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("compose keeps image draft when upload fails", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ComposeModule>("views/compose.js");
+    const fixture = createComposeFixture({
+      uploadImageImpl: async () => {
+        throw new Error("Upload failed.");
+      },
+    });
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:compose-preview";
+      }
+      static override revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    await module.render(fixture.app, { name: "compose", params: {} }, root);
+
+    const selectedFile = createImageFile();
+    setElementFiles(requireElement(root, "#compose-media-image"), [selectedFile]);
+    dispatchDomEvent(requireElement(root, "#compose-media-image"), "change");
+    requireElement(root, "#compose-title").value = "Keep draft";
+    requireElement(root, "#compose-body").value = "Keep this note.";
+    dispatchDomEvent(requireElement(root, "#compose-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
+    assert.deepEqual(fixture.requestJsonCalls, []);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, []);
+    assert.equal(requireElement(root, "#compose-title").value, "Keep draft");
+    assert.equal(requireElement(root, "#compose-media-preview").hasAttribute("hidden"), false);
+    assert.ok(requireElement(root, "#compose-notice").innerHTML.includes("图片上传失败"));
+  } finally {
+    globalThis.URL = previousUrl;
+    restore();
+  }
+});
+
+test("compose deletes uploaded image when journal creation fails", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const previousUrl = globalThis.URL;
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<ComposeModule>("views/compose.js");
+    const uploadedUrl = "/uploads/images/image-ffffffff-ffff-ffff-ffff-ffffffffffff.png";
+    const fixture = createComposeFixture({
+      requestJsonImpl: async () => {
+        throw new Error("Create failed.");
+      },
+      uploadImageImpl: async (file) => ({
+        mimeType: file.type,
+        originalName: file.name,
+        size: file.size,
+        url: uploadedUrl,
+      }),
+    });
+    const urlStub = class extends previousUrl {
+      static override createObjectURL() {
+        return "blob:compose-preview";
+      }
+      static override revokeObjectURL() {}
+    };
+    globalThis.URL = urlStub as typeof URL;
+
+    await module.render(fixture.app, { name: "compose", params: {} }, root);
+
+    const selectedFile = createImageFile();
+    setElementFiles(requireElement(root, "#compose-media-image"), [selectedFile]);
+    dispatchDomEvent(requireElement(root, "#compose-media-image"), "change");
+    requireElement(root, "#compose-title").value = "Create fails";
+    requireElement(root, "#compose-body").value = "The image upload should be cleaned.";
+    dispatchDomEvent(requireElement(root, "#compose-form"), "submit");
+    await settleAsync();
+
+    assert.deepEqual(fixture.uploadImageCalls, [selectedFile]);
+    assert.equal(fixture.requestJsonCalls.length, 1);
+    assert.deepEqual(fixture.deleteUploadedImageCalls, [uploadedUrl]);
+    assert.deepEqual(fixture.navigateCalls, []);
+    assert.ok(requireElement(root, "#compose-notice").innerHTML.includes("笔记创建失败"));
+  } finally {
+    globalThis.URL = previousUrl;
     restore();
   }
 });

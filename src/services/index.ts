@@ -27,13 +27,14 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
   });
   const userStore = new UserStore({ seedUsers: runtime.seedData.users });
   const auth = createAuthService(userStore);
+  const findRuntimeUser = (userId: string) => userStore.findById(userId);
 
-  const destinations = createDestinationService(runtime);
+  const destinations = createDestinationService(runtime, findRuntimeUser);
   const routing = createRouteService(runtime);
   const facilities = createFacilityService(runtime);
-  const journals = createJournalService(runtime, journalStore, (userId) => userStore.findById(userId));
+  const journals = createJournalService(runtime, journalStore, findRuntimeUser);
   const exchange = createExchangeService(runtime, journalStore);
-  const foods = createFoodService(runtime);
+  const foods = createFoodService(runtime, findRuntimeUser);
   const world = createWorldService(runtime);
   const worldRouting = createWorldRouteService(runtime);
 
@@ -57,7 +58,7 @@ export async function createAppServices(options: ServiceContextOptions = {}) {
     getCurrentUser,
     async bootstrap(authToken?: string) {
       return {
-        users: runtime.seedData.users.map(summarizeBootstrapUser),
+        users: userStore.list().map(summarizeBootstrapUser),
         categories: destinations.listCategories(),
         cuisines: foods.listCuisines(),
         featured: destinations.listCatalog(12),

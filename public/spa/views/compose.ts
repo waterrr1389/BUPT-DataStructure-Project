@@ -3,8 +3,12 @@ import {
   escapeHtml,
   noticeMarkup,
   parseListInput,
+  text,
 } from "../lib.js";
 import type { JsonRecord, SpaApp, SpaRoute, ViewCleanup } from "../types.js";
+
+const COMPOSE_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+const COMPOSE_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 type ComposePreviewState = {
   authorLabel: string;
@@ -13,6 +17,35 @@ type ComposePreviewState = {
   tags: string[];
   title: string;
 };
+
+type SelectedComposeImage = {
+  file: File;
+  previewUrl: string;
+};
+
+function formatFileSize(size: unknown): string {
+  const bytes = Number(size) || 0;
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  return `${bytes} B`;
+}
+
+function createPreviewUrl(file: File): string {
+  if (typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+    return URL.createObjectURL(file);
+  }
+  return "";
+}
+
+function revokePreviewUrl(url: string): void {
+  if (url && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+    URL.revokeObjectURL(url);
+  }
+}
 
 /**
  * Builds the live preview card shown beside the compose form.
@@ -102,10 +135,15 @@ export async function render(
                 ${escapeHtml(copy.form.labels.mediaTitle)}
                 <input id="compose-media-title" type="text" placeholder="${escapeHtml(copy.form.placeholders.mediaTitle)}" />
               </label>
-              <label>
-                ${escapeHtml(copy.form.labels.mediaSource)}
-                <input id="compose-media-source" type="text" placeholder="${escapeHtml(copy.form.placeholders.mediaSource)}" />
+              <label class="file-input-label span-all">
+                ${escapeHtml(copy.form.labels.mediaImage)}
+                <input
+                  id="compose-media-image"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                />
               </label>
+              <div id="compose-media-preview" class="comment-image-preview compose-image-preview span-all" hidden></div>
               <label class="span-all">
                 ${escapeHtml(copy.form.labels.mediaNote)}
                 <textarea id="compose-media-note" rows="3" placeholder="${escapeHtml(copy.form.placeholders.mediaNote)}"></textarea>
@@ -143,6 +181,13 @@ export async function render(
   const titleInput = root.querySelector("#compose-title") as HTMLInputElement;
   const bodyInput = root.querySelector("#compose-body") as HTMLTextAreaElement;
   const tagsInput = root.querySelector("#compose-tags") as HTMLInputElement;
+  const form = root.querySelector("#compose-form") as HTMLFormElement;
+  const submitButton = form.querySelector("button[type='submit']") as HTMLButtonElement;
+  const mediaTitleInput = root.querySelector("#compose-media-title") as HTMLInputElement;
+  const mediaImageInput = root.querySelector("#compose-media-image") as HTMLInputElement;
+  const mediaImagePreview = root.querySelector("#compose-media-preview") as HTMLDivElement;
+  const mediaNoteInput = root.querySelector("#compose-media-note") as HTMLTextAreaElement;
+  let selectedComposeImage: SelectedComposeImage | null = null;
 
   function renderPreview(): void {
     preview.innerHTML = previewMarkup({
@@ -154,19 +199,135 @@ export async function render(
     });
   }
 
+  function renderSelectedComposeImage(): void {
+    if (!selectedComposeImage) {
+      mediaImagePreview.innerHTML = "";
+      mediaImagePreview.setAttribute("hidden", "");
+      return;
+    }
+
+    const file = selectedComposeImage.file;
+    const previewImage = selectedComposeImage.previewUrl
+      ? `<img src="${escapeHtml(selectedComposeImage.previewUrl)}" alt="${escapeHtml(copy.form.imagePreviewAlt)}" />`
+      : "";
+    mediaImagePreview.removeAttribute("hidden");
+    mediaImagePreview.innerHTML = `
+      <div class="comment-image-preview-frame">${previewImage}</div>
+      <div class="comment-image-preview-copy">
+        <strong>${escapeHtml(file.name || copy.form.imageFallbackTitle)}</strong>
+        <span>${escapeHtml(copy.form.imageSummary(file.type || copy.form.unknownImageType, formatFileSize(file.size)))}</span>
+      </div>
+      <button type="button" class="ghost" id="compose-media-image-remove">${escapeHtml(copy.form.removeImage)}</button>
+    `;
+  }
+
+  function clearSelectedComposeImage(): void {
+    if (selectedComposeImage) {
+      revokePreviewUrl(selectedComposeImage.previewUrl);
+    }
+    selectedComposeImage = null;
+    mediaImageInput.value = "";
+    renderSelectedComposeImage();
+  }
+
+  function setFormDisabled(disabled: boolean): void {
+    destinationSelect.disabled = disabled;
+    titleInput.disabled = disabled;
+    bodyInput.disabled = disabled;
+    tagsInput.disabled = disabled;
+    mediaTitleInput.disabled = disabled;
+    mediaImageInput.disabled = disabled;
+    mediaNoteInput.disabled = disabled;
+    submitButton.disabled = disabled;
+    const removeImageButton = root.querySelector("#compose-media-image-remove") as HTMLButtonElement | null;
+    if (removeImageButton) {
+      removeImageButton.disabled = disabled;
+    }
+  }
+
+  async function deleteUploadedComposeImage(url: string): Promise<void> {
+    if (!url || typeof app.deleteUploadedImage !== "function") {
+      return;
+    }
+    try {
+      await app.deleteUploadedImage(url);
+    } catch {
+      // Cleanup is best-effort; the visible recovery path is preserving the draft.
+    }
+  }
+
   [destinationSelect, titleInput, bodyInput, tagsInput].forEach((element) => {
     element.addEventListener("input", renderPreview);
     element.addEventListener("change", renderPreview);
   });
 
-  root.querySelector("#compose-form")?.addEventListener("submit", async (event) => {
+  mediaImageInput.addEventListener("change", () => {
+    const file = mediaImageInput.files?.[0] ?? null;
+    if (!file) {
+      clearSelectedComposeImage();
+      return;
+    }
+    if (!COMPOSE_IMAGE_MIME_TYPES.has(file.type)) {
+      clearSelectedComposeImage();
+      notice.innerHTML = noticeMarkup("error", copy.notices.failedTitle, copy.notices.invalidImageType);
+      return;
+    }
+    if (file.size > COMPOSE_IMAGE_MAX_SIZE) {
+      clearSelectedComposeImage();
+      notice.innerHTML = noticeMarkup("error", copy.notices.failedTitle, copy.notices.imageTooLarge);
+      return;
+    }
+
+    if (selectedComposeImage) {
+      revokePreviewUrl(selectedComposeImage.previewUrl);
+    }
+    selectedComposeImage = {
+      file,
+      previewUrl: createPreviewUrl(file),
+    };
+    notice.innerHTML = "";
+    renderSelectedComposeImage();
+  });
+
+  mediaImagePreview.addEventListener("click", (event) => {
+    const button = (event.target as Element | null)?.closest("#compose-media-image-remove");
+    if (!button) {
+      return;
+    }
+    clearSelectedComposeImage();
+  });
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const mediaTitle = (root.querySelector("#compose-media-title") as HTMLInputElement).value.trim();
-    const mediaSource = (root.querySelector("#compose-media-source") as HTMLInputElement).value.trim();
-    const mediaNote = (root.querySelector("#compose-media-note") as HTMLTextAreaElement).value.trim();
+    const mediaTitle = mediaTitleInput.value.trim();
+    const mediaNote = mediaNoteInput.value.trim();
+    let submitStage: "upload" | "journal" = "journal";
+    let uploadedImageUrl = "";
+    let journalPersisted = false;
 
     try {
+      setFormDisabled(true);
+      const media = [];
+      if (selectedComposeImage) {
+        submitStage = "upload";
+        const uploaded = await app.uploadImage(selectedComposeImage.file);
+        uploadedImageUrl = text(uploaded?.url);
+        if (!uploadedImageUrl) {
+          throw new Error("Uploaded image URL is missing.");
+        }
+        media.push({
+          type: "image",
+          title: mediaTitle || text(selectedComposeImage.file.name, copy.form.imageFallbackTitle),
+          source: uploadedImageUrl,
+          note: mediaNote || copy.form.imageSummary(
+            uploaded?.mimeType || selectedComposeImage.file.type || copy.form.unknownImageType,
+            formatFileSize(uploaded?.size ?? selectedComposeImage.file.size),
+          ),
+        });
+      }
+
+      submitStage = "journal";
       const payload = await app.requestJson<{ item?: JsonRecord }>("/api/journals", {
         method: "POST",
         body: JSON.stringify({
@@ -174,19 +335,10 @@ export async function render(
           title: titleInput.value,
           body: bodyInput.value,
           tags: parseListInput(tagsInput.value),
-          media:
-            mediaTitle && mediaSource
-              ? [
-                  {
-                    type: "image",
-                    title: mediaTitle,
-                    source: mediaSource,
-                    note: mediaNote || undefined,
-                  },
-                ]
-              : [],
+          media,
         }),
       });
+      journalPersisted = true;
 
       notice.innerHTML = noticeMarkup(
         "success",
@@ -200,15 +352,22 @@ export async function render(
         app.navigate("/feed");
       }
     } catch (error) {
+      if (!journalPersisted) {
+        await deleteUploadedComposeImage(uploadedImageUrl);
+      }
       notice.innerHTML = noticeMarkup(
-        "note",
+        "error",
         copy.notices.failedTitle,
-        copy.notices.failedBody,
+        submitStage === "upload" ? copy.notices.uploadFailedBody : copy.notices.failedBody,
       );
+    } finally {
+      setFormDisabled(false);
     }
   });
 
   renderPreview();
 
-  return null;
+  return () => {
+    clearSelectedComposeImage();
+  };
 }

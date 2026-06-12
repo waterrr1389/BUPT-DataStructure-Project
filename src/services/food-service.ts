@@ -1,4 +1,5 @@
 import { ensureLimit, findDestination, findUser } from "./service-helpers";
+import type { UserRecord } from "./contracts";
 import type { ResolvedRuntime } from "./runtime";
 
 interface FoodQuery {
@@ -10,11 +11,18 @@ interface FoodQuery {
   limit?: number;
 }
 
-export function createFoodService(runtime: ResolvedRuntime) {
+export function createFoodService(
+  runtime: ResolvedRuntime,
+  findUserFn?: (userId: string) => UserRecord | null,
+) {
+  function resolveUser(userId?: string): UserRecord | null {
+    return (userId && findUserFn?.(userId)) || findUser(runtime.seedData.users, userId);
+  }
+
   return {
     recommend(query: FoodQuery) {
       const destination = findDestination(runtime.seedData.destinations, query.destinationId);
-      const user = findUser(runtime.seedData.users, query.userId);
+      const user = resolveUser(query.userId);
       const limit = ensureLimit(query.limit, 8, 24);
       const cuisine = query.cuisine?.trim().toLowerCase();
       const fromNodeId = query.fromNodeId ?? destination.graph.nodes[0].id;

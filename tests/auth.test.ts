@@ -235,15 +235,75 @@ test("bootstrap includes currentUser when authenticated", async () => {
   await withAuthServer("bootstrap-auth", async ({ requestJson }) => {
     const register = await requestJson("/api/auth/register", {
       method: "POST",
-      body: { name: "BootstrapUser", password: "pass" },
+      body: {
+        name: "BootstrapUser",
+        password: "pass",
+        interests: ["museum"],
+        dietaryPreferences: ["tea"],
+      },
     });
     const cookie = (register.headers["set-cookie"] as string).split(";")[0];
 
     const bootstrap = await requestJson("/api/bootstrap", { cookie });
+    const body = bootstrap.body as Record<string, any>;
+    const registeredUserId = (register.body as Record<string, any>).item.id;
 
     assert.equal(bootstrap.status, 200);
-    assert.ok((bootstrap.body as Record<string, any>).currentUser);
-    assert.equal((bootstrap.body as Record<string, any>).currentUser.name, "BootstrapUser");
+    assert.ok(body.currentUser);
+    assert.equal(body.currentUser.id, registeredUserId);
+    assert.equal(body.currentUser.name, "BootstrapUser");
+    assert.ok(body.users.some((user: Record<string, unknown>) => user.id === registeredUserId && user.name === "BootstrapUser"));
+  });
+});
+
+test("registered users are accepted by recommendation endpoints", async () => {
+  await withAuthServer("registered-recommendations", async ({ requestJson }) => {
+    const register = await requestJson<Record<string, any>>("/api/auth/register", {
+      method: "POST",
+      body: {
+        name: "RecommendationUser",
+        password: "pass",
+        interests: ["museum"],
+        dietaryPreferences: ["tea"],
+      },
+    });
+    const cookie = register.headers["set-cookie"].split(";")[0];
+    const userId = register.body.item.id;
+    const bootstrap = await requestJson<Record<string, any>>("/api/bootstrap", { cookie });
+    const destinationId = bootstrap.body.destinations[0].id;
+
+    const destinations = await requestJson<Record<string, any>>(
+      `/api/destinations/recommendations?userId=${encodeURIComponent(userId)}&limit=3`,
+    );
+    assert.equal(destinations.status, 200);
+    assert.equal(destinations.body.items.length, 3);
+    assert.ok(destinations.body.items.every((item: Record<string, unknown>) => item.reason === "Aligned with RecommendationUser's interests"));
+
+    const foods = await requestJson<Record<string, any>>(
+      `/api/foods/recommendations?destinationId=${encodeURIComponent(destinationId)}&userId=${encodeURIComponent(userId)}&limit=3`,
+    );
+    assert.equal(foods.status, 200);
+    assert.equal(foods.body.items.length, 3);
+
+    const create = await requestJson<Record<string, any>>("/api/journals", {
+      method: "POST",
+      cookie,
+      body: {
+        destinationId,
+        title: "Recommendation journal",
+        body: "This journal is explicitly recommended for a registered user.",
+        recommendedFor: [userId],
+      },
+    });
+    assert.equal(create.status, 201);
+
+    const journals = await requestJson<Record<string, any>>(
+      `/api/journals/recommendations?userId=${encodeURIComponent(userId)}&limit=10`,
+    );
+    assert.equal(journals.status, 200);
+    const recommendedJournal = journals.body.items.find((item: Record<string, unknown>) => item.id === create.body.item.id);
+    assert.ok(recommendedJournal);
+    assert.equal(recommendedJournal.userLabel, "RecommendationUser");
   });
 });
 

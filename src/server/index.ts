@@ -267,7 +267,7 @@ async function serveUploadedImage(
   return true;
 }
 
-function uploadedImageFileNamesFromCommentMedia(media: unknown): string[] {
+function uploadedImageFileNamesFromMedia(media: unknown): string[] {
   if (!media) {
     return [];
   }
@@ -889,24 +889,34 @@ async function handleApi(
       return true;
     }
     const body = asObject(await readBody(request));
-    json(response, 201, {
-      item: await services.journals.create({
-        userId: currentUserId,
-        destinationId: String(body.destinationId ?? ""),
-        title: String(body.title ?? ""),
-        body: String(body.body ?? ""),
-        tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
-        media: Array.isArray(body.media)
-          ? body.media.map((entry) => ({
-              type: String((entry as Record<string, unknown>).type ?? "image") as "image" | "video",
-              title: String((entry as Record<string, unknown>).title ?? ""),
-              source: String((entry as Record<string, unknown>).source ?? ""),
-              note: (entry as Record<string, unknown>).note ? String((entry as Record<string, unknown>).note) : undefined,
-            }))
-          : undefined,
-        recommendedFor: Array.isArray(body.recommendedFor) ? body.recommendedFor.map(String) : undefined,
-      }),
-    });
+    const uploadedMediaFileNames = uploadedImageFileNamesFromMedia(body.media);
+    try {
+      json(response, 201, {
+        item: await services.journals.create({
+          userId: currentUserId,
+          destinationId: String(body.destinationId ?? ""),
+          title: String(body.title ?? ""),
+          body: String(body.body ?? ""),
+          tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
+          media: Array.isArray(body.media)
+            ? body.media.map((entry) => ({
+                type: String((entry as Record<string, unknown>).type ?? "image") as "image" | "video",
+                title: String((entry as Record<string, unknown>).title ?? ""),
+                source: String((entry as Record<string, unknown>).source ?? ""),
+                note: (entry as Record<string, unknown>).note ? String((entry as Record<string, unknown>).note) : undefined,
+              }))
+            : undefined,
+          recommendedFor: Array.isArray(body.recommendedFor) ? body.recommendedFor.map(String) : undefined,
+        }),
+      });
+    } catch (error) {
+      try {
+        await cleanupUnpersistedUploadedImages(services, uploadedMediaFileNames);
+      } catch {
+        // Preserve the original journal failure response; cleanup is a best-effort recovery.
+      }
+      throw error;
+    }
     return true;
   }
 
@@ -966,7 +976,7 @@ async function handleApi(
         return true;
       }
       const body = asObject(await readBody(request));
-      const uploadedMediaFileNames = uploadedImageFileNamesFromCommentMedia(body.media);
+      const uploadedMediaFileNames = uploadedImageFileNamesFromMedia(body.media);
       try {
         const media = parseCommentMedia(body);
         json(response, 201, {

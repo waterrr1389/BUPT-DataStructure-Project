@@ -182,27 +182,32 @@ function commentMediaMarkup(item) {
     .filter((entry) => entry?.type === "image" && text(entry?.source))
     .map((entry) => {
       const title = text(entry.title, appCopy.postDetail.commentsSurface.imageFallbackTitle);
-      const fallbackLabel = appCopy.postDetail.commentsSurface.imageLoadFailed;
-      return `
-        <figure class="comment-media-frame" data-image-state="available">
-          <img
-            class="comment-media-image"
-            src="${escapeHtml(entry.source)}"
-            alt="${escapeHtml(title)}"
-            loading="lazy"
-            data-comment-media-image="true"
-          />
-          <div
-            class="comment-media-fallback"
-            hidden
-            role="note"
-            data-comment-media-fallback="true"
-          >${escapeHtml(fallbackLabel)}</div>
-          <figcaption>${escapeHtml(title)}</figcaption>
-        </figure>
-      `;
+      return uploadedMediaImageMarkup(entry.source, title);
     })
     .join("");
+}
+
+function uploadedMediaImageMarkup(source: unknown, title: unknown) {
+  return `
+    <figure class="comment-media-frame" data-image-state="available">
+      <img
+        class="comment-media-image"
+        src="${escapeHtml(source)}"
+        alt="${escapeHtml(title)}"
+        loading="lazy"
+        data-comment-media-image="true"
+        data-uploaded-media-image="true"
+      />
+      <div
+        class="comment-media-fallback"
+        hidden
+        role="note"
+        data-comment-media-fallback="true"
+        data-uploaded-media-fallback="true"
+      >${escapeHtml(appCopy.postDetail.commentsSurface.imageLoadFailed)}</div>
+      <figcaption>${escapeHtml(title)}</figcaption>
+    </figure>
+  `;
 }
 
 /**
@@ -314,6 +319,7 @@ export async function render(
                     <article class="media-card">
                       <p class="section-tag">${escapeHtml(mediaTypeLabel(entry.type))}</p>
                       <h3>${escapeHtml(entry.title || copy.article.mediaFallbackTitle)}</h3>
+                      ${entry.type === "image" && text(entry.source) ? uploadedMediaImageMarkup(entry.source, entry.title || copy.article.mediaFallbackTitle) : ""}
                       <p class="muted">${escapeHtml(entry.note || entry.source || "")}</p>
                     </article>
                   `,
@@ -830,8 +836,8 @@ export async function render(
     clearSelectedCommentImage();
   });
 
-  commentsContainer.addEventListener("error", (event) => {
-    const image = event.target?.closest?.("[data-comment-media-image='true']");
+  root.addEventListener("error", (event) => {
+    const image = event.target?.closest?.("[data-uploaded-media-image='true']");
     if (!image) {
       return;
     }
@@ -844,7 +850,7 @@ export async function render(
       frame.classList.add("is-image-load-failed");
       frame.setAttribute("data-image-state", "failed");
       frame.setAttribute("data-image-error", copy.commentsSurface.imageLoadFailed);
-      const fallback = frame.querySelector("[data-comment-media-fallback='true']");
+      const fallback = frame.querySelector("[data-uploaded-media-fallback='true']");
       if (fallback) {
         fallback.removeAttribute("hidden");
       }
