@@ -408,6 +408,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   function renderShell() {
     root.innerHTML = `
       <div class="site-shell">
+        <a class="skip-link" href="#main-content">跳到主要内容</a>
         <div class="site-atmosphere"></div>
         <header class="site-header">
           <a href="/" class="site-brand" data-nav="true">
@@ -427,7 +428,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
           </div>
           <div class="status-pill" id="status-pill" data-tone="neutral">${appCopy.common.status.loadingRuntime}</div>
         </header>
-        <main class="site-main">
+        <main class="site-main" id="main-content" tabindex="-1">
           <div class="view-root" id="view-root">${noticeMarkup("loading", appCopy.shell.loadingTitle, appCopy.shell.loadingBody)}</div>
         </main>
         <button class="back-to-top" id="back-to-top" type="button" aria-label="${appCopy.common.buttons.backToTop}">${appCopy.common.buttons.backToTop}</button>

@@ -8,7 +8,7 @@ import { destinationById, worldData } from "../src/data/seed";
 
 const worldMapAssetRelativePath = "assets/world-map/atlas-boston-inspired-v1.png";
 const generatorRelativePath = "scripts/world-map-asset-generator.js";
-const generatedWorldMapAssetSha256 = "cb8561eeba285845dbafab2002415e61deb42c1096558beb48972b09a023a61d";
+const generatedWorldMapAssetSha256 = "34503567becfa0451454a5c05ec6c830b0649b56043c58fc4d7a07db2821208d";
 
 type WorldMapAssetGenerator = {
   WORLD_MAP_ASSET_CONTRACT: {

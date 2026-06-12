@@ -237,3 +237,63 @@
     justify-content: flex-end;
   }
 }
+
+/* Account surfaces aligned with the Trail Atlas redesign layer. */
+.boot-failure-card,
+.login-card {
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--shell-line, rgba(12, 42, 58, 0.12));
+  background: var(--shell-paper-strong, #ffffff);
+  box-shadow: var(--shell-shadow, 0 16px 38px rgba(12, 42, 58, 0.1));
+}
+
+.login-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #082f49;
+  font-weight: 800;
+}
+
+.login-title-mark {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #0ea5e9;
+  border-radius: 5px;
+  background: #e0f2fe;
+  box-shadow: inset 0 0 0 3px #ffffff;
+}
+
+.login-title-mark.is-login {
+  border-color: #f97316;
+  background: #fff7ed;
+}
+
+.login-title-mark.is-register {
+  border-radius: 50%;
+}
+
+.login-error {
+  border-color: rgba(225, 29, 72, 0.28);
+  border-radius: var(--radius, 8px);
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.login-tab button,
+.login-submit,
+.logout-btn {
+  border-radius: var(--radius, 8px);
+}
+
+.user-bar {
+  border: 1px solid rgba(12, 42, 58, 0.1);
+  border-radius: var(--radius, 8px);
+  background: rgba(248, 253, 255, 0.86);
+}
+
+.user-label {
+  color: #24485b;
+  font-weight: 700;
+}

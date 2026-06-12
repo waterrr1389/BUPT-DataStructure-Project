@@ -24,37 +24,37 @@ import {
 const LEAFLET_CSS_PATH = "/vendor/leaflet/leaflet.css";
 const LEAFLET_SCRIPT_PATH = "/vendor/leaflet/leaflet.js";
 const REGION_STYLES = [
-  { fill: "rgba(217, 93, 30, 0.22)", stroke: "rgba(217, 93, 30, 0.68)" },
-  { fill: "rgba(15, 118, 110, 0.22)", stroke: "rgba(15, 118, 110, 0.68)" },
-  { fill: "rgba(84, 107, 66, 0.22)", stroke: "rgba(84, 107, 66, 0.68)" },
-  { fill: "rgba(17, 32, 49, 0.18)", stroke: "rgba(17, 32, 49, 0.52)" },
+  { fill: "rgba(249, 115, 22, 0.12)", stroke: "rgba(154, 90, 42, 0.34)" },
+  { fill: "rgba(14, 165, 233, 0.11)", stroke: "rgba(42, 105, 126, 0.32)" },
+  { fill: "rgba(15, 118, 110, 0.1)", stroke: "rgba(54, 102, 88, 0.32)" },
+  { fill: "rgba(84, 107, 66, 0.1)", stroke: "rgba(86, 103, 74, 0.3)" },
 ];
 const DESTINATION_MARKER_COLORS = {
-  "campus-commons": "#d95d1e",
+  "campus-commons": "#e85d2a",
   "campus-research": "#0f766e",
-  "campus-waterfront": "#2c6e91",
-  "scenic-harbor": "#8b3a2b",
-  "scenic-historic": "#7f5539",
-  "scenic-lookout": "#546b42",
-  "scenic-market": "#9a3412",
+  "campus-waterfront": "#2c7da0",
+  "scenic-harbor": "#a34831",
+  "scenic-historic": "#8a5a3c",
+  "scenic-lookout": "#607a49",
+  "scenic-market": "#b45322",
 };
 const WORLD_ROAD_STYLES = {
-  airlift: { color: "#6d5bd0", dashArray: "2 10", opacity: 0.68, weight: 3 },
-  bridge: { color: "#c76f2a", dashArray: "", opacity: 0.78, weight: 4 },
-  ferry: { color: "#2c6e91", dashArray: "12 7 2 7", opacity: 0.72, weight: 3 },
-  rail: { color: "#49505a", dashArray: "10 6", opacity: 0.7, weight: 3 },
-  road: { color: "#8b6f47", dashArray: "", opacity: 0.58, weight: 3 },
-  trail: { color: "#4f7a46", dashArray: "3 7", opacity: 0.72, weight: 2 },
-  tunnel: { color: "#5f6470", dashArray: "2 8", opacity: 0.62, weight: 3 },
+  airlift: { color: "#6d5bd0", dashArray: "2 12", opacity: 0.48, weight: 2.5 },
+  bridge: { color: "#d77a2d", dashArray: "", opacity: 0.72, weight: 3.5 },
+  ferry: { color: "#2c7da0", dashArray: "12 8 2 8", opacity: 0.52, weight: 2.5 },
+  rail: { color: "#334155", dashArray: "9 7", opacity: 0.54, weight: 2.5 },
+  road: { color: "#64748b", dashArray: "", opacity: 0.5, weight: 2.75 },
+  trail: { color: "#0f766e", dashArray: "2 7", opacity: 0.52, weight: 2 },
+  tunnel: { color: "#475569", dashArray: "2 9", opacity: 0.44, weight: 2.5 },
 };
-const WORLD_ROAD_FALLBACK_STYLE = { color: "#65717b", dashArray: "4 6", opacity: 0.58, weight: 3 };
+const WORLD_ROAD_FALLBACK_STYLE = { color: "#65717b", dashArray: "4 7", opacity: 0.46, weight: 2.5 };
 const WORLD_NODE_STYLES = {
-  hub: { color: "#ffffff", fillColor: "#112031", fillOpacity: 0.92, radius: 7, weight: 2 },
-  junction: { color: "#112031", fillColor: "#f0a43a", fillOpacity: 0.9, radius: 5, weight: 1.5 },
-  portal: { color: "#ffffff", fillColor: "#2c6e91", fillOpacity: 0.94, radius: 6, weight: 2 },
-  "region-center": { color: "#ffffff", fillColor: "#546b42", fillOpacity: 0.92, radius: 6, weight: 2 },
+  hub: { color: "#ffffff", fillColor: "#0f2433", fillOpacity: 0.88, radius: 5.5, weight: 2 },
+  junction: { color: "#ffffff", fillColor: "#eaa23b", fillOpacity: 0.86, radius: 4, weight: 1.5 },
+  portal: { color: "#ffffff", fillColor: "#2c6e91", fillOpacity: 0.9, radius: 4.5, weight: 1.75 },
+  "region-center": { color: "#ffffff", fillColor: "#607a49", fillOpacity: 0.88, radius: 5, weight: 1.75 },
 };
-const WORLD_NODE_FALLBACK_STYLE = { color: "#ffffff", fillColor: "#65717b", fillOpacity: 0.88, radius: 5, weight: 1.5 };
+const WORLD_NODE_FALLBACK_STYLE = { color: "#ffffff", fillColor: "#64748b", fillOpacity: 0.82, radius: 4, weight: 1.5 };
 const WORLD_ROUTE_STRATEGIES = ["distance", "time", "mixed"];
 const WORLD_ROUTE_MODES = ["walk", "bike", "shuttle", "mixed"];
 const PORTAL_DIRECTION_BY_ENDPOINT = {
@@ -216,9 +216,9 @@ function markerColorFor(destination) {
 function markerRadiusFor(destination) {
   const radius = toFiniteNumber(destination?.radius);
   if (radius == null) {
-    return 10;
+    return 11;
   }
-  return Math.max(8, Math.min(radius, 18));
+  return Math.max(9, Math.min(radius, 13));
 }
 
 /**
@@ -1080,11 +1080,12 @@ async function mountWorldMap(container, world, options = {}) {
 
     const styles = regionStyleAt(index);
     const layer = L.polygon(polygon, {
+      className: "world-region-overlay",
       color: styles.stroke,
       fillColor: styles.fill,
-      fillOpacity: 0.92,
+      fillOpacity: 0.72,
       interactive: false,
-      weight: 2,
+      weight: 1.4,
     }).addTo(map);
 
     if (typeof layer.bindTooltip === "function") {
@@ -1148,9 +1149,9 @@ async function mountWorldMap(container, world, options = {}) {
 
     const destinationId = text(destination?.destinationId);
     const markerBaseStyle = {
-      color: "#112031",
+      color: "#ffffff",
       fillColor: markerColorFor(destination),
-      fillOpacity: 0.96,
+      fillOpacity: 0.95,
       interactive: true,
       radius: markerRadiusFor(destination),
       weight: 2,
@@ -1203,10 +1204,10 @@ async function mountWorldMap(container, world, options = {}) {
       const style = {
         ...baseStyle,
         className: ["world-destination-marker", ...endpointClasses].join(" "),
-        color: isEndpoint ? "#ffffff" : "#112031",
+        color: isEndpoint ? "#ffffff" : baseStyle.color,
         fillOpacity: isEndpoint ? 1 : baseStyle.fillOpacity,
         radius: isEndpoint ? Number(baseStyle.radius) + 3 : baseStyle.radius,
-        weight: isEndpoint ? 4 : baseStyle.weight,
+        weight: isEndpoint ? 3 : baseStyle.weight,
         worldRouteEndpoint: endpointClasses.join(" "),
       };
       if (typeof layer.setStyle === "function") {
@@ -1345,19 +1346,21 @@ export async function renderWorldMapView(app, route, root) {
     </section>
 
     <section class="world-map-layout">
-      <article class="surface-card world-map-sidebar">
-        <div class="section-head">
-          <div>
-            <p class="section-tag">${escapeHtml(copy.sidebar.tag)}</p>
-            <h2>${escapeHtml(copy.sidebar.heading)}</h2>
+      <aside class="world-map-sidebar">
+        <article class="surface-card world-map-overview-card">
+          <div class="section-head">
+            <div>
+              <p class="section-tag">${escapeHtml(copy.sidebar.tag)}</p>
+              <h2>${escapeHtml(copy.sidebar.heading)}</h2>
+            </div>
           </div>
-        </div>
-        <p class="world-map-copy">
-          ${escapeHtml(copy.sidebar.copy)}
-        </p>
-        <div id="world-map-meta">
-          ${worldMetaMarkup(null, null)}
-        </div>
+          <p class="world-map-copy">
+            ${escapeHtml(copy.sidebar.copy)}
+          </p>
+          <div id="world-map-meta">
+            ${worldMetaMarkup(null, null)}
+          </div>
+        </article>
         <article class="surface-card route-stage-shell world-route-controls-shell">
           <p class="section-tag">${escapeHtml(copy.planner.tag)}</p>
           <h3>${escapeHtml(copy.planner.heading)}</h3>
@@ -1428,7 +1431,7 @@ export async function renderWorldMapView(app, route, root) {
             ${worldRouteEmptyMarkup()}
           </div>
         </article>
-      </article>
+      </aside>
       <div id="world-map-stage">
         <article class="surface-card world-map-shell">
           <div class="world-map-frame">

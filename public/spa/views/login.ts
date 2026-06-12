@@ -22,7 +22,8 @@ export async function render(
 
   function buildMarkup() {
     const isLogin = mode === "login";
-    const title = isLogin ? "🔒 用户登录" : "📝 注册账号";
+    const title = isLogin ? "用户登录" : "注册账号";
+    const titleMarkClass = isLogin ? "is-login" : "is-register";
     const subtitle = isLogin
       ? "登录以继续探索您的旅程"
       : "创建新账号，开启个性化旅行体验";
@@ -51,7 +52,7 @@ export async function render(
       <div class="login-wrap">
         <div class="surface-card login-card">
           <div class="login-header">
-            <h1>${title}</h1>
+            <h1><span class="login-title-mark ${titleMarkClass}" aria-hidden="true"></span>${title}</h1>
             <p class="muted">${subtitle}</p>
           </div>
           <div class="login-error" id="login-error" hidden></div>

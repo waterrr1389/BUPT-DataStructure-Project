@@ -41,16 +41,18 @@ export async function render(
         <p class="route-lede">
           ${escapeHtml(copy.hero.lede)}
         </p>
-        <div class="hero-actions">
+        <div class="hero-actions home-hero-actions">
           <a class="primary-link" href="${createRouteContextHref("/explore", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.explore)}</a>
-          <a class="secondary-link" href="${createRouteContextHref("/feed", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.feed)}</a>
-          <a class="secondary-link" href="${createRouteContextHref("/map", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.map)}</a>
+          <span class="home-hero-secondary-actions">
+            <a class="secondary-link home-hero-text-link" href="${createRouteContextHref("/feed", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.feed)}</a>
+            <a class="secondary-link home-hero-text-link" href="${createRouteContextHref("/map", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.map)}</a>
+          </span>
         </div>
         ${resultMetaMarkup([
           copy.hero.metrics.destinations(safeArray(bootstrap?.destinations).length),
           copy.hero.metrics.travelers(safeArray(bootstrap?.users).length),
           copy.hero.metrics.featured(safeArray(bootstrap?.featured).length),
-        ], "result-meta hero-metrics")}
+        ], "result-meta hero-metrics home-hero-metrics")}
       </div>
       <div class="route-hero-panel">
         <p class="section-tag">${escapeHtml(copy.hero.panelTag)}</p>
