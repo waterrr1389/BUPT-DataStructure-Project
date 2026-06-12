@@ -547,11 +547,7 @@ export const appCopy = {
       labels: {
         actor: "当前身份",
         destination: "目的地筛选",
-        author: "作者筛选",
         limit: "数量",
-      },
-      blankLabels: {
-        author: "任意作者",
       },
       buttons: {
         latest: "加载最新",
@@ -562,13 +558,12 @@ export const appCopy = {
         latest: "动态模式",
       },
       notices: {
-        recommendedFiltered: "推荐笔记来自旧版笔记推荐工具，并已按所选作者筛选。",
         recommended: "推荐笔记来自旧版笔记推荐工具。",
         chooseTraveler: "请选择旅行者后加载推荐。",
       },
       empty: {
         title: "当前视图没有匹配的笔记",
-        body: "可以调整目的地或作者筛选，也可以回到最新模式。",
+        body: "可以调整目的地筛选，也可以回到最新模式。",
         actionLabel: "写第一篇笔记",
       },
     },
@@ -917,6 +912,12 @@ export const destinationRegionLabels: DisplayLabelMap = {
   "west ridge": "西岭",
   "east loop": "东环",
   "central axis": "中轴",
+  "北部带": "北部带",
+  "河湾": "河湾",
+  "海港线": "海港线",
+  "西岭": "西岭",
+  "东环": "东环",
+  "中轴": "中轴",
   "North Wharf": "北码头",
   "East Bluffs": "东崖",
   "South Basin": "南湾",
@@ -925,10 +926,30 @@ export const destinationRegionLabels: DisplayLabelMap = {
 export const worldRegionLabels: DisplayLabelMap = {
   "region-river": "河湾区域",
   "region-harbor": "港湾线区域",
+  "world-region-river-arc": "河湾区域",
+  "world-region-north-belt": "北部带区域",
+  "world-region-west-ridge": "西岭区域",
+  "world-region-central-axis": "中轴区域",
+  "world-region-harbor-line": "海港线区域",
+  "world-region-east-loop": "东环区域",
   "River Arc": "河湾区域",
+  "North Belt": "北部带区域",
+  "West Ridge": "西岭区域",
+  "Central Axis": "中轴区域",
   "Harbor Line": "港湾线区域",
+  "East Loop": "东环区域",
   "river arc": "河湾区域",
+  "north belt": "北部带区域",
+  "west ridge": "西岭区域",
+  "central axis": "中轴区域",
   "harbor line": "港湾线区域",
+  "east loop": "东环区域",
+  "河湾": "河湾区域",
+  "北部带": "北部带区域",
+  "西岭": "西岭区域",
+  "中轴": "中轴区域",
+  "海港线": "海港线区域",
+  "东环": "东环区域",
 };
 
 export const destinationCategoryLabels: DisplayLabelMap = {
@@ -983,12 +1004,22 @@ export const cuisineLabels: DisplayLabelMap = {
   "bento craft": "便当工坊",
   "forest roast": "森林烘焙",
   "campus comfort": "校园简餐",
+  "河畔烤物": "河畔烤物",
+  "香料小街": "香料小街",
+  "茶屋": "茶屋",
+  "面食工坊": "面食工坊",
+  "海鲜碗": "海鲜碗",
+  "便当工坊": "便当工坊",
+  "森林烘焙": "森林烘焙",
+  "校园简餐": "校园简餐",
   tea: "茶饮",
 };
 
 export const foodVenueLabels: DisplayLabelMap = {
   "harbor court": "港湾庭院",
   "student lane": "学生巷",
+  "海湾庭院": "海湾庭院",
+  "学生巷": "学生巷",
   "Wharf Arcade": "码头拱廊",
   "Atrium Hall": "中庭大厅",
 };

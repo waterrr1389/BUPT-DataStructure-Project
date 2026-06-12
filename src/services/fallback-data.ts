@@ -28,6 +28,17 @@ const FACILITY_ROTATION: FacilityCategory[] = [
 ];
 
 const CUISINES = [
+  "河畔烤物",
+  "香料小街",
+  "茶屋",
+  "面食工坊",
+  "海鲜碗",
+  "便当工坊",
+  "森林烘焙",
+  "校园简餐",
+];
+
+const CUISINE_SEARCH_KEYWORDS = [
   "river grill",
   "spice street",
   "tea house",
@@ -48,92 +59,129 @@ const DESTINATION_TAGS = [
 ];
 
 const REGIONS = [
-  "north belt",
-  "river arc",
-  "harbor line",
-  "west ridge",
-  "east loop",
-  "central axis",
+  "北部带",
+  "河湾",
+  "海港线",
+  "西岭",
+  "东环",
+  "中轴",
 ];
 
 const SCENIC_ADJECTIVES = [
-  "Amber",
-  "Juniper",
-  "Harbor",
-  "Misty",
-  "Velvet",
-  "Lantern",
-  "Silver",
-  "Granite",
-  "Maple",
-  "Cedar",
+  "青岚",
+  "云麓",
+  "海棠",
+  "栖霞",
+  "星湾",
+  "竹溪",
+  "锦澜",
+  "松风",
+  "月隐",
+  "晴川",
 ];
 
 const SCENIC_NOUNS = [
-  "Bay",
-  "Garden",
-  "Terrace",
-  "Reserve",
-  "Promenade",
-  "Cliff",
-  "Harbor",
-  "Museum Park",
-  "Lookout",
-  "Valley",
+  "湖景区",
+  "花园",
+  "观景台",
+  "湿地公园",
+  "滨河步道",
+  "山谷",
+  "古渡",
+  "博物苑",
+  "云台",
+  "溪谷",
 ];
 
 const SCENIC_QUALIFIERS = [
-  "River",
-  "Crown",
-  "Meadow",
-  "Aurora",
-  "Summit",
-  "Pine",
-  "Stone",
-  "Lagoon",
-  "Horizon",
-  "Willow",
+  "水岸",
+  "丹枫",
+  "春晓",
+  "云栖",
+  "南山",
+  "竹影",
+  "石径",
+  "芦湾",
+  "远帆",
+  "柳岸",
 ];
 
 const SCENIC_NOUN_ALTERNATES = [
-  "Cove",
-  "Grove",
-  "Terrace",
-  "Reserve",
-  "Promenade",
-  "Cliff",
-  "Haven",
-  "Museum Park",
-  "Lookout",
-  "Valley",
+  "水湾",
+  "林苑",
+  "望台",
+  "湿地",
+  "步道",
+  "峡谷",
+  "港湾",
+  "文博园",
+  "高台",
+  "溪畔",
 ];
 
 const CAMPUS_PREFIXES = [
-  "North",
-  "River",
-  "Central",
-  "Summit",
-  "Harbor",
-  "Pioneer",
-  "Civic",
-  "Lotus",
-  "Atlas",
-  "Vertex",
-  "Metro",
+  "北辰",
+  "河湾",
+  "中庭",
+  "云峰",
+  "海韵",
+  "启新",
+  "博雅",
+  "莲湖",
+  "星图",
+  "知行",
+  "明德",
 ];
 
 const CAMPUS_SUFFIXES = [
-  "Institute",
-  "Campus",
-  "Polytechnic",
-  "College",
-  "Academy",
-  "Research Park",
-  "Learning Hub",
-  "University Center",
-  "Conservatory",
-  "School",
+  "学院",
+  "校区",
+  "工学院",
+  "书院",
+  "研学中心",
+  "科创园",
+  "学习港",
+  "大学中心",
+  "艺术馆",
+  "未来学校",
 ];
+
+const FACILITY_NAMES: Record<FacilityCategory, string> = {
+  restroom: "洗手间",
+  clinic: "医疗点",
+  store: "便利店",
+  charging: "充电站",
+  info: "问询台",
+  parking: "停车点",
+  water: "饮水点",
+  atm: "自动取款机",
+  security: "安保岗",
+  lounge: "休息区",
+};
+
+const TAG_LABELS: Record<string, string> = {
+  architecture: "建筑",
+  art: "艺术",
+  campus: "校园",
+  design: "设计",
+  family: "亲子",
+  flexible: "灵活行程",
+  food: "美食",
+  forest: "森林",
+  history: "历史",
+  learning: "学习",
+  market: "市集",
+  museum: "博物馆",
+  nature: "自然",
+  nightscape: "夜景",
+  photography: "摄影",
+  research: "研学",
+  scenic: "景区",
+  social: "社交",
+  walking: "步行",
+  waterfront: "滨水",
+  wellness: "康养",
+};
 
 type NodeKey =
   | "gate"
@@ -390,14 +438,14 @@ function createDestinationName(index: number, type: DestinationType): string {
         : baseNoun;
     const cycleIndex = Math.floor(subIndex / SCENIC_ADJECTIVES.length);
     if (cycleIndex === 0) {
-      return `${adjective} ${noun}`;
+      return `${adjective}${noun}`;
     }
     const qualifier = SCENIC_QUALIFIERS[(cycleIndex - 1) % SCENIC_QUALIFIERS.length];
-    return `${adjective} ${qualifier} ${noun}`;
+    return `${adjective}${qualifier}${noun}`;
   }
   const prefix = CAMPUS_PREFIXES[subIndex % CAMPUS_PREFIXES.length];
   const suffix = CAMPUS_SUFFIXES[(subIndex * 3) % CAMPUS_SUFFIXES.length];
-  return `${prefix} ${suffix}`;
+  return `${prefix}${suffix}`;
 }
 
 function selectGraphVariant(index: number, type: DestinationType): GraphVariant {
@@ -412,7 +460,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
   return [
     {
       id: `${destinationId}-gate`,
-      name: "Main Gate",
+      name: "主入口",
       kind: "gate",
       floor: 0,
       x: coordinates.gate.x,
@@ -421,7 +469,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-plaza`,
-      name: type === "scenic" ? "Sun Plaza" : "Civic Plaza",
+      name: type === "scenic" ? "迎宾广场" : "中庭广场",
       kind: "plaza",
       floor: 0,
       x: coordinates.plaza.x,
@@ -430,7 +478,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-gallery`,
-      name: type === "scenic" ? "Gallery Row" : "Library Court",
+      name: type === "scenic" ? "展廊街" : "图书庭院",
       kind: "building",
       floor: 0,
       x: coordinates.gallery.x,
@@ -440,7 +488,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-garden`,
-      name: type === "scenic" ? "Garden Walk" : "Research Garden",
+      name: type === "scenic" ? "花径步道" : "研学花园",
       kind: "scenic",
       floor: 0,
       x: coordinates.garden.x,
@@ -449,7 +497,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-lake`,
-      name: type === "scenic" ? "Mirror Lake" : "Innovation Court",
+      name: type === "scenic" ? "镜湖" : "创新庭院",
       kind: "scenic",
       floor: 0,
       x: coordinates.lake.x,
@@ -458,7 +506,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-market`,
-      name: type === "scenic" ? "Night Market" : "Food Street",
+      name: type === "scenic" ? "夜游市集" : "美食街",
       kind: "plaza",
       floor: 0,
       x: coordinates.market.x,
@@ -467,7 +515,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-hub`,
-      name: type === "scenic" ? "Transit Terrace" : "Mobility Hub",
+      name: type === "scenic" ? "换乘露台" : "交通枢纽",
       kind: "junction",
       floor: 0,
       x: coordinates.hub.x,
@@ -476,7 +524,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-hall-entry`,
-      name: type === "scenic" ? "Sky Hall Entry" : "Innovation Center Entry",
+      name: type === "scenic" ? "云厅入口" : "创新中心入口",
       kind: "building",
       floor: 0,
       x: coordinates["hall-entry"].x,
@@ -486,7 +534,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-deck`,
-      name: type === "scenic" ? "Lookout Deck" : "Studio Square",
+      name: type === "scenic" ? "观景平台" : "工作坊广场",
       kind: "plaza",
       floor: 0,
       x: coordinates.deck.x,
@@ -495,7 +543,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-hall-l1`,
-      name: "Hall Lobby",
+      name: "一层大厅",
       kind: "room",
       floor: 1,
       x: coordinates["hall-l1"].x,
@@ -505,7 +553,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-elevator-l1`,
-      name: "East Elevator L1",
+      name: "东侧电梯一层",
       kind: "elevator",
       floor: 1,
       x: coordinates["elevator-l1"].x,
@@ -515,7 +563,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-elevator-l2`,
-      name: "East Elevator L2",
+      name: "东侧电梯二层",
       kind: "elevator",
       floor: 2,
       x: coordinates["elevator-l2"].x,
@@ -525,7 +573,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-archive`,
-      name: type === "scenic" ? "Archive Room" : "Media Lab",
+      name: type === "scenic" ? "文献室" : "媒体实验室",
       kind: "room",
       floor: 2,
       x: coordinates.archive.x,
@@ -535,7 +583,7 @@ function createNodes(destinationId: string, type: DestinationType, variant: Grap
     },
     {
       id: `${destinationId}-studio`,
-      name: type === "scenic" ? "Light Studio" : "Idea Studio",
+      name: type === "scenic" ? "光影工作室" : "创意工作室",
       kind: "room",
       floor: 2,
       x: coordinates.studio.x,
@@ -597,8 +645,8 @@ function createBuildings(destinationId: string, type: DestinationType): Building
     {
       id: `${destinationId}-building-hall`,
       destinationId,
-      name: type === "scenic" ? "Sky Hall" : "Innovation Center",
-      category: type === "scenic" ? "exhibition" : "teaching",
+      name: type === "scenic" ? "云厅" : "创新中心",
+      category: type === "scenic" ? "展陈" : "教学",
       entranceNodeId: `${destinationId}-hall-entry`,
       floors: 2,
       tags: ["indoor", "showcase", "demo"],
@@ -606,8 +654,8 @@ function createBuildings(destinationId: string, type: DestinationType): Building
     {
       id: `${destinationId}-building-gallery`,
       destinationId,
-      name: type === "scenic" ? "Harbor Gallery" : "North Library",
-      category: type === "scenic" ? "museum" : "library",
+      name: type === "scenic" ? "海湾展馆" : "北区图书馆",
+      category: type === "scenic" ? "博物馆" : "图书馆",
       entranceNodeId: `${destinationId}-gallery`,
       floors: 1,
       tags: ["culture", "quiet", "landmark"],
@@ -615,8 +663,8 @@ function createBuildings(destinationId: string, type: DestinationType): Building
     {
       id: `${destinationId}-building-hub`,
       destinationId,
-      name: type === "scenic" ? "Transit Pavilion" : "Studio Commons",
-      category: type === "scenic" ? "service" : "student-center",
+      name: type === "scenic" ? "换乘亭" : "学生活动中心",
+      category: type === "scenic" ? "服务" : "学生中心",
       entranceNodeId: `${destinationId}-hub`,
       floors: 1,
       tags: ["services", "support", "rest"],
@@ -638,7 +686,7 @@ function createFacilities(destinationId: string, index: number): FacilityRecord[
       id: `${destinationId}-facility-${offset + 1}`,
       destinationId,
       nodeId,
-      name: `${category} station ${offset + 1}`,
+      name: `${FACILITY_NAMES[category]} ${offset + 1}`,
       category,
       openHours: offset === 1 ? "24/7" : "08:00-22:00",
     };
@@ -654,17 +702,18 @@ function createFoods(destinationId: string, index: number, type: DestinationType
   ];
   return nodes.map((nodeId, offset) => {
     const cuisine = CUISINES[(index + offset) % CUISINES.length];
+    const searchKeyword = CUISINE_SEARCH_KEYWORDS[(index + offset) % CUISINE_SEARCH_KEYWORDS.length];
     return {
       id: `${destinationId}-food-${offset + 1}`,
       destinationId,
       nodeId,
-      name: `${cuisine} ${type === "scenic" ? "kitchen" : "counter"} ${offset + 1}`,
-      venue: type === "scenic" ? "harbor court" : "student lane",
+      name: `${cuisine}${type === "scenic" ? "厨房" : "档口"} ${offset + 1}`,
+      venue: type === "scenic" ? "海湾庭院" : "学生巷",
       cuisine,
       rating: Number((4 + ((index + offset) % 10) / 10).toFixed(1)),
       heat: 55 + ((index * 9 + offset * 7) % 43),
       avgPrice: 16 + ((index + offset) % 6) * 4,
-      keywords: [cuisine, type, offset % 2 === 0 ? "quick bite" : "signature"],
+      keywords: [cuisine, searchKeyword, type, offset % 2 === 0 ? "quick bite" : "signature"],
     };
   });
 }
@@ -683,8 +732,8 @@ function createDestination(index: number): DestinationRecord {
     region: REGIONS[index % REGIONS.length],
     description:
       type === "scenic"
-        ? `${name} blends outdoor walks, elevated views, and indoor exhibits for short tourism loops.`
-        : `${name} mixes teaching spaces, indoor labs, and food streets for campus touring and navigation demos.`,
+        ? `${name}串联户外步道、观景平台和室内展陈，适合半日游览和轻量路线规划。`
+        : `${name}融合教学空间、室内实验室和生活街区，适合校园参观与导航演示。`,
     categories: [...tagSet, type],
     keywords: [...tagSet, type, index % 3 === 0 ? "featured" : "flexible", index % 5 === 0 ? "family" : "solo"],
     heat: heatFor(index),
@@ -702,18 +751,18 @@ function createDestination(index: number): DestinationRecord {
 
 function createUsers(destinations: DestinationRecord[]): UserRecord[] {
   const names = [
-    "Ari Chen",
-    "Mina Zhou",
-    "Leo Hart",
-    "Tao Lin",
-    "Nia Park",
-    "Jules Reed",
-    "Demi Sun",
-    "Kai Brook",
-    "Iris Moon",
-    "Owen Vale",
-    "Lina Moss",
-    "Rory Pike",
+    "本地向导",
+    "校园讲解员",
+    "周末游客",
+    "摄影爱好者",
+    "亲子旅行者",
+    "研学志愿者",
+    "城市漫游者",
+    "美食记录员",
+    "骑行体验官",
+    "夜游观察员",
+    "路线体验员",
+    "展馆志愿者",
   ];
   return names.map((name, index) => ({
     id: `user-${index + 1}`,
@@ -725,30 +774,58 @@ function createUsers(destinations: DestinationRecord[]): UserRecord[] {
 }
 
 function createJournals(destinations: DestinationRecord[], users: UserRecord[]): JournalRecord[] {
-  return users.slice(0, 12).map((user, index) => {
-    const destination = destinations[index * 3];
+  const journalPlans = [
+    {
+      destinationIndex: 0,
+      title: "半日慢游记录",
+      body:
+        "上午从主入口进入，先沿着花径步道走到镜湖，再回到展廊街看完一组临展。整条路线节奏不赶，适合第一次来的人先熟悉动线。",
+      userIndex: 0,
+    },
+    {
+      destinationIndex: 1,
+      title: "室内路线备忘",
+      body:
+        "北辰学院的室内动线比想象中清楚：主入口到中庭广场，再接创新中心和媒体实验室。下雨天也能完成一条比较完整的参观路线。",
+      userIndex: 1,
+    },
+    {
+      destinationIndex: 4,
+      title: "傍晚市集和水岸",
+      body:
+        "海棠古渡傍晚更适合停留。先看水岸，再去夜游市集吃点东西，最后从观景平台回望海港线，路线短但层次很完整。",
+      userIndex: 2,
+    },
+    {
+      destinationIndex: 7,
+      title: "校园参观小结",
+      body:
+        "云峰未来学校的学习空间和生活区连得很自然。图书庭院、研学花园和美食街都在一条轻松步行线上，适合做校园开放日示范。",
+      userIndex: 5,
+    },
+  ];
+
+  return journalPlans.map((plan, index) => {
+    const destination = destinations[plan.destinationIndex];
+    const user = users[plan.userIndex];
     const createdAt = `2026-03-${String(5 + index).padStart(2, "0")}T0${index % 6}:30:00.000Z`;
-    const body =
-      `Started at ${destination.name} and moved from the gate to the central plaza before checking the indoor hall. ` +
-      `The route balanced walking and quick service stops, and the local food counter turned into the strongest memory. ` +
-      `I would recommend this loop for visitors who like ${user.interests.join(", ")} experiences.`;
     return {
       id: `journal-${index + 1}`,
       userId: user.id,
       destinationId: destination.id,
-      title: `${destination.name} field note ${index + 1}`,
-      body,
+      title: `${destination.name}${plan.title}`,
+      body: plan.body,
       tags: [...destination.categories.slice(0, 2), ...user.interests.slice(0, 2)],
       media: [
         {
           type: "image",
-          title: "Cover frame",
+          title: "封面照片",
           source: `generated://cover/${destination.id}`,
-          note: "Synthetic preview asset",
+          note: "系统生成的预览素材",
         },
         {
           type: "video",
-          title: "Route clip",
+          title: "路线短片",
           source: `generated://clip/${destination.id}`,
         },
       ],

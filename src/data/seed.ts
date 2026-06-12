@@ -9,62 +9,62 @@ import { fallbackSeedData } from "../services/fallback-data";
 export const facilityCategories: FacilityCategoryDefinition[] = [
   {
     id: "restroom",
-    label: "Restrooms",
-    summary: "Indoor and outdoor restroom stops across the destination network.",
+    label: "洗手间",
+    summary: "覆盖目的地室内外动线的洗手间点位。",
     keywords: ["restroom", "bathroom", "toilet"],
   },
   {
     id: "clinic",
-    label: "Clinics",
-    summary: "First-aid and on-site care points for urgent visitor needs.",
+    label: "医疗点",
+    summary: "面向游客临时需求的急救和现场照护点。",
     keywords: ["clinic", "medical", "first aid"],
   },
   {
     id: "store",
-    label: "Stores",
-    summary: "Retail counters for travel basics, gifts, and quick supplies.",
+    label: "商店",
+    summary: "提供旅行用品、纪念品和临时补给的零售点。",
     keywords: ["store", "shop", "retail"],
   },
   {
     id: "charging",
-    label: "Charging",
-    summary: "Power and device charging points near active circulation nodes.",
+    label: "充电点",
+    summary: "分布在主要动线附近的电源和设备充电点。",
     keywords: ["charging", "power", "device"],
   },
   {
     id: "info",
-    label: "Information",
-    summary: "Help desks and visitor guidance points for wayfinding support.",
+    label: "问询处",
+    summary: "提供路线咨询和游客引导的信息服务点。",
     keywords: ["info", "help", "guide"],
   },
   {
     id: "parking",
-    label: "Parking",
-    summary: "Vehicle and bike parking access points around major entries.",
+    label: "停车点",
+    summary: "靠近主要入口的机动车和自行车停放点。",
     keywords: ["parking", "garage", "bike"],
   },
   {
     id: "water",
-    label: "Water",
-    summary: "Bottle refill and drinking water stops along common routes.",
+    label: "饮水点",
+    summary: "沿常用路线布置的饮水和补水点。",
     keywords: ["water", "refill", "drink"],
   },
   {
     id: "atm",
-    label: "ATMs",
-    summary: "Cash access points near plazas, halls, and market areas.",
+    label: "自动取款机",
+    summary: "分布在广场、展厅和市集周边的取现点。",
     keywords: ["atm", "cash", "banking"],
   },
   {
     id: "security",
-    label: "Security",
-    summary: "Security and assistance desks positioned at key checkpoints.",
+    label: "安保点",
+    summary: "布置在关键节点的安保和协助服务点。",
     keywords: ["security", "safety", "assistance"],
   },
   {
     id: "lounge",
-    label: "Lounges",
-    summary: "Rest and waiting spaces for breaks between destination stops.",
+    label: "休息区",
+    summary: "适合行程间隙停留、等候和短暂休整的空间。",
     keywords: ["lounge", "rest", "waiting"],
   },
 ];
@@ -86,23 +86,23 @@ function worldPlacementLabel(destinationId: string, regionName: string): string 
 }
 
 function worldNodeGateLabel(destinationId: string): string {
-  return `${catalogDestinationName(destinationId)} Gate`;
+  return `${catalogDestinationName(destinationId)}入口`;
 }
 
 function worldPortalMainGateLabel(destinationId: string): string {
-  return `${catalogDestinationName(destinationId)} Main Gate`;
+  return `${catalogDestinationName(destinationId)}主入口`;
 }
 
 export const worldData: WorldMapRecord = {
   id: "world-boston-inspired",
-  name: "Trail Atlas Overworld - Boston Inspired",
+  name: "Trail Atlas 世界地图 - 城市湾区灵感版",
   width: 4096,
   height: 3072,
   backgroundImage: "/assets/world-map/atlas-boston-inspired-v1.png",
   regions: [
     {
       id: "world-region-river-arc",
-      name: "River Arc",
+      name: "河湾",
       polygon: [
         [720, 520],
         [1800, 560],
@@ -114,7 +114,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       id: "world-region-north-belt",
-      name: "North Belt",
+      name: "北部带",
       polygon: [
         [1540, 240],
         [2700, 260],
@@ -126,7 +126,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       id: "world-region-west-ridge",
-      name: "West Ridge",
+      name: "西岭",
       polygon: [
         [240, 1080],
         [1220, 980],
@@ -137,7 +137,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       id: "world-region-central-axis",
-      name: "Central Axis",
+      name: "中轴",
       polygon: [
         [1660, 980],
         [2360, 940],
@@ -148,7 +148,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       id: "world-region-harbor-line",
-      name: "Harbor Line",
+      name: "海港线",
       polygon: [
         [2840, 660],
         [3840, 740],
@@ -160,7 +160,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       id: "world-region-east-loop",
-      name: "East Loop",
+      name: "东环",
       polygon: [
         [2600, 1760],
         [3720, 1840],
@@ -173,7 +173,7 @@ export const worldData: WorldMapRecord = {
   destinations: [
     {
       destinationId: "dest-001",
-      label: worldPlacementLabel("dest-001", "North Belt"),
+      label: worldPlacementLabel("dest-001", "北部带"),
       x: 1816,
       y: 394,
       radius: 20,
@@ -183,7 +183,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-007",
-      label: worldPlacementLabel("dest-007", "North Belt"),
+      label: worldPlacementLabel("dest-007", "北部带"),
       x: 2392,
       y: 568,
       radius: 20,
@@ -193,7 +193,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-002",
-      label: worldPlacementLabel("dest-002", "River Arc"),
+      label: worldPlacementLabel("dest-002", "河湾"),
       x: 1068,
       y: 786,
       radius: 20,
@@ -203,7 +203,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-008",
-      label: worldPlacementLabel("dest-008", "River Arc"),
+      label: worldPlacementLabel("dest-008", "河湾"),
       x: 1594,
       y: 1076,
       radius: 20,
@@ -213,7 +213,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-004",
-      label: worldPlacementLabel("dest-004", "West Ridge"),
+      label: worldPlacementLabel("dest-004", "西岭"),
       x: 618,
       y: 1458,
       radius: 20,
@@ -223,7 +223,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-010",
-      label: worldPlacementLabel("dest-010", "West Ridge"),
+      label: worldPlacementLabel("dest-010", "西岭"),
       x: 964,
       y: 1846,
       radius: 20,
@@ -233,7 +233,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-006",
-      label: worldPlacementLabel("dest-006", "Central Axis"),
+      label: worldPlacementLabel("dest-006", "中轴"),
       x: 1828,
       y: 1904,
       radius: 20,
@@ -243,7 +243,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-012",
-      label: worldPlacementLabel("dest-012", "Central Axis"),
+      label: worldPlacementLabel("dest-012", "中轴"),
       x: 2226,
       y: 2028,
       radius: 20,
@@ -253,7 +253,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-003",
-      label: worldPlacementLabel("dest-003", "Harbor Line"),
+      label: worldPlacementLabel("dest-003", "海港线"),
       x: 3046,
       y: 894,
       radius: 20,
@@ -263,7 +263,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-009",
-      label: worldPlacementLabel("dest-009", "Harbor Line"),
+      label: worldPlacementLabel("dest-009", "海港线"),
       x: 3474,
       y: 1276,
       radius: 20,
@@ -273,7 +273,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-005",
-      label: worldPlacementLabel("dest-005", "East Loop"),
+      label: worldPlacementLabel("dest-005", "东环"),
       x: 2896,
       y: 2174,
       radius: 20,
@@ -283,7 +283,7 @@ export const worldData: WorldMapRecord = {
     },
     {
       destinationId: "dest-011",
-      label: worldPlacementLabel("dest-011", "East Loop"),
+      label: worldPlacementLabel("dest-011", "东环"),
       x: 3356,
       y: 2392,
       radius: 20,
@@ -299,7 +299,7 @@ export const worldData: WorldMapRecord = {
         x: 1360,
         y: 940,
         kind: "hub",
-        label: "River Arc Hub",
+        label: "河湾枢纽",
         tags: ["region", "river"],
       },
       {
@@ -307,7 +307,7 @@ export const worldData: WorldMapRecord = {
         x: 2120,
         y: 520,
         kind: "hub",
-        label: "North Belt Hub",
+        label: "北部带枢纽",
         tags: ["region", "north"],
       },
       {
@@ -315,7 +315,7 @@ export const worldData: WorldMapRecord = {
         x: 780,
         y: 1700,
         kind: "hub",
-        label: "West Ridge Hub",
+        label: "西岭枢纽",
         tags: ["region", "west"],
       },
       {
@@ -323,7 +323,7 @@ export const worldData: WorldMapRecord = {
         x: 2050,
         y: 1580,
         kind: "hub",
-        label: "Central Axis Hub",
+        label: "中轴枢纽",
         tags: ["region", "central"],
       },
       {
@@ -331,7 +331,7 @@ export const worldData: WorldMapRecord = {
         x: 3200,
         y: 1120,
         kind: "hub",
-        label: "Harbor Line Hub",
+        label: "海港线枢纽",
         tags: ["region", "harbor"],
       },
       {
@@ -339,7 +339,7 @@ export const worldData: WorldMapRecord = {
         x: 3050,
         y: 2200,
         kind: "hub",
-        label: "East Loop Hub",
+        label: "东环枢纽",
         tags: ["region", "east"],
       },
       {
@@ -347,7 +347,7 @@ export const worldData: WorldMapRecord = {
         x: 1680,
         y: 1180,
         kind: "junction",
-        label: "River Crossing",
+        label: "河湾交汇点",
         tags: ["bridge", "chokepoint"],
       },
       {
@@ -355,7 +355,7 @@ export const worldData: WorldMapRecord = {
         x: 2390,
         y: 930,
         kind: "junction",
-        label: "North Bridgehead",
+        label: "北桥头",
         tags: ["bridge", "chokepoint"],
       },
       {
@@ -363,7 +363,7 @@ export const worldData: WorldMapRecord = {
         x: 2590,
         y: 1360,
         kind: "junction",
-        label: "Harbor Tunnel",
+        label: "海港隧道",
         tags: ["tunnel", "chokepoint"],
       },
       {
@@ -371,7 +371,7 @@ export const worldData: WorldMapRecord = {
         x: 2580,
         y: 2040,
         kind: "junction",
-        label: "Market Connector",
+        label: "市集连接点",
         tags: ["connector", "chokepoint"],
       },
       {

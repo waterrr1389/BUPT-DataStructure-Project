@@ -91,7 +91,7 @@ class MinHeap<T> {
 }
 
 export function normalizeText(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9\s-]+/g, " ").replace(/\s+/g, " ").trim();
+  return value.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]+/gu, " ").replace(/\s+/g, " ").trim();
 }
 
 export function tokenize(value: string): string[] {
@@ -561,7 +561,7 @@ export function generateStoryboard(title: string, prompt: string, mediaSources: 
   }
   const frames = Array.from({ length: 4 }, (_, index) => {
     const motif = promptTokens[index] ?? mediaSources[index]?.split("/").pop() ?? "journey";
-    const caption = `Frame ${index + 1}: ${motif} at ${title}`;
+    const caption = `分镜 ${index + 1}：${motif} · ${title}`;
     return {
       id: `frame-${index + 1}`,
       caption,
@@ -570,7 +570,7 @@ export function generateStoryboard(title: string, prompt: string, mediaSources: 
     };
   });
   return {
-    title: `${title} storyboard`,
+    title: `${title}故事板`,
     frames,
   };
 }

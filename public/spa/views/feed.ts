@@ -38,7 +38,6 @@ export async function render(
 
   const bootstrap = await app.loadBootstrap();
   const destinationBindings = app.getDestinationBindings();
-  const users = safeArray(bootstrap?.users);
   const destinationOptions = app.getDestinationOptions();
   const currentUserId = String(app.getCurrentUser()?.id ?? "");
 
@@ -77,10 +76,6 @@ export async function render(
           <label>
             ${escapeHtml(copy.stream.labels.destination)}
             <select id="feed-destination-filter"></select>
-          </label>
-          <label>
-            ${escapeHtml(copy.stream.labels.author)}
-            <select id="feed-author-filter"></select>
           </label>
           <label>
             ${escapeHtml(copy.stream.labels.limit)}
@@ -150,19 +145,13 @@ export async function render(
     </section>
   `;
 
-  fillSelect(root.querySelector("#feed-author-filter"), users, {
-    includeBlank: true,
-    blankLabel: copy.stream.blankLabels.author,
-  });
   app.applySelectorBindings(root, destinationBindings?.selectorBindings);
   root.querySelector("#feed-exchange-destination").value = destinationOptions[0]?.id || "";
   root.querySelector("#feed-destination-filter").value = route.params.destinationId || "";
-  root.querySelector("#feed-author-filter").value = route.params.author || "";
 
   const feedResults = root.querySelector("#feed-results");
   const feedNotice = root.querySelector("#feed-notice");
   const exchangeResults = root.querySelector("#feed-exchange-results");
-  const authorFilter = root.querySelector("#feed-author-filter");
   const destinationFilter = root.querySelector("#feed-destination-filter");
 
   let disposed = false;
@@ -177,13 +166,11 @@ export async function render(
   async function loadFeed(mode = "latest") {
     currentFeedMode = mode;
     const destinationId = destinationFilter.value;
-    const authorId = authorFilter.value;
     const limit = root.querySelector("#feed-limit").value;
 
     app.navigate(
       createUrl("/feed", {
         destinationId,
-        author: authorId,
       }),
       { replace: true, preserveScroll: true, render: false },
     );
@@ -197,16 +184,13 @@ export async function render(
                 userId: currentUserId,
                 limit,
               }),
-            ).filter((item) => !authorId || item.userId === authorId),
+            ),
             notice: currentUserId
-              ? authorId
-                ? copy.stream.notices.recommendedFiltered
-                : copy.stream.notices.recommended
+              ? copy.stream.notices.recommended
               : copy.stream.notices.chooseTraveler,
           }
         : await app.fetchFeed({
             destinationId,
-            userId: authorId,
             viewerUserId: currentUserId,
             limit,
           });

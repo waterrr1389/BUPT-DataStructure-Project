@@ -27,7 +27,7 @@ test("food search tolerates typo queries on the real dataset", async () => {
     query: "nodle",
     limit: 5,
   }) as Array<{ name: string; matchScore?: number; matches?: string[] }>;
-  const noodleLab = results.find((item) => item.name === "noodle lab kitchen 4");
+  const noodleLab = results.find((item) => item.name === "面食工坊厨房 4");
 
   if (!noodleLab) {
     throw new Error(format(results));
@@ -45,7 +45,7 @@ test("legacy destination, food, and exchange queries clamp over-max limits", asy
     cuisine: "tea",
     limit: 99,
   });
-  const exchangeResults = await app.exchange.searchText("field note", 99);
+  const exchangeResults = await app.exchange.searchText("路线", 99);
 
   assert.equal(catalog.length, 60, format(catalog));
   assert.equal(Array.isArray(foods), true, format(foods));
@@ -54,11 +54,11 @@ test("legacy destination, food, and exchange queries clamp over-max limits", asy
 
 test("journal exchange keeps exact-title lookup separate from full-text search", async () => {
   const app = await createIsolatedApp("journal-search");
-  const exact = await app.exchange.exactTitle("Amber Bay field note 1");
-  const bodyOnly = await app.exchange.exactTitle("indoor hall");
-  const results = await app.exchange.searchText("indoor hall", 5);
+  const exact = await app.exchange.exactTitle("青岚湖景区半日慢游记录");
+  const bodyOnly = await app.exchange.exactTitle("花径步道");
+  const results = await app.exchange.searchText("花径步道", 5);
   const match = results.find((entry) => (entry as { id?: string }).id === "journal-1") as
-    | { id?: string; matches?: string[] }
+    | { id?: string; excerpt?: string; matches?: string[] }
     | undefined;
 
   assert.equal(exact?.id, "journal-1");
@@ -66,13 +66,12 @@ test("journal exchange keeps exact-title lookup separate from full-text search",
   if (!match) {
     throw new Error(format(results));
   }
-  assert.ok(match.matches?.includes("indoor"), format(match));
-  assert.ok(match.matches?.includes("hall"), format(match));
+  assert.ok(match.excerpt?.includes("花径步道"), format(match));
 });
 
 test("journal exchange compression preserves leading and trailing body whitespace", async () => {
   const app = await createIsolatedApp("journal-exchange-lossless-whitespace");
-  const body = "  North Institute indoor archive loop.\n\nSecond line.  \n";
+  const body = "  北辰学院室内档案路线。\n\n第二行。  \n";
   const compressed = app.exchange.compress(body);
   const decompressed = app.exchange.decompress(compressed.compressed);
 

@@ -4,14 +4,14 @@ import path from "node:path";
 import { createAppServices, type AppServices } from "../src/services/index";
 
 const DEMO_DESTINATION_ID = "dest-002";
-const DEMO_DESTINATION_NAME = "North Institute";
-const DEMO_DESTINATION_QUERY = "north institute";
+const DEMO_DESTINATION_NAME = "北辰学院";
+const DEMO_DESTINATION_QUERY = "北辰学院";
 const DEMO_FOOD_QUERY = "noodle lab";
-const DEMO_FULL_TEXT_QUERY = "media lab noodle";
-const DEMO_JOURNAL_TITLE = "North Institute indoor loop memo";
+const DEMO_FULL_TEXT_QUERY = "媒体实验室 面食";
+const DEMO_JOURNAL_TITLE = "北辰学院室内路线备忘";
 const DEMO_JOURNAL_BODY =
-  "Started at the main gate, crossed Civic Plaza, then moved into the Innovation Center lobby and media lab. " +
-  "The noodle lab counter and info station made the route easy to recommend.";
+  "从主入口出发，穿过中庭广场，再进入创新中心大厅和媒体实验室。 " +
+  "面食工坊档口和问询台让这条路线更容易推荐。";
 const DEMO_ROUTE_START_NODE_ID = `${DEMO_DESTINATION_ID}-gate`;
 const DEMO_ROUTE_END_NODE_ID = `${DEMO_DESTINATION_ID}-archive`;
 const DEMO_RECOMMENDATION_USER_ID = "user-2";

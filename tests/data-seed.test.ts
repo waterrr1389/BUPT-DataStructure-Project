@@ -75,10 +75,10 @@ test("seed destination ids stay stable while names remain unique and credible", 
     [],
   );
 
-  assert.equal(destinationById.get("dest-001")?.name, "Amber Bay");
-  assert.equal(destinationById.get("dest-002")?.name, "North Institute");
-  assert.equal(destinationById.get("dest-003")?.name, "Juniper Reserve");
-  assert.equal(destinationById.get("dest-005")?.name, "Harbor Haven");
+  assert.equal(destinationById.get("dest-001")?.name, "青岚湖景区");
+  assert.equal(destinationById.get("dest-002")?.name, "北辰学院");
+  assert.equal(destinationById.get("dest-003")?.name, "云麓湿地公园");
+  assert.equal(destinationById.get("dest-005")?.name, "海棠古渡");
 });
 
 test("validateSeedData keeps world optional for local-only seed data", () => {
@@ -97,17 +97,17 @@ test("validateSeedData rejects duplicate destination names and adjacent repeated
   const duplicateResult = validateSeedData(duplicateName);
 
   assert.equal(duplicateResult.ok, false);
-  assert.match(duplicateResult.issues.join("\n"), /destination name "Amber Bay" is duplicated/);
+  assert.match(duplicateResult.issues.join("\n"), /destination name "青岚湖景区" is duplicated/);
 
   const repeatedWords = structuredClone(seedData);
-  repeatedWords.destinations[2].name = "Harbor Harbor";
+  repeatedWords.destinations[2].name = "海港 海港";
 
   const repeatedResult = validateSeedData(repeatedWords);
 
   assert.equal(repeatedResult.ok, false);
   assert.match(
     repeatedResult.issues.join("\n"),
-    /destination "dest-003" name "Harbor Harbor" has adjacent repeated words/,
+    /destination "dest-003" name "海港 海港" has adjacent repeated words/,
   );
 });
 
@@ -220,7 +220,7 @@ test("validateSeedData rejects invalid world references and portal semantics", (
       mutate: (candidate) => {
         candidate.world!.destinations[0].label = "Stale Placement Label";
       },
-      expectedIssue: /world destination placement "dest-001" label "Stale Placement Label" must match catalog label "Amber Bay · North Belt"/,
+      expectedIssue: /world destination placement "dest-001" label "Stale Placement Label" must match catalog label "青岚湖景区 · 北部带"/,
     },
     {
       name: "world portal node label must follow the catalog name",
@@ -233,14 +233,14 @@ test("validateSeedData rejects invalid world references and portal semantics", (
         }
         portalNode.label = "Stale Node Label";
       },
-      expectedIssue: /world node "world-node-dest-001-main" label "Stale Node Label" must match catalog label "Amber Bay Gate"/,
+      expectedIssue: /world node "world-node-dest-001-main" label "Stale Node Label" must match catalog label "青岚湖景区入口"/,
     },
     {
       name: "world portal label must follow the catalog name",
       mutate: (candidate) => {
         candidate.world!.portals[0].label = "Stale Portal Label";
       },
-      expectedIssue: /world portal "portal-dest-001-main" label "Stale Portal Label" must match catalog label "Amber Bay Main Gate"/,
+      expectedIssue: /world portal "portal-dest-001-main" label "Stale Portal Label" must match catalog label "青岚湖景区主入口"/,
     },
     {
       name: "non-main world portal label must begin with the catalog name",
@@ -249,16 +249,16 @@ test("validateSeedData rejects invalid world references and portal semantics", (
         portal.portalType = "connector";
         portal.label = "Wrong Destination Connector";
       },
-      expectedIssue: /world portal "portal-dest-001-main" label "Wrong Destination Connector" must begin with catalog destination name "Amber Bay"/,
+      expectedIssue: /world portal "portal-dest-001-main" label "Wrong Destination Connector" must begin with catalog destination name "青岚湖景区"/,
     },
     {
       name: "non-main world portal label must not mix another catalog name",
       mutate: (candidate) => {
         const portal = candidate.world!.portals[0];
         portal.portalType = "connector";
-        portal.label = "Amber Bay North Institute Connector";
+        portal.label = "青岚湖景区北辰学院连接口";
       },
-      expectedIssue: /world portal "portal-dest-001-main" label "Amber Bay North Institute Connector" must not include another catalog destination name "North Institute"/,
+      expectedIssue: /world portal "portal-dest-001-main" label "青岚湖景区北辰学院连接口" must not include another catalog destination name "北辰学院"/,
     },
     {
       name: "world portal must not be wired to another destination portal node",
@@ -306,11 +306,11 @@ test("world visible destination labels align with the catalog names", () => {
     assert.equal(placement.label, `${destination.name} · ${region.name}`);
 
     const portalNode = portalNodeByDestinationId.get(placement.destinationId);
-    assert.equal(portalNode?.label, `${destination.name} Gate`);
+    assert.equal(portalNode?.label, `${destination.name}入口`);
 
     for (const portalId of placement.portalIds) {
       const portal = world.portals.find((candidate) => candidate.id === portalId);
-      assert.equal(portal?.label, `${destination.name} Main Gate`);
+      assert.equal(portal?.label, `${destination.name}主入口`);
     }
   }
 });

@@ -110,15 +110,15 @@ function expectedWorldPlacementLabel(destinationName: string, regionName: string
 }
 
 function expectedWorldNodeGateLabel(destinationName: string): string {
-  return `${destinationName} Gate`;
+  return `${destinationName}入口`;
 }
 
 function expectedWorldPortalMainGateLabel(destinationName: string): string {
-  return `${destinationName} Main Gate`;
+  return `${destinationName}主入口`;
 }
 
 function hasCatalogDestinationNamePrefix(label: string, destinationName: string): boolean {
-  return label === destinationName || label.startsWith(`${destinationName} `);
+  return label === destinationName || label.startsWith(destinationName);
 }
 
 function escapeRegExp(value: string): string {
@@ -126,7 +126,7 @@ function escapeRegExp(value: string): string {
 }
 
 function includesCatalogDestinationName(label: string, destinationName: string): boolean {
-  return new RegExp(`(^|\\s)${escapeRegExp(destinationName)}($|\\s)`, "i").test(label);
+  return label.includes(destinationName) || new RegExp(`(^|\\s)${escapeRegExp(destinationName)}($|\\s)`, "i").test(label);
 }
 
 function ensureUniqueIds<T extends { id: string }>(
