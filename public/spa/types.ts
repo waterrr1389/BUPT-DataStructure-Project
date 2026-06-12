@@ -142,6 +142,8 @@ export interface SpaApp {
   ): Promise<TResponse>;
   /** Loads and caches the bootstrap payload required by SPA views. */
   loadBootstrap(): Promise<JsonRecord>;
+  /** Refreshes the authenticated user and reloads bootstrap-dependent shell state. */
+  refreshCurrentUser?(): Promise<JsonRecord | null>;
   /** Returns the cached bootstrap payload when it has already been loaded. */
   getBootstrap(): JsonRecord | null;
   /** Returns destination selector bindings prepared from bootstrap data. */

@@ -152,7 +152,11 @@ export async function render(
           });
         }
 
-        await app.loadBootstrap();
+        if (typeof app.refreshCurrentUser === "function") {
+          await app.refreshCurrentUser();
+        } else {
+          await app.loadBootstrap();
+        }
         app.navigate("/", { replace: true });
       } catch (error) {
         errorBanner.textContent = (error as Error).message || "请求失败，请稍后重试";

@@ -47,6 +47,7 @@ type AppShellModule = {
       journalId: string,
       options?: { cursor?: string; limit?: number },
     ): Promise<CommentResponse>;
+    getCurrentUser(): Record<string, unknown> | null;
     navigate(href: string, options?: Record<string, unknown>): void;
     parseRoute(url?: URL): {
       params: {

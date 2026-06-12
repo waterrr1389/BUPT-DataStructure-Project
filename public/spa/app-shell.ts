@@ -269,6 +269,23 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
     return state.bootstrapPromise;
   }
 
+  function resetBootstrapCache() {
+    state.bootstrap = null;
+    state.bootstrapPromise = null;
+  }
+
+  async function refreshCurrentUser() {
+    const me = await requestJson("/api/auth/me");
+    state.currentUser = me?.item ?? null;
+    if (state.currentUser?.id) {
+      state.userById.set(state.currentUser.id, state.currentUser);
+    }
+    resetBootstrapCache();
+    await loadBootstrap();
+    renderUserBar();
+    return state.currentUser;
+  }
+
   /**
    * Returns the cached bootstrap payload after it has been loaded.
    */
@@ -937,6 +954,7 @@ export function createAppShell(root: HTMLElement): SpaAppShell {
   const app: SpaAppShell = {
     state,
     loadBootstrap,
+    refreshCurrentUser,
     getBootstrap,
     getDestinationBindings,
     getJournalBindings,

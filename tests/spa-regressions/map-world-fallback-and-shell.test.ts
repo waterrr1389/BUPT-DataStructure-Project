@@ -5,6 +5,7 @@ import {
   createClassicScriptEvaluator,
   createJsonResponse,
   createSpaDomEnvironment,
+  dispatchDomEvent,
   importSpaModule,
   loadPublicPageFromIndexHtml,
   requireElement,
@@ -808,6 +809,98 @@ test("public page contract boots the shell without direct helper injection", asy
   } finally {
     globalThis.fetch = previousFetch;
     globals.RouteVisualizationMarkers = previousRouteVisualizationMarkers;
+    globals.JournalConsumers = previousJournalConsumers;
+    globals.JournalPresentation = previousJournalPresentation;
+    restore();
+  }
+});
+
+test("login refreshes shell identity and compose author after anonymous bootstrap", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  const globals = globalThis as typeof globalThis & {
+    JournalConsumers?: unknown;
+    JournalPresentation?: unknown;
+  };
+  const previousFetch = globalThis.fetch;
+  const previousJournalConsumers = globals.JournalConsumers;
+  const previousJournalPresentation = globals.JournalPresentation;
+
+  try {
+    installJournalHelperGlobals(globals);
+    env.window.history.replaceState({}, "", "/login");
+
+    const requests: Array<{ body?: unknown; url: string }> = [];
+    globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      requests.push({ url, body: init?.body });
+      if (url === "/api/auth/me") {
+        const hasLoggedIn = requests.some((request) => request.url === "/api/auth/login");
+        return hasLoggedIn
+          ? createJsonResponse(200, { item: { id: "user-1", name: "本地向导" } })
+          : createJsonResponse(401, { error: "Not authenticated.", code: "auth_unauthenticated" });
+      }
+      if (url === "/api/auth/login") {
+        return createJsonResponse(200, { item: { id: "user-1", name: "本地向导" } });
+      }
+      if (url === "/api/bootstrap") {
+        const hasLoggedIn = requests.some((request) => request.url === "/api/auth/login");
+        return createJsonResponse(200, {
+          categories: [],
+          cuisines: [],
+          currentUser: hasLoggedIn ? { id: "user-1", name: "本地向导" } : null,
+          destinations: [
+            {
+              id: "dest-1",
+              name: "青岚湖景区",
+              region: "北部带",
+              type: "scenic",
+            },
+          ],
+          featured: [],
+          source: {
+            algorithms: "fallback",
+            data: "seeded",
+          },
+          users: [{ id: "user-1", name: "本地向导" }],
+        });
+      }
+      if (url === "/api/feed?limit=3") {
+        return createJsonResponse(200, { items: [], nextCursor: null });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const root = env.createRoot();
+    const module = await importSpaModule<AppShellModule>("app-shell.js");
+    const app = module.createAppShell(root);
+
+    await app.start();
+    await settleAsync();
+    requireElement(root, "#login-username").value = "user-1";
+    requireElement(root, "#login-password").value = "password";
+    dispatchDomEvent(requireElement(root, "#login-form"), "submit");
+    await settleAsync();
+
+    assert.equal(requireElement(root, "#user-label").textContent, "本地向导");
+
+    app.navigate("/compose");
+    await settleAsync();
+
+    assert.equal(app.getCurrentUser()?.name, "本地向导");
+    assert.deepEqual(
+      requests.map((request) => request.url),
+      [
+        "/api/auth/me",
+        "/api/bootstrap",
+        "/api/auth/login",
+        "/api/auth/me",
+        "/api/bootstrap",
+        "/api/feed?limit=3",
+      ],
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
     globals.JournalConsumers = previousJournalConsumers;
     globals.JournalPresentation = previousJournalPresentation;
     restore();
