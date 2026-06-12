@@ -102,7 +102,7 @@ function createSearchHit<Id, Meta>(
   return hit;
 }
 
-export function defaultTokenize(text: string): string[] {
+function defaultTokenize(text: string): string[] {
   return text.match(TOKEN_PATTERN)?.map((token) => token.toLowerCase()) ?? [];
 }
 

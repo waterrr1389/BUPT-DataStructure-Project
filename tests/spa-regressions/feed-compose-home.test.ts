@@ -79,6 +79,52 @@ test("home preview strips dead journal action buttons", async () => {
     assert.equal(root.querySelectorAll("button[data-action]").length, 0);
     assert.equal(root.innerHTML.includes("校园 · 北码头"), true);
     assert.equal(root.innerHTML.includes("campus · North Wharf"), false);
+    assert.equal(requireElement(root, ".hero-actions .primary-link").getAttribute("href"), "/explore");
+    assert.equal(root.querySelectorAll(".hero-actions .secondary-link")[0]?.getAttribute("href"), "/feed");
+    assert.equal(root.querySelectorAll(".hero-actions .secondary-link")[1]?.getAttribute("href"), "/map");
+    assert.equal(root.querySelectorAll(".home-card .section-head .inline-link")[0]?.getAttribute("href"), "/explore");
+    assert.equal(root.querySelectorAll(".home-card .section-head .inline-link")[1]?.getAttribute("href"), "/feed");
+    assert.equal(requireElement(root, ".compact-story-card .inline-link").getAttribute("href"), "/map?destinationId=dest-1");
+    assert.deepEqual(fixture.fetchFeedCalls, [{ limit: 3 }]);
+  } finally {
+    restore();
+  }
+});
+
+test("home entry links preserve actor context", async () => {
+  const env = createSpaDomEnvironment();
+  const restore = env.install();
+  try {
+    const root = env.createRoot();
+    const module = await importSpaModule<HomeModule>("views/home.js");
+    const fixture = createHomeFixture();
+
+    await module.render(
+      fixture.app,
+      {
+        name: "home",
+        params: {
+          actor: "user-2",
+        },
+      },
+      root,
+    );
+
+    assert.equal(requireElement(root, ".hero-actions .primary-link").getAttribute("href"), "/explore?actor=user-2");
+    assert.equal(root.querySelectorAll(".hero-actions .secondary-link")[0]?.getAttribute("href"), "/feed?actor=user-2");
+    assert.equal(root.querySelectorAll(".hero-actions .secondary-link")[1]?.getAttribute("href"), "/map?actor=user-2");
+    assert.equal(
+      root.querySelectorAll(".home-card .section-head .inline-link")[0]?.getAttribute("href"),
+      "/explore?actor=user-2",
+    );
+    assert.equal(
+      root.querySelectorAll(".home-card .section-head .inline-link")[1]?.getAttribute("href"),
+      "/feed?actor=user-2",
+    );
+    assert.equal(
+      requireElement(root, ".compact-story-card .inline-link").getAttribute("href"),
+      "/map?destinationId=dest-1&actor=user-2",
+    );
     assert.deepEqual(fixture.fetchFeedCalls, [{ limit: 3 }]);
   } finally {
     restore();

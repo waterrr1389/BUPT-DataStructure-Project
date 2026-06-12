@@ -15,19 +15,20 @@ The repository regression surface is:
 
 The notes below cover:
 
-- March 27, 2026 automated re-verification (`npm test`, which itself runs `npm run build`) executed for this round, plus targeted code-level confirmation where noted
-- March 19, 2026 recorded command runs for `npm run validate:data`, `npm run benchmark`, and `npm run demo` (the earlier automated-test pass is also part of that historical record)
+- May 24, 2026 automated re-verification (`npm test`, which itself runs `npm run build`) executed for this round
+- May 24, 2026 data validation (`npm run validate:data`) executed for this round
+- March 19, 2026 recorded command runs for `npm run benchmark` and `npm run demo` (the earlier automated-test and data-validation passes are also part of that historical record)
 - March 18, 2026 unrestricted live-start and browser/API smoke evidence (historical)
 
-This round reran only `npm test`/`npm run build`; the remaining command evidence stays with the March 19 or March 18 records, and the unrestricted March 18 smoke pass remains historical.
+This round reran `npm test`/`npm run build` and `npm run validate:data`; the remaining command evidence stays with the March 19 or March 18 records, and the unrestricted March 18 smoke pass remains historical.
 
 ### Build
 
-- Verified on March 27, 2026 when the round's `npm test` script (which runs `npm run build`) passed; the March 19, 2026 run also recorded `npm run build`, providing the historical baseline for the standalone build command.
+- Verified on May 24, 2026 when the round's `npm test` script (which runs `npm run build`) passed; the March 19, 2026 run also recorded `npm run build`, providing the historical baseline for the standalone build command.
 
 ### Data Validation
 
-- Recorded in the March 19, 2026 run (not rerun during this round), `npm run validate:data` passed against `src/data/seed.ts`.
+- Verified on May 24, 2026, `npm run validate:data` passed against `src/data/seed.ts`.
 - Recorded counts:
   - destinations: `220`
   - buildings: `660`
@@ -40,8 +41,8 @@ This round reran only `npm test`/`npm run build`; the remaining command evidence
 
 ### Automated Tests
 
-- March 27, 2026 reran `npm test` (which runs `npm run build` and `node dist/tests/index.js`) and passed with `144` tests.
-- Recorded March 27 automated-test evidence from this round includes:
+- May 24, 2026 reran `npm test` (which runs `npm run build` and `node dist/tests/index.js`) and passed with `201` tests.
+- Recorded May 24 automated-test evidence from this round includes:
   - top-k, trie, inverted-index, fuzzy matching, graph, multi-route, and compression algorithms
   - sample and real-seed validation
   - external runtime/source verification
@@ -52,6 +53,7 @@ This round reran only `npm test`/`npm run build`; the remaining command evidence
   - journal exact-title and full-text search behavior
   - `/api/feed` cursor, filter, and limit behavior plus graceful social fallback paths in the browser shell
   - `/api/world`, `/api/world/details`, and `/api/world/routes/plan` request/response contracts
+  - Chromium-backed Leaflet visual rendering for the real world-map raster and vector layers
   - duplicate destination-label disambiguation while preserving stable destination ids across every destination selector
   - readable journal and exchange destination and user labels with safe fallback when lookups are missing
   - selector-parity coverage in `tests/journal-consumers.test.ts` for one authoritative destination-option preparation path, shared selector bindings, full-catalog reachability from `bootstrap.destinations`, and journal actions remaining anchored to `data-journal-id`
@@ -59,7 +61,7 @@ This round reran only `npm test`/`npm run build`; the remaining command evidence
   - indoor route planning and nearby facility lookup
   - deterministic end-to-end demo report coverage
 - A March 19 recorded code inspection also confirmed that the authored browser shell uses the shared destination-selector binding helper exercised by those automated selector-parity tests; that implementation detail remains tied to the March 19 record because it was not rerun this round, and the public browser URL remains stable.
-- The March 27 automated-test rerun, not the March 18 live smoke pass, is the current evidence boundary for the newer world-mode and feed contracts.
+- The May 24 automated-test rerun, not the March 18 live smoke pass, is the current evidence boundary for the newer world-mode and feed contracts.
 
 ### Benchmarks
 
@@ -134,7 +136,7 @@ Representative deterministic outputs recorded from that run:
   - `/api/journal-exchange/storyboard`
   - `/api/foods/recommendations`
   - `/api/foods/search`
-- That March 18 live smoke record remains historical only. Current repo surfaces such as `/api/feed` and `/api/world*` are documented from the March 27 automated-test rerun rather than from a new unrestricted live-start pass.
+- That March 18 live smoke record remains historical only. Current repo surfaces such as `/api/feed` and `/api/world*` are documented from the May 24 automated-test rerun rather than from a new unrestricted live-start pass.
 - Verified smoke highlights from the March 18 live run:
   - `/api/health` returned `ok: true` with external data, algorithms, and validation sources
   - `/api/bootstrap` returned `12` users, `12` featured destinations, `20` categories, and `8` cuisines

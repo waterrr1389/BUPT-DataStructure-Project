@@ -803,7 +803,7 @@ test("public page contract boots the shell without direct helper injection", asy
     assert.equal(requireElement(root, ".site-brand").getAttribute("href"), "/");
     assert.equal(requireElement(root, "#status-pill").textContent, "运行时数据：种子数据。算法：备用实现。");
     assert.equal(requireElement(root, "#status-pill").dataset.tone, "success");
-    assert.equal(requireElement(root, "#view-root").innerHTML.includes("从目的地开始，而不是从控制面板开始"), true);
+    assert.equal(requireElement(root, "#view-root").innerHTML.includes("精选目的地"), true);
     assert.equal(env.document.title, "Trail Atlas • Trail Atlas");
   } finally {
     globalThis.fetch = previousFetch;

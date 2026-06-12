@@ -81,33 +81,26 @@ world mode 的渲染基线如下：
 - `/map`
   - 保持现有局部地图规划器角色
 
-## Scope
+## Current Scope
 
-## First Delivery
-
-第一轮只要求打通基础能力：
+当前仓库已经落地的 world mode 范围包括：
 
 - world 数据模型
 - world API summary/details
 - world capability 判断
-- `Leaflet` world 容器初始化前提
-
-第一轮不要求：
-
-- 完整 cross-map routing 实现
-- local-world-local itinerary 拼装
-- 复杂 overlay
-- 真实 GIS 导入
-
-## Second Delivery
-
-第二轮再进入：
-
+- `Leaflet + CRS.Simple` world 容器初始化
 - `POST /api/world/routes/plan`
-- portal transfer 成本落地
-- world polyline 展示
-- world 与 local 的 route handoff
-- 更完整的 zoom / pan / route explanation
+- portal transfer 成本
+- world-only 与 cross-map itinerary
+- local-world-local route handoff
+- world polyline、road/node overlay、zoom、pan 和 route explanation
+
+当前仍不把以下内容纳入范围：
+
+- 真实 GIS 导入
+- OSM tile 集成
+- 重写 local map
+- 将 world graph 与 local graph 合并成超级图
 
 ## Boston-Inspired Layout Rules
 

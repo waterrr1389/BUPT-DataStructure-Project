@@ -91,6 +91,10 @@ function facilityCardMarkup(app: SpaApp, item, context) {
 function foodCardMarkup(app: SpaApp, item, context) {
   const copy = appCopy.explore;
   const keywords = safeArray(item.keywords).map((keyword) => displayFoodKeywordLabel(keyword));
+  const mapParams = {
+    destinationId: context.destinationId,
+    to: item.nodeId,
+  };
 
   return `
     <article class="story-card compact-story-card">
@@ -101,7 +105,7 @@ function foodCardMarkup(app: SpaApp, item, context) {
       <div class="story-card-actions">
         <a
           class="inline-link"
-          href="${buildContextualMapHref(app, { destinationId: context.destinationId }, context)}"
+          href="${buildContextualMapHref(app, mapParams, context)}"
           data-nav="true"
         >
           ${copy.actions.openInMap}
@@ -155,7 +159,7 @@ export async function render(
     </section>
 
     <section class="explore-grid">
-      <article class="surface-card span-two">
+      <article class="surface-card explore-primary-card">
         <div class="section-head">
           <div>
             <p class="section-tag">${copy.destinationSurface.tag}</p>
@@ -190,7 +194,7 @@ export async function render(
         </div>
       </article>
 
-      <article class="surface-card">
+      <article class="surface-card explore-tool-card">
         <div class="section-head">
           <div>
             <p class="section-tag">${copy.facilitySurface.tag}</p>
@@ -236,7 +240,7 @@ export async function render(
         </div>
       </article>
 
-      <article class="surface-card">
+      <article class="surface-card explore-tool-card">
         <div class="section-head">
           <div>
             <p class="section-tag">${copy.foodSurface.tag}</p>

@@ -87,7 +87,7 @@
 
 ### Server And Browser Surface
 
-- `src/server/index.ts` exposes a lightweight HTTP server, serves generated assets from `dist/public/**`, and provides JSON routes for `/api/bootstrap`, `/api/world`, `/api/world/details`, `/api/world/routes/plan`, `/api/feed`, destination, route, facility, journal, exchange, and food surfaces.
+- `src/server/index.ts` exposes a lightweight HTTP server, serves generated assets from `dist/public/**`, and provides JSON routes for auth, `/api/bootstrap`, `/api/world`, `/api/world/details`, `/api/world/routes/plan`, `/api/feed`, image uploads, destination, route, facility, journal, exchange, and food surfaces.
 - `public/app.ts` and `public/spa/**/*.ts` are the browser-maintained TypeScript sources for the module-based SPA runtime.
 - No first-party browser runtime `.js` files are kept under `public/`; only `public/vendor/**` may contain source-tree JavaScript, and every first-party script is emitted through the compilation pipeline into `dist/public/`.
 - `public/journal-consumers.ts`, `public/journal-presentation.ts`, and `public/route-visualization-markers.ts` compile to stable script URLs while keeping browser-global and CommonJS-compatible behavior.
@@ -97,6 +97,7 @@
 - `dist/public/vendor/**` is the third-party exception in served runtime output and stays non-authored.
 - Source `public/` provides browser source inputs, while served UI assets are read from `dist/public/`.
 - `npm run build` compiles the first-party TypeScript from `public/` into `dist/public/` and copies `public/index.html`, `public/styles.css`, `public/assets/**`, and `public/vendor/**` into that runtime tree together with the generated scripts.
+- Uploaded images are accepted through `/api/uploads/images`, served from `/uploads/images/*`, and stored in the selected runtime directory with server-side MIME, byte-signature, size, safe-name, and reference checks.
 
 ### Scripts And Tests
 

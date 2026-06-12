@@ -151,7 +151,7 @@ export const appCopy = {
       eyebrow: "安静精致的旅行日志",
       title: "记录路线，留住气氛，也能再次回到那个地点。",
       lede:
-        "Trail Atlas 现在是一套按路线组织的浏览器体验。你可以探索目的地，在需要空间细节时打开地图，浏览克制的旅行笔记动态，也可以直接写下现场记录。",
+        "从目的地开始，查看路线、附近选择和旅行笔记；需要空间细节时，直接把结果带到地图里继续规划。",
       actions: {
         explore: "打开探索",
         feed: "阅读动态",
@@ -162,17 +162,16 @@ export const appCopy = {
         travelers: (value: unknown) => `${copyText(value, "0")} 位本地旅行者`,
         featured: (value: unknown) => `${copyText(value, "0")} 个精选地点`,
       },
-      panelTag: "主要路径",
+      panelTag: "从这里开始",
       panelItems: [
-        "探索页保留目的地推荐、美食发现和附近设施。",
-        "地图页继续承载路线规划和目的地图结构可视化。",
-        "动态和笔记详情把旅行日志呈现为更像故事的阅读体验。",
-        "写笔记页保持宽松、轻量的创作流程。",
+        "搜索目的地，或从精选推荐里挑一个地点。",
+        "打开地图查看位置、入口和路线。",
+        "浏览笔记，记录下一次到访的细节。",
       ],
     },
     featured: {
       tag: "精选地点",
-      heading: "从目的地开始，而不是从控制面板开始",
+      heading: "精选目的地",
       linkLabel: "浏览全部",
       openInMap: "在地图中打开",
       metrics: {
@@ -183,31 +182,31 @@ export const appCopy = {
     },
     feedPreview: {
       tag: "笔记预览",
-      heading: "最近笔记，无需完整社交层也能加载",
+      heading: "最近笔记",
       linkLabel: "打开动态",
-      fallbackNoticeTitle: "动态备用来源",
+      fallbackNoticeTitle: "动态暂时不可用",
       unavailableNotice: "动态预览暂时不可用。",
       emptyTitle: "暂无预览笔记",
-      emptyBody: "动态预览为空，但路由界面已经可以直接进入动态和笔记详情。",
+      emptyBody: "还没有可显示的旅行笔记。",
     },
   },
   explore: {
     documentTitle: "探索",
     hero: {
       eyebrow: "探索",
-      title: "先找到下一个地点，再在需要时展开更重的工具。",
+      title: "先找到下一个目的地。",
       lede:
-        "目的地卡片先引导浏览，美食发现和附近设施作为辅助工作区保留。只有在地图相关控件需要时，页面才会加载完整目的地图结构。",
-      panelTag: "信息结构",
+        "搜索目的地或查看推荐，再打开地图规划路线。需要时，可以继续查附近设施和美食。",
+      panelTag: "快速开始",
       panelItems: [
-        "目的地推荐和搜索仍然是主入口。",
-        "美食和设施工具保持可用，但不压过首屏内容。",
-        "相关结果都可以直接交接到地图。",
+        "搜索目的地或查看推荐。",
+        "从结果卡片直接打开地图。",
+        "按需查看附近设施和美食。",
       ],
     },
     destinationSurface: {
-      tag: "目的地卡组",
-      heading: "由推荐引导的发现",
+      tag: "目的地",
+      heading: "搜索与推荐目的地",
       refreshButton: "刷新精选",
       labels: {
         traveler: "旅行者视角",
@@ -235,7 +234,7 @@ export const appCopy = {
     },
     facilitySurface: {
       tag: "附近设施",
-      heading: "保留实用工具，不做成仪表盘",
+      heading: "附近设施",
       labels: {
         destination: "目的地",
         startNode: "起始节点",
@@ -257,7 +256,7 @@ export const appCopy = {
     },
     foodSurface: {
       tag: "美食指南",
-      heading: "让吃饭选择容易被发现，而不是被埋起来",
+      heading: "附近美食",
       labels: {
         destination: "目的地",
         traveler: "旅行者视角",
@@ -315,7 +314,7 @@ export const appCopy = {
     documentTitle: "地图",
     hero: {
       eyebrow: "地图",
-      title: "在目的地地图仍然可见的状态下规划路线。",
+      title: "选择目的地并规划路线。",
       lede: "选择目的地，预览路线起终点，再规划适合这次到访的路径。",
       worldLink: "打开世界地图",
       panelTag: "路线流程",
@@ -327,7 +326,7 @@ export const appCopy = {
     },
     planner: {
       heading: "路线规划",
-      body: "先选择空间上下文，再设置路线的起点和终点。",
+      body: "先选择目的地，再设置路线的起点和终点。",
       returnToExplore: "返回探索",
       labels: {
         destination: "目的地",
@@ -975,8 +974,6 @@ export const destinationCategoryLabels: DisplayLabelMap = {
   west: "西部",
 };
 
-export const destinationTagLabels = destinationCategoryLabels;
-
 export const cuisineLabels: DisplayLabelMap = {
   "river grill": "河畔烤物",
   "spice street": "香料街",
@@ -1039,16 +1036,6 @@ export const facilityCategoryLabels: DisplayLabelMap = {
 export const worldRouteScopeLabels: DisplayLabelMap = {
   "world-only": "仅世界地图",
   "cross-map": "跨地图路线",
-};
-
-export const routeMarkerRoleLabels: DisplayLabelMap = {
-  start: "起点",
-  end: "终点",
-  "preview-start": "预览起点",
-  "preview-end": "预览终点",
-  transition: "场景切换",
-  turn: "转向",
-  "floor-change": "楼层变化",
 };
 
 export const frontendErrorFallbacks: DisplayLabelMap = {

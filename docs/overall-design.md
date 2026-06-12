@@ -36,17 +36,19 @@ The project is designed as a TypeScript-led codebase with custom algorithm modul
 - `src/services/exchange-service.ts` supports journal discovery, text compression, and storyboard generation features.
 - `src/services/world-service.ts` exposes world availability, summary, and full world-detail payloads.
 - `src/services/world-route-service.ts` plans world-only and cross-map routes and returns structured route error contracts.
+- `src/services/auth-service.ts` and `src/services/user-store.ts` manage session-backed browser identity; registered users remain in process memory, while journal state is persisted separately by `JournalStore`.
 - `src/services/contracts.ts`, `src/services/service-helpers.ts`, `src/services/fallback-data.ts`, and `src/services/fallback-algorithms.ts` provide shared service types and support utilities.
 
 ### Delivery Layer
 
-- `src/server/index.ts` serves the generated static runtime plus JSON routes for bootstrap, destinations, local routes, facilities, journals, feed, world, world routes, journal exchange, and food features.
+- `src/server/index.ts` serves the generated static runtime plus JSON routes for auth, bootstrap, destinations, local routes, facilities, journals, feed, world, world routes, journal exchange, image uploads, and food features.
 - `public/app.ts` plus `public/spa/**/*.ts` define the browser-maintained SPA source of truth that compiles to `dist/public/app.js` and `dist/public/spa/**/*.js`.
 - `public/journal-consumers.ts`, `public/journal-presentation.ts`, and `public/route-visualization-markers.ts` compile as script-style helpers so browser-global and CommonJS-compatible behavior stays intact.
 - `public/spa/views/feed.ts` and `public/spa/views/post-detail.ts` implement the social/feed browser surface, while `public/spa/views/map.ts` and `public/spa/world-rendering.ts` handle local map planning and world-view routing flows.
 - `public/**` contains browser source assets and scenario data, including one shared destination-option preparation path that consumes the full destination catalog, applies consistent duplicate-name disambiguation, and still leaves the featured deck available for homepage cards.
 - `dist/public/**` is generated runtime output and the directory served by the built server, preserving existing URL paths after the build.
 - `public/vendor/**` contains third-party browser assets as source inputs, and `dist/public/vendor/**` is the corresponding served third-party output.
+- Runtime image uploads are stored under the selected runtime directory and exposed through `/uploads/images/*`; the server validates MIME type, byte signatures, size limits, generated file names, and reference-aware deletion.
 - `scripts/validate-data.ts`, `scripts/run-benchmarks.ts`, and `scripts/demo.ts` provide repeatable CLI entrypoints.
 - `tests/**` contains unit, integration, and smoke tests.
 

@@ -169,7 +169,7 @@ function validateOptions(gramSize: number, limit?: number, threshold?: number): 
   }
 }
 
-export function defaultFuzzyNormalizer(text: string): string {
+function defaultFuzzyNormalizer(text: string): string {
   return text.toLowerCase();
 }
 

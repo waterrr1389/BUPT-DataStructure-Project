@@ -1,4 +1,4 @@
-import { escapeHtml, noticeMarkup, resultMetaMarkup, safeArray, text } from "../lib.js";
+import { createRouteContextHref, escapeHtml, noticeMarkup, resultMetaMarkup, safeArray, text } from "../lib.js";
 import { appCopy, displayDestinationMeta } from "../copy.js";
 import type { JsonRecord, SpaApp, SpaRoute, ViewCleanup } from "../types.js";
 
@@ -14,7 +14,7 @@ function withoutJournalActions(markup: unknown): string {
  */
 export async function render(
   app: SpaApp,
-  _route: SpaRoute,
+  route: SpaRoute,
   root: HTMLElement,
 ): Promise<ViewCleanup> {
   const copy = appCopy.home;
@@ -42,9 +42,9 @@ export async function render(
           ${escapeHtml(copy.hero.lede)}
         </p>
         <div class="hero-actions">
-          <a class="primary-link" href="/explore" data-nav="true">${escapeHtml(copy.hero.actions.explore)}</a>
-          <a class="secondary-link" href="/feed" data-nav="true">${escapeHtml(copy.hero.actions.feed)}</a>
-          <a class="secondary-link" href="/map" data-nav="true">${escapeHtml(copy.hero.actions.map)}</a>
+          <a class="primary-link" href="${createRouteContextHref("/explore", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.explore)}</a>
+          <a class="secondary-link" href="${createRouteContextHref("/feed", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.feed)}</a>
+          <a class="secondary-link" href="${createRouteContextHref("/map", {}, route)}" data-nav="true">${escapeHtml(copy.hero.actions.map)}</a>
         </div>
         ${resultMetaMarkup([
           copy.hero.metrics.destinations(safeArray(bootstrap?.destinations).length),
@@ -67,7 +67,7 @@ export async function render(
             <p class="section-tag">${escapeHtml(copy.featured.tag)}</p>
             <h2>${escapeHtml(copy.featured.heading)}</h2>
           </div>
-          <a class="inline-link" href="/explore" data-nav="true">${escapeHtml(copy.featured.linkLabel)}</a>
+          <a class="inline-link" href="${createRouteContextHref("/explore", {}, route)}" data-nav="true">${escapeHtml(copy.featured.linkLabel)}</a>
         </div>
         <div class="story-grid">
           ${featuredDestinations
@@ -83,7 +83,7 @@ export async function render(
                   ])}
                   <p>${escapeHtml(destination.description)}</p>
                   <div class="story-card-actions">
-                    <a class="inline-link" href="/map?destinationId=${encodeURIComponent(text(destination.id))}" data-nav="true">${escapeHtml(copy.featured.openInMap)}</a>
+                    <a class="inline-link" href="${createRouteContextHref("/map", { destinationId: destination.id }, route)}" data-nav="true">${escapeHtml(copy.featured.openInMap)}</a>
                   </div>
                 </article>
               `,
@@ -98,7 +98,7 @@ export async function render(
             <p class="section-tag">${escapeHtml(copy.feedPreview.tag)}</p>
             <h2>${escapeHtml(copy.feedPreview.heading)}</h2>
           </div>
-          <a class="inline-link" href="/feed" data-nav="true">${escapeHtml(copy.feedPreview.linkLabel)}</a>
+          <a class="inline-link" href="${createRouteContextHref("/feed", {}, route)}" data-nav="true">${escapeHtml(copy.feedPreview.linkLabel)}</a>
         </div>
         ${feedNotice ? noticeMarkup("note", copy.feedPreview.fallbackNoticeTitle, feedNotice) : ""}
         ${

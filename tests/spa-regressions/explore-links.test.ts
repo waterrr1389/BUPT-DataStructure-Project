@@ -37,6 +37,7 @@ test("explore food recommendation and search map links preserve actor context", 
                 heat: 91,
                 keywords: ["late", "quiet"],
                 name: "Lantern Tea Room",
+                nodeId: "dest-1-food-node",
                 rating: 4.8,
                 venue: "Wharf Arcade",
               },
@@ -63,7 +64,7 @@ test("explore food recommendation and search map links preserve actor context", 
 
     assert.equal(
       requireElement(root, "#explore-food-results a").getAttribute("href"),
-      "/map?destinationId=dest-1&actor=user-2",
+      "/map?destinationId=dest-1&to=dest-1-food-node&actor=user-2",
     );
     assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("茶饮 · 码头拱廊"), true);
     assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("tea · Wharf Arcade"), false);
@@ -82,6 +83,7 @@ test("explore food recommendation and search map links preserve actor context", 
           heat: 88,
           keywords: ["quiet", "noodles"],
           name: "Noodle Stop",
+          nodeId: "dest-1-noodle-node",
           rating: 4.7,
           venue: "Atrium Hall",
         },
@@ -95,7 +97,7 @@ test("explore food recommendation and search map links preserve actor context", 
     ]);
     assert.equal(
       requireElement(root, "#explore-food-results a").getAttribute("href"),
-      "/map?destinationId=dest-1&actor=user-2",
+      "/map?destinationId=dest-1&to=dest-1-noodle-node&actor=user-2",
     );
     assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("茶饮 · 中庭大厅"), true);
     assert.equal(requireElement(root, "#explore-food-results").innerHTML.includes("tea · Atrium Hall"), false);
@@ -133,6 +135,7 @@ test("explore food recommendation and search map links stay clean without actor 
                 heat: 91,
                 keywords: ["late", "quiet"],
                 name: "Lantern Tea Room",
+                nodeId: "dest-1-food-node",
                 rating: 4.8,
                 venue: "Wharf Arcade",
               },
@@ -155,7 +158,10 @@ test("explore food recommendation and search map links stay clean without actor 
       root,
     );
 
-    assert.equal(requireElement(root, "#explore-food-results a").getAttribute("href"), "/map?destinationId=dest-1");
+    assert.equal(
+      requireElement(root, "#explore-food-results a").getAttribute("href"),
+      "/map?destinationId=dest-1&to=dest-1-food-node",
+    );
 
     requireElement(root, "#explore-food-query").value = "noodles";
     dispatchDomEvent(requireElement(root, "#explore-food-form"), "submit");
@@ -169,6 +175,7 @@ test("explore food recommendation and search map links stay clean without actor 
           heat: 88,
           keywords: ["quiet", "noodles"],
           name: "Noodle Stop",
+          nodeId: "dest-1-noodle-node",
           rating: 4.7,
           venue: "Atrium Hall",
         },
@@ -180,7 +187,10 @@ test("explore food recommendation and search map links stay clean without actor 
       "/api/foods/recommendations?destinationId=dest-1",
       "/api/foods/search?destinationId=dest-1&query=noodles",
     ]);
-    assert.equal(requireElement(root, "#explore-food-results a").getAttribute("href"), "/map?destinationId=dest-1");
+    assert.equal(
+      requireElement(root, "#explore-food-results a").getAttribute("href"),
+      "/map?destinationId=dest-1&to=dest-1-noodle-node",
+    );
 
     if (typeof cleanup === "function") {
       cleanup();

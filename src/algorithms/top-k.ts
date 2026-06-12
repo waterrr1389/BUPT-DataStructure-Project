@@ -198,17 +198,3 @@ export function selectTopK<T>(
 
   return selected.map((entry) => entry.value);
 }
-
-export function selectTopKByScore<T>(
-  items: Iterable<T>,
-  k: number,
-  score: (item: T) => number,
-  options: SelectTopKOptions = {},
-): T[] {
-  return selectTopK(
-    items,
-    k,
-    (left, right) => score(right) - score(left),
-    options,
-  );
-}

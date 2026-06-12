@@ -52,7 +52,7 @@ test("explore facility result map links stay clean without actor context", async
     const root = env.createRoot();
     const module = await importSpaModule<ExploreModule>("views/explore.js");
     const fixture = createExploreFixture({
-      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
+      requestJsonImpl: async (endpoint: string) => {
         if (endpoint === "/api/foods/recommendations?destinationId=dest-1") {
           return { items: [] };
         }
@@ -326,7 +326,7 @@ test("map renders planning controls and switches legend hooks from preview to ac
     requireElement(root, ".map-controls-copy");
     assert.equal(root.innerHTML.includes("<div class=\"map-controls-copy\">"), true);
     assert.equal(root.innerHTML.includes("<h2>路线规划</h2>"), true);
-    assert.equal(root.innerHTML.includes("先选择空间上下文，再设置路线的起点和终点。"), true);
+    assert.equal(root.innerHTML.includes("先选择目的地，再设置路线的起点和终点。"), true);
     assert.equal(root.querySelectorAll(".map-control-group").length, 2);
 
     const routeForm = requireElement(root, "#map-route-form");
@@ -547,7 +547,7 @@ test("map world route destination selectors use stable catalog ids and labels", 
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
     const fixture = createMapFixture({
-      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
+      requestJsonImpl: async (endpoint: string) => {
         if (endpoint === "/api/world") {
           return {
             capabilities: {
@@ -662,7 +662,7 @@ test("map world view renders baseline road and graph node layers before route pl
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
     const fixture = createMapFixture({
-      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
+      requestJsonImpl: async (endpoint: string) => {
         if (endpoint === "/api/world") {
           return {
             capabilities: {
@@ -1724,7 +1724,7 @@ test("map world view accepts zero-distance world edges in world details payload"
     const root = env.createRoot();
     const module = await importSpaModule<MapModule>("views/map.js");
     const fixture = createMapFixture({
-      requestJsonImpl: async (endpoint: string, options?: Record<string, unknown>) => {
+      requestJsonImpl: async (endpoint: string) => {
         if (endpoint === "/api/world") {
           return {
             capabilities: {

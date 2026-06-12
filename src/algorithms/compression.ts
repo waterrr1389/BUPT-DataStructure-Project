@@ -59,7 +59,7 @@ function validateCompressedData(data: LzwCompressedData): void {
   }
 }
 
-export function calculateCompressionStats(input: string, data: LzwCompressedData): CompressionStats {
+function calculateCompressionStats(input: string, data: LzwCompressedData): CompressionStats {
   const inputLength = Array.from(input).length;
   const outputLength = data.codes.length;
   const compressionRatio = inputLength === 0 ? 0 : outputLength / inputLength;

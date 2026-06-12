@@ -68,7 +68,7 @@ The project keeps external dependencies limited while preserving direct inspecta
 
 Evidence:
 
-- `package.json` declares external/runtime and development dependencies (`leaflet`, `@types/leaflet`, `typescript`).
+- `package.json` declares external/runtime and development dependencies (`busboy`, `leaflet`, `@types/busboy`, `@types/leaflet`, `typescript`).
 - The verified command surface uses npm scripts after dependency installation, including project-local TypeScript tooling.
 - `npm run benchmark` reports representative timings for the custom top-k, search, graph, and compression modules.
 

@@ -2,11 +2,11 @@
 
 ## Goal
 
-在不重写 Trail Atlas 整体架构的前提下，修复当前演示体验中最影响可信度的三类问题：
+在不重写 Trail Atlas 整体架构的前提下，冻结并说明已经落地的三类可信度改进：
 
-- 目的地数据存在明显模板化、重复名称和 world map 标签不一致。
-- 登录能力已经存在，但写笔记、互动和查看者上下文仍保留旧的用户下拉设计。
-- world map 目前更像抽象路线演示，不像可探索的大地图。
+- 目的地数据、world placement 和 portal label 保持同一套 catalog identity。
+- 登录后的写笔记、评论、点赞、评分和删除使用当前 session 用户。
+- world map 从抽象路线演示扩展为可浏览、可选点、可跨地图规划的大地图。
 
 本规格的目标是让产品在演示路径上表现为一个一致的旅行探索系统：用户登录后以自己的身份创作和互动；目的地名称、world 标记和选择器显示互相对齐；world map 拥有足够的视觉细节、路网层次和地图驱动交互。
 
@@ -23,25 +23,25 @@
 - world mode 继续使用 `Leaflet + CRS.Simple`。
 - local map 继续使用现有 SVG 渲染，不迁移到 Leaflet。
 
-## Current Problems To Resolve
+## Implemented Baseline
 
 ## Destination Catalog
 
-当前主 destination catalog 直接复用 fallback 生成器。scenic 目的地名称由有限词库循环组合，导致 `Amber Bay` 等名称反复出现；`Harbor Harbor` 这类名称也来自机械组合。现有选择器能对同名目的地显示消歧 label，但原始数据和卡片展示仍显得模板化。
+当前主 seed catalog 已通过数据校验禁止重复 `destination.name`，并校验 world placement、portal 和 world node 的可见 label 与主 catalog 对齐。选择器仍保留同名目的地消歧逻辑，以便未来接入真实数据时继续保持稳定 destination id 与可读 label。
 
-world map 的 `world.destinations[].label` 是手写固化值，已经和主 catalog 中的实际 destination name 出现不一致。world marker、portal label、route handoff 和目的地详情因此可能显示互相矛盾的信息。
+首页、探索卡片、日记归属、world marker、portal label、route handoff 和目的地详情现在共享同一套 destination identity 约束。
 
 ## Identity Flow
 
-当前登录页和 session 能力已经存在。SPA 启动会请求 `/api/auth/me`，`/api/bootstrap` 也能返回 `currentUser`。但是 Compose、Feed、Post Detail 仍保留旧的 `actor` 或作者下拉。写笔记时前端仍提交下拉中的 `userId`，虽然服务端在有 session 时会覆盖为当前用户，但界面表现仍像硬编码 seed 用户列表。
+登录页、session cookie、`/api/auth/me` 和 `/api/bootstrap.currentUser` 已经接入浏览器 shell。Compose 显示当前用户身份且不提供作者下拉；Feed 的作者选择仅作为内容过滤器；Post Detail 同时显示笔记作者和当前用户。
 
-这些 actor/author 下拉还只来自 seed users，新注册用户不会自然出现在列表里。对于普通用户而言，这破坏了登录功能的直觉：登录后应当以当前账号创作、点赞、评论和评分。
+HTTP 写接口以 session 用户为准，创建笔记、评论、点赞、取消点赞、评分和删除等写操作不再依赖浏览器提交的伪造 `userId` 或旧 actor 参数。新注册用户保存在当前进程内，并可在当前会话中创作和互动。
 
 ## World Map
 
-当前 world map 底图是低分辨率抽象图片，并被拉伸到 4096x3072 的世界坐标。Leaflet 只常态显示底图、区域 polygon 和目的地圆点；世界路网、hub、junction、桥、隧道、铁路等语义大多只有路线结果或表单中才出现。
+world map 使用与 world 坐标系对齐的 raster asset，并通过 Leaflet 常态渲染底图、区域 polygon、world graph 路网、hub、junction、portal node 和 destination marker。道路、桥、隧道、铁路等 roadType 由图层样式和说明共同表达。
 
-路线规划主要由侧边表单驱动，cross-map 模式还暴露本地 node id 输入。开放世界式体验需要用户直接在地图上理解区域、道路、地标和目的地关系，而不是阅读内部 id 或在表单里拼装路线。
+路线规划支持 world-only 与 cross-map itinerary。用户可以通过 marker 和详情面板设置起终点；cross-map 规划默认通过 portal 选择本地入口，不要求普通用户手写 local node id。
 
 ## Frozen Decisions
 

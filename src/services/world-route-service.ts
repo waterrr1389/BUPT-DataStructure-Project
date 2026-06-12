@@ -276,16 +276,6 @@ function uniqueModes(modes: Iterable<TravelMode>): TravelMode[] {
   return TRAVEL_MODE_VALUES.filter((mode) => found.has(mode));
 }
 
-function collectAllowedModes(portals: DestinationPortalRecord[]): TravelMode[] {
-  const modes = new Set<TravelMode>();
-  for (const portal of portals) {
-    for (const mode of portal.allowedModes) {
-      modes.add(mode);
-    }
-  }
-  return uniqueModes(modes);
-}
-
 function collectSharedAllowedModes(portals: readonly DestinationPortalRecord[]): TravelMode[] {
   return TRAVEL_MODE_VALUES.filter((mode) => portals.every((portal) => resolveMode(portal.allowedModes, mode) !== null));
 }

@@ -30,10 +30,12 @@ npm run start
 ## What The System Exposes
 
 - Routed browser shell views for Home, Explore, Map, Feed, Compose, and Post Detail
+- Authentication with session-backed current-user identity for browser write actions
 - Destination recommendation and search
+- Explore keeps destination recommendation and search as the primary entry; nearby facility and food tools remain available as secondary workflows, and result cards hand off to the map with destination or node context when available.
 - Single-target, indoor, and world-mode route planning
 - Nearby facility lookup by category and network distance
-- Journal create, browse, view, rate, recommend, and feed flows
+- Journal create, browse, view, rate, recommend, comments, likes, image media, and feed flows
 - Journal exchange: exact-title lookup, full-text search, compression/decompression, and storyboard generation
 - Food recommendation and typo-tolerant search
 - Map-based routing anchors cohesive planning: origin/destination, segment details, and overlays are arranged in a single hierarchy, the map legend tracks the visible path types (outdoor route, indoor route, bike lane, shuttle lane) and marker cues (start, end, transition, turn) so the colors and labels match what is on-screen, the copy guides the next action, and the route cards borrow the journal/feed treatment so everything feels connected.
@@ -56,10 +58,13 @@ The demo covers:
 
 - `GET /api/health` reports the runtime source bundle, including whether data/algorithms/validation are external or fallback.
 - `src/server/index.ts` is the server entry source. The running server serves generated browser assets from `dist/public/**` plus JSON API endpoints, so source and served runtime output stay separated.
+- Browser write APIs use the authenticated session user. Body or query `userId` fields do not choose the writer for journal writes.
+- New registered users are kept in process memory by `UserStore`; journals, comments, likes, and uploaded images use the selected runtime directory.
 - First-party browser sources live in `public/*.ts` and `public/spa/**/*.ts`.
 - `dist/public/**` is generated runtime output only, not an authored source tree.
 - `public/vendor/**` remains the third-party browser asset exception and is emitted to `dist/public/vendor/**`.
 - The current browser/API surface includes local routing endpoints, world-summary/detail/plan endpoints under `/api/world*`, and the journal feed endpoint at `GET /api/feed`.
+- Image media uses `POST /api/uploads/images`, `DELETE /api/uploads/images/:fileName`, and `GET /uploads/images/:fileName`; uploads are constrained by MIME, byte signature, safe generated file names, size limits, and reference-aware deletion.
 - Route, facility, food, journal, exchange, and feed destination selectors draw from the same full destination catalog and use the same duplicate-name disambiguation. The featured destination subset stays reserved for homepage cards.
 - Invalid destination `sortBy` inputs are rejected instead of being silently treated as `rating`.
 
