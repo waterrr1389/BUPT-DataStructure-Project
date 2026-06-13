@@ -57,13 +57,22 @@ function fail(message, exitCode = 1) {
 }
 
 function getTscCommand() {
+  // On all platforms use node to run the tsc JavaScript entry point directly.
+  // The .bin/tsc.cmd wrapper can fail with EINVAL on Windows spawnSync.
+  const tscEntry = path.join(repoRoot, "node_modules", "typescript", "bin", "tsc");
+  if (fs.existsSync(tscEntry)) {
+    return { command: process.execPath, args: [tscEntry] };
+  }
   const command = process.platform === "win32" ? "tsc.cmd" : "tsc";
   const localCommand = path.join(repoRoot, "node_modules", ".bin", command);
-  return fs.existsSync(localCommand) ? localCommand : command;
+  return fs.existsSync(localCommand)
+    ? { command: localCommand, args: [] }
+    : { command, args: [] };
 }
 
 function runTsc(args, options = {}) {
-  const result = spawnSync(getTscCommand(), args, {
+  const { command, args: prependArgs } = getTscCommand();
+  const result = spawnSync(command, [...prependArgs, ...args], {
     cwd: repoRoot,
     encoding: "utf8",
     stdio: options.captureOutput ? ["inherit", "pipe", "pipe"] : "inherit",
